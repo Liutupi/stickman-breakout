@@ -1,0 +1,231 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0a101a">
+    <title>火柴人：突围行动</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="boot-screen" class="boot-screen" onclick="Game.bootStart()">
+        <img class="boot-screen__image" src="果沐兄弟.png" alt="果沐兄弟">
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+    <div class="screen-fx" aria-hidden="true">
+        <div class="screen-grid"></div>
+        <div class="screen-noise"></div>
+        <div class="screen-vignette"></div>
+    </div>
+
+    <div id="watermark">果沐兄弟制作</div>
+
+    <div id="ui-layer">
+        <div id="start-menu" class="menu menu--title">
+            <div class="title-scene">
+                <img class="title-scene__image" src="果沐兄弟.png" alt="果沐兄弟启动封面">
+                <div class="title-scene__shade"></div>
+                <div class="title-scene__content">
+                    <div class="studio-signature">
+                        <span class="studio-signature__eyebrow">A GAME BY</span>
+                        <strong class="studio-signature__name">果沐兄弟</strong>
+                        <span class="studio-signature__tail">制作</span>
+                    </div>
+
+                    <div class="title-copy">
+                        <div class="menu-kicker">NEON ASSAULT PROTOCOL</div>
+                        <h1 class="hero-title">
+                            <span>火柴人</span>
+                            <strong>突围行动</strong>
+                        </h1>
+                        <p class="subtitle">高压横版射击 · 武器收集升级 · 连续 Boss 决战</p>
+                    </div>
+
+                    <div class="hero-actions hero-actions--title">
+                        <button class="menu-btn menu-btn--primary" onclick="Game.start()">开始行动</button>
+                        <button class="menu-btn" onclick="Game.showLevelSelect()">关卡选择</button>
+                        <button class="menu-btn secondary" onclick="Game.showControls()">查看操作</button>
+                    </div>
+
+                    <div class="title-footnote">建议佩戴耳机体验开机音乐与环境音</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="controls-menu" class="menu hidden">
+            <div class="menu-shell menu-shell--wide">
+                <div class="menu-kicker">FIELD MANUAL</div>
+                <h2>作战说明</h2>
+                <div class="controls-grid">
+                    <div class="control-item"><span class="key">A / D</span><span>左右移动</span></div>
+                    <div class="control-item"><span class="key">W / Space</span><span>跳跃，支持二段跳</span></div>
+                    <div class="control-item"><span class="key">C</span><span>冲刺，短暂无敌，带冷却</span></div>
+                    <div class="control-item"><span class="key">Shift</span><span>释放护盾（需先拾取储存）</span></div>
+                    <div class="control-item"><span class="key">鼠标</span><span>控制瞄准方向</span></div>
+                    <div class="control-item"><span class="key">左键</span><span>持续开火</span></div>
+                    <div class="control-item"><span class="key">1 ~ 5</span><span>切换主武器槽位</span></div>
+                    <div class="control-item"><span class="key">E</span><span>拾取武器、补给和投掷物</span></div>
+                    <div class="control-item"><span class="key">Q（按住）</span><span>投掷瞄准，松开后抛出</span></div>
+                    <div class="control-item"><span class="key">F</span><span>切换手雷 / 燃烧瓶</span></div>
+                    <div class="control-item"><span class="key">R</span><span>升级当前武器</span></div>
+                    <div class="control-item"><span class="key">滚轮</span><span>快速切枪</span></div>
+                    <div class="control-item"><span class="key">Esc</span><span>暂停游戏</span></div>
+                </div>
+
+                <div class="tips-stack">
+                    <p class="tip-line tip-blue">空中再次跳跃可完成二段位移，适合越平台与躲弹幕。</p>
+                    <p class="tip-line tip-green">按住 Q 会显示投掷轨迹与爆炸范围，适合预判落点。</p>
+                    <p class="tip-line tip-purple">长按数字键可丢弃对应武器，便于重新整理装备栏。</p>
+                    <p class="tip-line tip-red">长时间原地停留会被惩罚掉血，持续推进才是最优策略。</p>
+                </div>
+
+                <button class="menu-btn" onclick="Game.hideControls()">返回主菜单</button>
+            </div>
+        </div>
+
+        <div id="pause-menu" class="menu hidden">
+            <div class="menu-shell">
+                <div class="menu-kicker">SYSTEM HOLD</div>
+                <h2>作战暂停</h2>
+                <p class="menu-copy">战术界面已冻结，准备好后继续推进。</p>
+                <button class="menu-btn" onclick="Game.resume()">继续行动</button>
+                <button class="menu-btn" onclick="Game.restart()">重新开始</button>
+                <button class="menu-btn secondary" onclick="Game.backToTitle()">返回主菜单</button>
+            </div>
+        </div>
+
+        <div id="death-menu" class="menu hidden">
+            <div class="menu-shell menu-shell--danger">
+                <div class="menu-kicker">SIGNAL LOST</div>
+                <h2>行动失败</h2>
+                <p id="death-info" class="menu-copy"></p>
+                <button class="menu-btn" onclick="Game.restartLevel()">重新挑战</button>
+                <button class="menu-btn secondary" onclick="Game.backToTitle()">返回主菜单</button>
+            </div>
+        </div>
+
+        <div id="level-complete-menu" class="menu hidden">
+            <div class="menu-shell menu-shell--success">
+                <div class="menu-kicker">AREA SECURED</div>
+                <h2 id="level-complete-title">区域完成</h2>
+                <p id="level-complete-info" class="menu-copy"></p>
+                <button class="menu-btn" id="next-level-btn" onclick="Game.nextLevel()">进入下一关</button>
+            </div>
+        </div>
+
+        <div id="victory-menu" class="menu hidden">
+            <div class="menu-shell menu-shell--victory">
+                <div class="menu-kicker">MISSION COMPLETE</div>
+                <h1>全线突围</h1>
+                <p id="victory-info" class="menu-copy"></p>
+                <button class="menu-btn" onclick="Game.backToTitle()">返回主菜单</button>
+            </div>
+        </div>
+
+        <div id="level-select-menu" class="menu hidden">
+            <div class="menu-shell menu-shell--wide">
+                <div class="menu-kicker">MISSION SELECT</div>
+                <h2>关卡选择</h2>
+                <p class="menu-copy">选择要挑战的关卡，每个关卡都有不同的难度和 Boss。</p>
+                <div id="level-grid" class="level-grid">
+                    <!-- 关卡卡片将通过JS动态生成 -->
+                </div>
+                <button class="menu-btn secondary" onclick="Game.hideLevelSelect()">返回主菜单</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="hud" class="hidden">
+        <div id="hud-top">
+            <div id="health-bar-container" class="hud-card hud-card--health">
+                <div id="health-icon">✚</div>
+                <div id="health-bar-bg">
+                    <div id="health-bar-fill"></div>
+                    <span id="health-text">100 / 100</span>
+                </div>
+            </div>
+
+            <div id="stagnation-warning" class="hidden">
+                <span>⚠ 停留过久，立即推进</span>
+            </div>
+
+            <div id="level-info" class="hud-card hud-card--center">
+                <span class="hud-label">当前区域</span>
+                <span id="level-name">第一关</span>
+                <span id="score-display">分数: 0</span>
+                <button id="mute-btn" onclick="Audio.toggleMute()" title="切换静音">🔊</button>
+            </div>
+
+            <div id="boss-health-container" class="hidden hud-card hud-card--boss">
+                <span class="hud-label">目标威胁</span>
+                <span id="boss-name">Boss</span>
+                <div id="boss-health-bar-bg">
+                    <div id="boss-health-bar-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="hud-bottom">
+            <div id="weapon-slots" class="hud-card hud-card--loadout">
+                <div class="weapon-slot active" data-slot="1">
+                    <span class="slot-key">1</span>
+                    <span class="slot-name">手枪</span>
+                    <span class="slot-ammo">∞</span>
+                </div>
+                <div class="weapon-slot" data-slot="2">
+                    <span class="slot-key">2</span>
+                    <span class="slot-name">—</span>
+                    <span class="slot-ammo"></span>
+                </div>
+                <div class="weapon-slot" data-slot="3">
+                    <span class="slot-key">3</span>
+                    <span class="slot-name">—</span>
+                    <span class="slot-ammo"></span>
+                </div>
+                <div class="weapon-slot" data-slot="4">
+                    <span class="slot-key">4</span>
+                    <span class="slot-name">—</span>
+                    <span class="slot-ammo"></span>
+                </div>
+                <div class="weapon-slot" data-slot="5">
+                    <span class="slot-key">5</span>
+                    <span class="slot-name">—</span>
+                    <span class="slot-ammo"></span>
+                </div>
+            </div>
+
+            <div id="weapon-level-display" class="hud-card hud-card--upgrade">
+                <span class="hud-label">武器状态</span>
+                <span id="current-weapon-level">Lv.1</span>
+                <span id="upgrade-hint" class="hidden">按 R 升级，需要 <span id="upgrade-cost">500</span> 分</span>
+            </div>
+
+            <div id="thrown-weapons" class="hud-card hud-card--throwables">
+                <span class="thrown-item" id="thrown-grenade">
+                    <span class="thrown-icon grenade-icon"></span>
+                    <span class="thrown-name">手雷</span>
+                    <span id="grenade-count">x3</span>
+                </span>
+                <span class="thrown-item" id="thrown-molotov">
+                    <span class="thrown-icon molotov-icon"></span>
+                    <span class="thrown-name">燃烧瓶</span>
+                    <span id="molotov-count">x0</span>
+                </span>
+            </div>
+
+            <div id="pickup-hint" class="hidden">按 E 拾取装备</div>
+        </div>
+    </div>
+
+    <script src="utils.js"></script>
+    <script src="audio.js"></script>
+    <script src="input.js"></script>
+    <script src="particles.js"></script>
+    <script src="weapons.js"></script>
+    <script src="entities.js"></script>
+    <script src="levels.js"></script>
+    <script src="renderer.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
