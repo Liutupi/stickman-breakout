@@ -48,6 +48,16 @@
                         <button class="menu-btn secondary" onclick="Game.showControls()">查看操作</button>
                     </div>
 
+                    <div class="player-bar">
+                        <span class="player-bar__label">当前特工</span>
+                        <span id="current-player-name" class="player-bar__name">匿名特工</span>
+                        <button class="player-bar__btn" onclick="Game.showPlayerMenu()">切换</button>
+                    </div>
+
+                    <div class="hero-actions hero-actions--title" style="margin-top: 14px;">
+                        <button class="menu-btn secondary" onclick="Game.showLeaderboard()">🏆 作战排行榜</button>
+                    </div>
+
                     <div class="title-footnote">建议佩戴耳机体验开机音乐与环境音</div>
                 </div>
             </div>
@@ -60,6 +70,7 @@
                 <div class="controls-grid">
                     <div class="control-item"><span class="key">A / D</span><span>左右移动</span></div>
                     <div class="control-item"><span class="key">W / Space</span><span>跳跃，支持二段跳</span></div>
+                    <div class="control-item"><span class="key">S</span><span>下蹲，减小受击范围，移速降低</span></div>
                     <div class="control-item"><span class="key">C</span><span>冲刺，短暂无敌，带冷却</span></div>
                     <div class="control-item"><span class="key">Shift</span><span>释放护盾（需先拾取储存）</span></div>
                     <div class="control-item"><span class="key">鼠标</span><span>控制瞄准方向</span></div>
@@ -134,6 +145,73 @@
                 <button class="menu-btn secondary" onclick="Game.hideLevelSelect()">返回主菜单</button>
             </div>
         </div>
+
+        <div id="difficulty-select-menu" class="menu hidden">
+            <div class="menu-shell menu-shell--wide">
+                <div class="menu-kicker">DIFFICULTY SELECT</div>
+                <h2>选择难度</h2>
+                <p class="menu-copy" id="difficulty-select-desc">为行动选择合适的难度等级。</p>
+                <div class="difficulty-grid">
+                    <div class="difficulty-card difficulty-card--easy" onclick="Game.selectDifficulty('easy')">
+                        <div class="difficulty-card__icon">🌱</div>
+                        <span class="difficulty-card__name">简单</span>
+                        <span class="difficulty-card__desc">敌人血量与伤害降低，适合新手熟悉操作。</span>
+                        <div class="difficulty-card__stats">
+                            <span class="difficulty-stat">血量 -30%</span>
+                            <span class="difficulty-stat">伤害 -30%</span>
+                            <span class="difficulty-stat">积分 ×0.8</span>
+                        </div>
+                    </div>
+                    <div class="difficulty-card difficulty-card--normal" onclick="Game.selectDifficulty('normal')">
+                        <div class="difficulty-card__icon">⚔️</div>
+                        <span class="difficulty-card__name">普通</span>
+                        <span class="difficulty-card__desc">标准难度，原汁原味的战斗体验。</span>
+                        <div class="difficulty-card__stats">
+                            <span class="difficulty-stat">标准数值</span>
+                            <span class="difficulty-stat">积分 ×1.0</span>
+                            <span class="difficulty-stat">标准体验</span>
+                        </div>
+                    </div>
+                    <div class="difficulty-card difficulty-card--hard" onclick="Game.selectDifficulty('hard')">
+                        <div class="difficulty-card__icon">🔥</div>
+                        <span class="difficulty-card__name">困难</span>
+                        <span class="difficulty-card__desc">敌人血量与伤害大幅提升，考验极限操作。</span>
+                        <div class="difficulty-card__stats">
+                            <span class="difficulty-stat">血量 +50%</span>
+                            <span class="difficulty-stat">伤害 +40%</span>
+                            <span class="difficulty-stat">积分 ×1.5</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="menu-btn secondary" onclick="Game.hideDifficultySelect()">返回</button>
+            </div>
+        </div>
+
+        <div id="player-menu" class="menu hidden">
+            <div class="menu-shell menu-shell--wide">
+                <div class="menu-kicker">IDENTITY</div>
+                <h2>特工身份</h2>
+                <p class="menu-copy">选择已有代号，或输入新的特工代号开始作战。</p>
+                <div class="player-input-row">
+                    <input type="text" id="player-name-input" class="player-name-input" placeholder="输入新代号..." maxlength="12">
+                    <button class="menu-btn" onclick="Game.addNewPlayer()">新增玩家</button>
+                </div>
+                <div id="player-list" class="player-list">
+                    <!-- 玩家列表由JS生成 -->
+                </div>
+                <button class="menu-btn secondary" onclick="Game.hidePlayerMenu()">返回主菜单</button>
+            </div>
+        </div>
+
+        <div id="leaderboard-menu" class="menu hidden">
+            <div class="menu-shell menu-shell--wide">
+                <div class="menu-kicker">LEADERBOARD</div>
+                <h2>作战排行榜</h2>
+                <p class="menu-copy">各关卡最佳作战记录（按总积分排序）。</p>
+                <div id="leaderboard-list" class="leaderboard-list"></div>
+                <button class="menu-btn secondary" onclick="Game.hideLeaderboard()">返回主菜单</button>
+            </div>
+        </div>
     </div>
 
     <div id="hud" class="hidden">
@@ -153,6 +231,7 @@
             <div id="level-info" class="hud-card hud-card--center">
                 <span class="hud-label">当前区域</span>
                 <span id="level-name">第一关</span>
+                <span id="difficulty-display">普通</span>
                 <span id="score-display">分数: 0</span>
                 <button id="mute-btn" onclick="Audio.toggleMute()" title="切换静音">🔊</button>
             </div>

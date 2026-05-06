@@ -20,7 +20,7 @@ const Input = (() => {
                 keyHoldTime[e.code] = 0;
             }
             keys[e.code] = true;
-            if (['Space', 'KeyW', 'ArrowUp'].includes(e.code)) e.preventDefault();
+            if (['Space', 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown'].includes(e.code)) e.preventDefault();
         });
         window.addEventListener('keyup', e => { 
             keys[e.code] = false; 

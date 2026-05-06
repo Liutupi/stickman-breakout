@@ -22,6 +22,46 @@ const Game = (() => {
     let ui = null;
     let menus = null;
     let bootScreenDismissed = false;
+    let currentDifficulty = 'normal';
+    let pendingLevelIndex = null;
+    let currentPlayerName = '匿名特工';
+    let carryOverScore = 0;
+
+    const DIFFICULTY_CONFIG = {
+        easy: {
+            label: '简单',
+            enemyHealthMul: 0.7,
+            enemyDamageMul: 0.7,
+            enemySpeedMul: 0.8,
+            enemyAttackRateMul: 1.3,
+            bossHealthMul: 0.7,
+            bossDamageMul: 0.7,
+            bossSpeedMul: 0.85,
+            scoreMul: 0.8,
+        },
+        normal: {
+            label: '普通',
+            enemyHealthMul: 1.0,
+            enemyDamageMul: 1.0,
+            enemySpeedMul: 1.0,
+            enemyAttackRateMul: 1.0,
+            bossHealthMul: 1.0,
+            bossDamageMul: 1.0,
+            bossSpeedMul: 1.0,
+            scoreMul: 1.0,
+        },
+        hard: {
+            label: '困难',
+            enemyHealthMul: 1.5,
+            enemyDamageMul: 1.4,
+            enemySpeedMul: 1.15,
+            enemyAttackRateMul: 0.75,
+            bossHealthMul: 1.5,
+            bossDamageMul: 1.4,
+            bossSpeedMul: 1.1,
+            scoreMul: 1.5,
+        },
+    };
 
     const $ = id => document.getElementById(id);
 
@@ -54,6 +94,11 @@ const Game = (() => {
             thrownMolotov: $('thrown-molotov'),
             stagnationWarning: $('stagnation-warning'),
             levelName: $('level-name'),
+            difficultyDisplay: $('difficulty-display'),
+            currentPlayerNameEl: $('current-player-name'),
+            playerNameInput: $('player-name-input'),
+            playerList: $('player-list'),
+            leaderboardList: $('leaderboard-list'),
             levelCompleteTitle: $('level-complete-title'),
             levelCompleteInfo: $('level-complete-info'),
             nextLevelBtn: $('next-level-btn'),
@@ -74,6 +119,151 @@ const Game = (() => {
         Input.init(canvas);
         ensureUIRefs();
         initialized = true;
+    }
+
+    // ---- 玩家数据与排行榜 ----
+    function getPlayersData() {
+        try {
+            return JSON.parse(localStorage.getItem('stickman_players')) || {};
+        } catch {
+            return {};
+        }
+    }
+
+    function savePlayersData(data) {
+        localStorage.setItem('stickman_players', JSON.stringify(data));
+    }
+
+    function getSavedCurrentPlayer() {
+        try {
+            return localStorage.getItem('stickman_current_player') || '';
+        } catch {
+            return '';
+        }
+    }
+
+    function saveCurrentPlayer(name) {
+        localStorage.setItem('stickman_current_player', name);
+    }
+
+    function calculateFinalScore(player, time, levelIndex) {
+        const config = DIFFICULTY_CONFIG[currentDifficulty] || DIFFICULTY_CONFIG.normal;
+        const baseScore = player ? player.score : 0;
+        const healthRatio = player ? Math.max(0, player.health / player.maxHealth) : 0;
+        const healthBonus = Math.round(healthRatio * 2000);
+        const timeBonus = Math.max(0, Math.round(3000 - time * 15));
+        const rawTotal = baseScore + healthBonus + timeBonus;
+        const total = Math.round(rawTotal * config.scoreMul);
+        const diffBonus = total - rawTotal;
+        return { total, baseScore, healthBonus, timeBonus, healthRatio, diffBonus, scoreMul: config.scoreMul };
+    }
+
+    function recordScore(levelIndex, finalScoreObj) {
+        const data = getPlayersData();
+        if (!data[currentPlayerName]) {
+            data[currentPlayerName] = { scores: [] };
+        }
+        data[currentPlayerName].scores.push({
+            level: levelIndex,
+            levelName: Levels[levelIndex]?.name || `关卡 ${levelIndex + 1}`,
+            score: finalScoreObj.total,
+            baseScore: finalScoreObj.baseScore,
+            healthBonus: finalScoreObj.healthBonus,
+            timeBonus: finalScoreObj.timeBonus,
+            healthRatio: finalScoreObj.healthRatio,
+            time: Math.round(gameTime * 10) / 10,
+            difficulty: currentDifficulty,
+            date: new Date().toLocaleString('zh-CN'),
+        });
+        savePlayersData(data);
+    }
+
+    function getLeaderboardEntries(levelFilter = 'all') {
+        const data = getPlayersData();
+        const entries = [];
+        for (const [name, playerData] of Object.entries(data)) {
+            const scores = playerData.scores || [];
+            for (const s of scores) {
+                if (levelFilter !== 'all' && s.level !== parseInt(levelFilter)) continue;
+                entries.push({ name, ...s });
+            }
+        }
+        return entries.sort((a, b) => b.score - a.score);
+    }
+
+    function initPlayerSystem() {
+        const saved = getSavedCurrentPlayer();
+        if (saved) {
+            currentPlayerName = saved;
+        }
+        updatePlayerDisplay();
+
+        // 支持回车键新增玩家
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && ui.playerNameInput && document.activeElement === ui.playerNameInput) {
+                addNewPlayer();
+            }
+        });
+    }
+
+    function updatePlayerDisplay() {
+        ensureUIRefs();
+        if (ui.currentPlayerNameEl) {
+            ui.currentPlayerNameEl.textContent = currentPlayerName;
+        }
+    }
+
+    function renderPlayerList() {
+        if (!ui.playerList) return;
+        const data = getPlayersData();
+        const names = Object.keys(data);
+        ui.playerList.innerHTML = '';
+
+        if (names.length === 0) {
+            ui.playerList.innerHTML = '<div class="leaderboard-empty">暂无记录，输入代号新增玩家</div>';
+            return;
+        }
+
+        names.forEach(name => {
+            const item = document.createElement('div');
+            item.className = 'player-list-item' + (name === currentPlayerName ? ' active' : '');
+            item.innerHTML = `<span class="player-list-item__name">${name}</span>` +
+                (name === currentPlayerName ? '<span class="player-list-item__tag">当前</span>' : '');
+            item.onclick = () => {
+                currentPlayerName = name;
+                saveCurrentPlayer(name);
+                updatePlayerDisplay();
+                renderPlayerList();
+            };
+            ui.playerList.appendChild(item);
+        });
+    }
+
+    function renderLeaderboard() {
+        if (!ui.leaderboardList) return;
+        const entries = getLeaderboardEntries('all');
+        ui.leaderboardList.innerHTML = '';
+
+        if (entries.length === 0) {
+            ui.leaderboardList.innerHTML = '<div class="leaderboard-empty">暂无作战记录，开始行动吧！</div>';
+            return;
+        }
+
+        entries.slice(0, 50).forEach((entry, index) => {
+            const item = document.createElement('div');
+            const rankClass = index === 0 ? 'leaderboard-item--top1' : index === 1 ? 'leaderboard-item--top2' : index === 2 ? 'leaderboard-item--top3' : '';
+            item.className = `leaderboard-item ${rankClass}`;
+            const diffLabel = DIFFICULTY_CONFIG[entry.difficulty]?.label || '普通';
+            item.innerHTML = `
+                <div class="leaderboard-rank">${index + 1}</div>
+                <div class="leaderboard-info">
+                    <span class="leaderboard-name">${entry.name} · ${entry.levelName}</span>
+                    <span class="leaderboard-meta">${entry.date} · ${diffLabel} · 用时 ${entry.time}s</span>
+                </div>
+                <div class="leaderboard-score">${entry.score}</div>
+            `;
+            ui.leaderboardList.appendChild(item);
+        });
     }
 
     function doDismissBoot() {
@@ -212,12 +402,76 @@ const Game = (() => {
         });
     }
 
-    function selectLevel(index) {
+    function cloneLevelWithDifficulty(rawLevel, difficulty) {
+        const config = DIFFICULTY_CONFIG[difficulty] || DIFFICULTY_CONFIG.normal;
+
+        const level = { ...rawLevel };
+        level.platforms = rawLevel.platforms.map(p => ({ ...p }));
+        level.enemies = rawLevel.enemies.map(e => {
+            const copy = { ...e };
+            if (config.enemyHealthMul !== 1.0 && copy.health) {
+                copy.health = Math.round(copy.health * config.enemyHealthMul);
+            }
+            if (config.enemyDamageMul !== 1.0 && copy.damage) {
+                copy.damage = Math.round(copy.damage * config.enemyDamageMul);
+            }
+            if (config.enemySpeedMul !== 1.0 && copy.speed) {
+                copy.speed = Math.round(copy.speed * config.enemySpeedMul);
+            }
+            if (config.enemyAttackRateMul !== 1.0 && copy.attackRate) {
+                copy.attackRate = copy.attackRate * config.enemyAttackRateMul;
+            }
+            return copy;
+        });
+        level.weaponDrops = rawLevel.weaponDrops.map(d => ({ ...d }));
+        level.boss = { ...rawLevel.boss };
+        if (config.bossHealthMul !== 1.0 && level.boss.health) {
+            level.boss.health = Math.round(level.boss.health * config.bossHealthMul);
+        }
+        if (config.bossDamageMul !== 1.0 && level.boss.damage) {
+            level.boss.damage = Math.round(level.boss.damage * config.bossDamageMul);
+        }
+        if (config.bossSpeedMul !== 1.0 && level.boss.speed) {
+            level.boss.speed = Math.round(level.boss.speed * config.bossSpeedMul);
+        }
+        level.bgGradient = rawLevel.bgGradient;
+
+        return level;
+    }
+
+    function showDifficultySelect(forLevelIndex) {
+        pendingLevelIndex = forLevelIndex;
+        const desc = $('difficulty-select-desc');
+        if (desc) {
+            const levelName = forLevelIndex !== null && Levels[forLevelIndex]
+                ? Levels[forLevelIndex].name
+                : '第一关';
+            desc.textContent = `为「${levelName}」选择合适的难度等级。`;
+        }
+        showMenu('difficulty-select-menu');
+    }
+
+    function hideDifficultySelect() {
+        pendingLevelIndex = null;
+        if (state === 'menu') {
+            showMenu('start-menu');
+        } else {
+            showMenu('level-select-menu');
+        }
+    }
+
+    function selectDifficulty(difficulty) {
+        currentDifficulty = difficulty;
+        const levelIndex = pendingLevelIndex !== null ? pendingLevelIndex : 0;
+        pendingLevelIndex = null;
+
         Audio.init();
         initializeSystems();
 
         healthBonus = 0;
-        loadLevel(index);
+        carryOverScore = 0;
+        gameTime = 0;
+        loadLevel(levelIndex);
         state = 'playing';
         hideAllMenus();
         ui.hud.classList.remove('hidden');
@@ -226,6 +480,10 @@ const Game = (() => {
         gameTime = 0;
         if (animFrame) cancelAnimationFrame(animFrame);
         animFrame = requestAnimationFrame(gameLoop);
+    }
+
+    function selectLevel(index) {
+        showDifficultySelect(index);
     }
 
     function updateHUD() {
@@ -245,6 +503,11 @@ const Game = (() => {
         }
 
         ui.scoreDisplay.textContent = `分数: ${player.score}`;
+
+        if (ui.difficultyDisplay) {
+            const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
+            ui.difficultyDisplay.textContent = diffLabel;
+        }
 
         const slotWeaponNames = ['手枪', '霰弹枪', '冲锋枪', '激光枪', '火箭筒'];
         for (let i = 0; i < 5; i++) {
@@ -321,15 +584,18 @@ const Game = (() => {
         ui.stagnationWarning.classList.toggle('hidden', player.stagnationTimer <= 1.5);
     }
 
-    function loadLevel(index) {
+    function loadLevel(index, options = {}) {
         clearPendingTransition();
         ensureUIRefs();
 
         currentLevel = index;
-        levelData = Levels[index];
+        levelData = cloneLevelWithDifficulty(Levels[index], currentDifficulty);
 
         player = new Player(levelData.playerStart.x, levelData.playerStart.y);
         if (healthBonus > 0) player.increaseMaxHealth(healthBonus);
+        if (options.carryOverScore && player) {
+            player.score = options.carryOverScore;
+        }
         enemies = levelData.enemies.map(enemy => new Enemy(enemy.x, enemy.y, { ...enemy }));
         boss = null;
         bossSpawned = false;
@@ -719,7 +985,11 @@ const Game = (() => {
         if (player.dead && player.deathTimer > 1.5) {
             state = 'dead';
             showMenu('death-menu');
-            ui.deathInfo.textContent = `得分: ${player.score} | 关卡: ${levelData.name}`;
+            const final = calculateFinalScore(player, gameTime, currentLevel);
+            recordScore(currentLevel, final);
+            const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
+            const diffText = final.diffBonus !== 0 ? ` | 难度倍率: ${final.scoreMul}x ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
+            ui.deathInfo.innerHTML = `关卡: ${levelData.name}<br>特工: ${currentPlayerName} · ${diffLabel}<br>基础得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">总积分: ${final.total}</strong>`;
         }
 
         // 鏆傚仠
@@ -904,19 +1174,7 @@ const Game = (() => {
 
     // ---- 鍏紑鏂规硶 ----
     function start() {
-        Audio.init();
-        initializeSystems();
-
-        healthBonus = 0;
-        loadLevel(0);
-        state = 'playing';
-        hideAllMenus();
-        ui.hud.classList.remove('hidden');
-
-        lastTime = performance.now();
-        gameTime = 0;
-        if (animFrame) cancelAnimationFrame(animFrame);
-        animFrame = requestAnimationFrame(gameLoop);
+        showDifficultySelect(0);
     }
 
     function resume() {
@@ -927,12 +1185,16 @@ const Game = (() => {
 
     function restart() {
         hideAllMenus();
+        carryOverScore = 0;
+        gameTime = 0;
         loadLevel(currentLevel);
         state = 'playing';
     }
 
     function restartLevel() {
         hideAllMenus();
+        carryOverScore = 0;
+        gameTime = 0;
         loadLevel(currentLevel);
         state = 'playing';
     }
@@ -941,7 +1203,9 @@ const Game = (() => {
         hideAllMenus();
         if (currentLevel < Levels.length - 1) {
             healthBonus += 20;
-            loadLevel(currentLevel + 1);
+            const prevScore = player ? player.score : 0;
+            carryOverScore = prevScore;
+            loadLevel(currentLevel + 1, { carryOverScore });
             state = 'playing';
         } else {
             showVictory();
@@ -952,7 +1216,10 @@ const Game = (() => {
         state = 'levelComplete';
         showMenu('level-complete-menu');
         ui.levelCompleteTitle.textContent = `${levelData.name} 通过!`;
-        ui.levelCompleteInfo.textContent = `当前得分: ${player.score}`;
+        const final = calculateFinalScore(player, gameTime, currentLevel);
+        const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
+        const diffText = final.diffBonus !== 0 ? ` | 难度倍率: ${final.scoreMul}x ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
+        ui.levelCompleteInfo.innerHTML = `特工: ${currentPlayerName} · ${diffLabel}<br>当前累计得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">当前总积分: ${final.total}</strong><br><span style="color:var(--muted);font-size:12px">进入下一关继续累计分数...</span>`;
         Audio.playMp3('levelComplete');
         if (currentLevel >= Levels.length - 1) {
             ui.nextLevelBtn.classList.add('hidden');
@@ -966,7 +1233,11 @@ const Game = (() => {
         Audio.play('victory');
         state = 'victory';
         showMenu('victory-menu');
-        ui.victoryInfo.textContent = `最终得分: ${player.score}\n恭喜你击败了所有 Boss!`;
+        const final = calculateFinalScore(player, gameTime, currentLevel);
+        recordScore(currentLevel, final);
+        const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
+        const diffText = final.diffBonus !== 0 ? ` | 难度倍率: ${final.scoreMul}x ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
+        ui.victoryInfo.innerHTML = `特工: ${currentPlayerName} · ${diffLabel}<br>基础得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">总积分: ${final.total}</strong><br>恭喜你击败了所有 Boss!`;
     }
 
     function backToTitle() {
@@ -977,6 +1248,8 @@ const Game = (() => {
         hideAllMenus();
         showMenu('start-menu');
         ui.hud.classList.add('hidden');
+        carryOverScore = 0;
+        gameTime = 0;
         if (animFrame) cancelAnimationFrame(animFrame);
     }
 
@@ -988,6 +1261,44 @@ const Game = (() => {
         showMenu('start-menu');
     }
 
+    function showPlayerMenu() {
+        showMenu('player-menu');
+        renderPlayerList();
+        if (ui.playerNameInput) ui.playerNameInput.value = '';
+    }
+
+    function hidePlayerMenu() {
+        showMenu('start-menu');
+    }
+
+    function addNewPlayer() {
+        if (!ui.playerNameInput) return;
+        const name = ui.playerNameInput.value.trim();
+        if (!name) {
+            alert('请输入特工代号');
+            return;
+        }
+        if (name.length > 12) {
+            alert('代号最多12个字符');
+            return;
+        }
+        currentPlayerName = name;
+        saveCurrentPlayer(name);
+        updatePlayerDisplay();
+        renderPlayerList();
+        ui.playerNameInput.value = '';
+    }
+
+    function showLeaderboard() {
+        showMenu('leaderboard-menu');
+        renderLeaderboard();
+    }
+
+    function hideLeaderboard() {
+        showMenu('start-menu');
+    }
+
+    initPlayerSystem();
     bindBootScreen();
 
     return {
@@ -996,6 +1307,9 @@ const Game = (() => {
         start, resume, restart, restartLevel, nextLevel,
         backToTitle, showControls, hideControls,
         showLevelSelect, hideLevelSelect, selectLevel,
+        showDifficultySelect, hideDifficultySelect, selectDifficulty,
+        showPlayerMenu, hidePlayerMenu, addNewPlayer,
+        showLeaderboard, hideLeaderboard,
     };
 })();
 

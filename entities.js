@@ -22,6 +22,9 @@ class Player {
         this.dead = false;
         this.invincibleTimer = 0;
         this.score = 0;
+        this.crouching = false;
+        this.normalH = 52;
+        this.crouchH = 30;
         this.dashTimer = 0;
         this.dashCooldown = 0;
         this.dashSpeed = 1800;
@@ -74,7 +77,8 @@ class Player {
     get weapon() { return this.weapons[this.currentWeapon]; }
 
     getRect() {
-        return { x: this.x - this.w / 2, y: this.y - this.h, w: this.w, h: this.h };
+        const h = this.crouching ? this.crouchH : this.normalH;
+        return { x: this.x - this.w / 2, y: this.y - h, w: this.w, h: h };
     }
 
     update(dt, platforms) {
@@ -88,7 +92,20 @@ class Player {
         if (Input.isDown('KeyA') || Input.isDown('ArrowLeft')) moveX = -1;
         if (Input.isDown('KeyD') || Input.isDown('ArrowRight')) moveX = 1;
 
-        this.vx = moveX * this.speed;
+        // 下蹲
+        const crouchInput = Input.isDown('KeyS') || Input.isDown('ArrowDown');
+        if (crouchInput && this.onGround) {
+            if (!this.crouching) {
+                this.crouching = true;
+                this.h = this.crouchH;
+            }
+        } else if (this.crouching && (!crouchInput || !this.onGround)) {
+            this.crouching = false;
+            this.h = this.normalH;
+        }
+
+        const speedMul = this.crouching ? 0.35 : 1.0;
+        this.vx = moveX * this.speed * speedMul;
         if (moveX !== 0) this.facing = moveX;
 
         // 冲刺
@@ -261,7 +278,8 @@ class Player {
         // 瞄准
         const mouse = Input.getMouse();
         const worldMouse = { x: mouse.x + Utils.camera.x, y: mouse.y + Utils.camera.y };
-        this.armAngle = Utils.angle(this.x, this.y - 30, worldMouse.x, worldMouse.y);
+        const aimOriginY = this.y - (this.crouching ? 14 : 30);
+        this.armAngle = Utils.angle(this.x, aimOriginY, worldMouse.x, worldMouse.y);
         if (Math.cos(this.armAngle) < 0) this.facing = -1;
         else this.facing = 1;
 
@@ -275,7 +293,7 @@ class Player {
                 if (result) {
                     this.shootFlash = 1;
                     const tipX = this.x + Math.cos(this.armAngle) * this.gunTipOffset.x;
-                    const tipY = this.y - 30 + Math.sin(this.armAngle) * this.gunTipOffset.x;
+                    const tipY = (this.crouching ? this.y - 14 : this.y - 30) + Math.sin(this.armAngle) * this.gunTipOffset.x;
                     for (const b of result) {
                         this.bullets.push(new Bullet(tipX, tipY, this.armAngle, b));
                     }
@@ -367,11 +385,11 @@ class Player {
             // 松开Q时投掷
             this.aiming = false;
             if (this.selectedThrown === 'grenade' && this.grenadeCount > 0) {
-                this.thrown.push(new ThrownProjectile('grenade', this.x, this.y - 30, this.aimTarget.x, this.aimTarget.y));
+                this.thrown.push(new ThrownProjectile('grenade', this.x, this.y - (this.crouching ? 14 : 30), this.aimTarget.x, this.aimTarget.y));
                 this.grenadeCount--;
                 this.thrownCooldown = 0.6;
             } else if (this.selectedThrown === 'molotov' && this.molotovCount > 0) {
-                this.thrown.push(new ThrownProjectile('molotov', this.x, this.y - 30, this.aimTarget.x, this.aimTarget.y));
+                this.thrown.push(new ThrownProjectile('molotov', this.x, this.y - (this.crouching ? 14 : 30), this.aimTarget.x, this.aimTarget.y));
                 this.molotovCount--;
                 this.thrownCooldown = 0.6;
             }
@@ -570,7 +588,7 @@ class Player {
         if (this.onGround) {
             ctx.fillStyle = 'rgba(0,0,0,0.2)';
             ctx.beginPath();
-            ctx.ellipse(0, 4, 14, 4, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 4, this.crouching ? 18 : 14, 4, 0, 0, Math.PI * 2);
             ctx.fill();
         }
 
@@ -588,10 +606,28 @@ class Player {
 
         ctx.scale(this.facing, 1);
 
+        // 下蹲参数
+        const crouch = this.crouching;
+        const headY = crouch ? -26 : -46;
+        const eyeY = crouch ? -29 : -49;
+        const torsoTop = crouch ? -20 : -38;
+        const torsoBot = crouch ? -8 : -14;
+        const shoulderY = crouch ? -18 : -36;
+        const chestY = crouch ? -14 : -32;
+        const armY = crouch ? -16 : -32;
+        const legTop = torsoBot;
+
         // 腿部动画
-        const legSwing = Math.sin(this.legPhase) * 12;
-        const leftLeg = this.onGround ? legSwing : 5;
-        const rightLeg = this.onGround ? -legSwing : -5;
+        let leftLeg, rightLeg;
+        if (crouch) {
+            // 下蹲时腿部弯曲
+            leftLeg = { kneeX: -6, kneeY: -3, footX: -5, footY: 0 };
+            rightLeg = { kneeX: 6, kneeY: -3, footX: 5, footY: 0 };
+        } else {
+            const legSwing = Math.sin(this.legPhase) * 12;
+            leftLeg = this.onGround ? legSwing : 5;
+            rightLeg = this.onGround ? -legSwing : -5;
+        }
 
         // 命中闪烁
         const isFlashing = this.invincibleTimer > 0 && Math.sin(this.invincibleTimer * 30) > 0;
@@ -605,15 +641,15 @@ class Player {
 
         // 头部装备轮廓（头盔）
         ctx.beginPath();
-        ctx.arc(0, -46, 10, -Math.PI * 0.8, Math.PI * 0.8);
+        ctx.arc(0, headY, 10, -Math.PI * 0.8, Math.PI * 0.8);
         ctx.strokeStyle = isFlashing ? '#cc3333' : '#667788';
         ctx.lineWidth = 2.5;
         ctx.stroke();
 
         // 头 — 填充 + 边框
         ctx.beginPath();
-        ctx.arc(0, -46, 9, 0, Math.PI * 2);
-        const headGrad = ctx.createRadialGradient(-2, -48, 2, 0, -46, 9);
+        ctx.arc(0, headY, 9, 0, Math.PI * 2);
+        const headGrad = ctx.createRadialGradient(-2, headY - 2, 2, 0, headY, 9);
         headGrad.addColorStop(0, bodyColor);
         headGrad.addColorStop(0.7, bodyColor === '#fff' ? '#ddd' : '#cc3333');
         headGrad.addColorStop(1, '#888');
@@ -629,10 +665,10 @@ class Player {
         ctx.shadowColor = '#64dcff';
         ctx.shadowBlur = 4;
         ctx.beginPath();
-        ctx.arc(3, -49, 2.2, 0, Math.PI * 2);
+        ctx.arc(3, eyeY, 2.2, 0, Math.PI * 2);
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(3, -49, 0.9, 0, Math.PI * 2);
+        ctx.arc(3, eyeY, 0.9, 0, Math.PI * 2);
         ctx.fillStyle = '#fff';
         ctx.fill();
         ctx.shadowBlur = 0;
@@ -641,38 +677,53 @@ class Player {
         ctx.strokeStyle = bodyColor;
         ctx.lineWidth = bodyLineWidth;
         ctx.beginPath();
-        ctx.moveTo(0, -38);
-        ctx.lineTo(0, -14);
+        ctx.moveTo(0, torsoTop);
+        ctx.lineTo(0, torsoBot);
         ctx.stroke();
         // 肩甲轮廓
         ctx.strokeStyle = isFlashing ? '#cc3333' : '#556677';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.moveTo(-4, -36);
-        ctx.lineTo(0, -38);
-        ctx.lineTo(4, -36);
+        ctx.moveTo(-4, shoulderY);
+        ctx.lineTo(0, torsoTop);
+        ctx.lineTo(4, shoulderY);
         ctx.stroke();
         // 胸甲细节
         ctx.beginPath();
-        ctx.moveTo(-3, -32);
-        ctx.lineTo(3, -32);
+        ctx.moveTo(-3, chestY);
+        ctx.lineTo(3, chestY);
         ctx.stroke();
 
         // 腿
         ctx.strokeStyle = bodyColor;
         ctx.lineWidth = bodyLineWidth;
-        ctx.beginPath();
-        ctx.moveTo(0, -14);
-        ctx.lineTo(leftLeg, 0);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(0, -14);
-        ctx.lineTo(rightLeg, 0);
-        ctx.stroke();
+        if (crouch) {
+            // 左腿：大腿 + 小腿
+            ctx.beginPath();
+            ctx.moveTo(0, legTop);
+            ctx.lineTo(leftLeg.kneeX, leftLeg.kneeY);
+            ctx.lineTo(leftLeg.footX, leftLeg.footY);
+            ctx.stroke();
+            // 右腿：大腿 + 小腿
+            ctx.beginPath();
+            ctx.moveTo(0, legTop);
+            ctx.lineTo(rightLeg.kneeX, rightLeg.kneeY);
+            ctx.lineTo(rightLeg.footX, rightLeg.footY);
+            ctx.stroke();
+        } else {
+            ctx.beginPath();
+            ctx.moveTo(0, legTop);
+            ctx.lineTo(leftLeg, 0);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, legTop);
+            ctx.lineTo(rightLeg, 0);
+            ctx.stroke();
+        }
 
         // 手臂 - 射击手
         ctx.save();
-        ctx.translate(0, -32);
+        ctx.translate(0, armY);
         // 根据朝向调整手臂角度，确保枪指向正确方向
         const drawArmAngle = this.facing === 1 ? this.armAngle : Math.PI - this.armAngle;
         ctx.rotate(drawArmAngle);
@@ -751,9 +802,10 @@ class Player {
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 3;
         const otherArmAngle = this.onGround ? Math.sin(this.animTime * 3) * 0.3 : -0.5;
+        const otherArmY = this.crouching ? -16 : -32;
         ctx.beginPath();
-        ctx.moveTo(0, -32);
-        ctx.lineTo(-10 + Math.cos(otherArmAngle) * 8, -28 + Math.sin(otherArmAngle) * 8);
+        ctx.moveTo(0, otherArmY);
+        ctx.lineTo(-10 + Math.cos(otherArmAngle) * 8, otherArmY + 4 + Math.sin(otherArmAngle) * 8);
         ctx.stroke();
 
         ctx.restore();
@@ -804,7 +856,7 @@ class Player {
 
     drawTrajectory(ctx) {
         const startX = this.x;
-        const startY = this.y - 30;
+        const startY = this.y - (this.crouching ? 14 : 30);
         const endX = this.aimTarget.x;
         const endY = this.aimTarget.y;
         const arcHeight = this.selectedThrown === 'grenade' ? 100 : 80;
