@@ -4,6 +4,8 @@ const Audio = (() => {
     let masterGain = null;
     let muted = false;
     let volume = 0.3;
+    let pageHidden = false;
+    let visibilityBound = false;
     let ambientNodes = [];       // 环境背景音节点
     let lowHealthTimer = 0;
     let lowHealthActive = false;
@@ -25,7 +27,7 @@ const Audio = (() => {
             masterGain.gain.value = muted ? 0 : volume;
             masterGain.connect(ctx.destination);
         }
-        if (ctx.state === 'suspended') ctx.resume();
+        if (ctx.state === 'suspended' && !pageHidden) ctx.resume();
     }
 
     function makeOsc(type, freq, start, end, volStart, volEnd, detune) {
@@ -61,7 +63,7 @@ const Audio = (() => {
     }
 
     function playMp3(name, vol) {
-        if (muted) return;
+        if (muted || pageHidden) return;
         const audio = mp3Audios[name];
         if (!audio) return;
         audio.currentTime = 0;
@@ -71,7 +73,7 @@ const Audio = (() => {
     }
 
     function playMp3WithCallback(name, vol, onEnd) {
-        if (muted) { if (onEnd) onEnd(); return; }
+        if (muted || pageHidden) { if (onEnd) onEnd(); return; }
         const audio = mp3Audios[name];
         if (!audio) { if (onEnd) onEnd(); return; }
         audio.currentTime = 0;
@@ -113,12 +115,13 @@ const Audio = (() => {
         
         audio.currentTime = 0;
         audio.loop = true;
+        currentBgm = audio;
+        if (pageHidden) return;
         audio.play().then(function() {
             console.log('BGM 开始播放: ' + name);
         }).catch(function(e) {
             console.warn('BGM 播放失败: ' + name, e);
         });
-        currentBgm = audio;
     }
 
     function stopBgm() {
@@ -127,6 +130,27 @@ const Audio = (() => {
             currentBgm.currentTime = 0;
             currentBgm = null;
         }
+    }
+
+    function setBackgroundPaused(hidden) {
+        pageHidden = hidden;
+        if (hidden) {
+            if (currentBgm) currentBgm.pause();
+            if (ctx && ctx.state === 'running') ctx.suspend().catch(function() {});
+            return;
+        }
+
+        if (ctx && ctx.state === 'suspended' && !muted) ctx.resume().catch(function() {});
+        if (currentBgm && !muted) currentBgm.play().catch(function() {});
+    }
+
+    function bindVisibilityPause() {
+        if (visibilityBound || typeof document === 'undefined') return;
+        visibilityBound = true;
+        pageHidden = !!document.hidden;
+        document.addEventListener('visibilitychange', function() {
+            setBackgroundPaused(!!document.hidden);
+        });
     }
 
     function preloadMp3s() {
@@ -149,6 +173,7 @@ const Audio = (() => {
     function init() {
         ensureCtx();
         preloadMp3s();
+        bindVisibilityPause();
     }
 
     function setMasterGainBoost(boost) {
@@ -271,6 +296,7 @@ const Audio = (() => {
 
     // ---- 音效播放 ----
     function play(type) {
+        if (pageHidden) return;
         ensureCtx();
         const now = ctx.currentTime;
 
@@ -419,6 +445,6 @@ const Audio = (() => {
         setBgmVolume, restoreBgmVolume,
         setVolume, toggleMute, getMuted, getVolume,
         startAmbient, stopAmbient, updateLowHealth, updateWarning,
-        setMasterGainBoost, restoreMasterGain
+        setMasterGainBoost, restoreMasterGain, setBackgroundPaused
     };
 })();

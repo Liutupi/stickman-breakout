@@ -307,7 +307,10 @@ class Player {
         // 更新子弹
         for (let i = this.bullets.length - 1; i >= 0; i--) {
             this.bullets[i].update(dt);
-            if (this.bullets[i].dead) this.bullets.splice(i, 1);
+            if (this.bullets[i].dead) {
+                const last = this.bullets.pop();
+                if (i < this.bullets.length) this.bullets[i] = last;
+            }
         }
 
         // 无敌时间
@@ -398,7 +401,10 @@ class Player {
         // 更新投掷物
         for (let i = this.thrown.length - 1; i >= 0; i--) {
             this.thrown[i].update(dt, platforms);
-            if (this.thrown[i].dead) this.thrown.splice(i, 1);
+            if (this.thrown[i].dead) {
+                const last = this.thrown.pop();
+                if (i < this.thrown.length) this.thrown[i] = last;
+            }
         }
 
         // 掉落悬崖（立即死亡，绕过无敌帧）
@@ -561,17 +567,26 @@ class Player {
             ctx.globalAlpha = alpha;
             ctx.translate(t.x - Utils.camera.x, t.y - Utils.camera.y);
             ctx.scale(this.facing, 1);
-            // 简化的角色轮廓
+            // 火柴人轮廓残影
             ctx.strokeStyle = '#7ce7ff';
             ctx.lineWidth = 2;
             ctx.lineCap = 'round';
+            // 头
             ctx.beginPath();
             ctx.arc(0, -8, 5, 0, Math.PI * 2);
             ctx.stroke();
+            // 身干+腿
             ctx.beginPath();
             ctx.moveTo(0, -3);
-            ctx.lineTo(0, 8);
+            ctx.lineTo(0, 4);
+            ctx.moveTo(0, 4);
+            ctx.lineTo(-6, 10);
+            ctx.moveTo(0, 4);
+            ctx.lineTo(6, 10);
             ctx.stroke();
+            // Visor残影微光
+            ctx.fillStyle = 'rgba(0, 200, 255, 0.3)';
+            ctx.fillRect(-3, -9, 6, 1.5);
             ctx.restore();
         }
 
@@ -591,6 +606,22 @@ class Player {
             ctx.ellipse(0, 4, this.crouching ? 18 : 14, 4, 0, 0, Math.PI * 2);
             ctx.fill();
         }
+
+        const readPulse = 0.52 + Math.sin(this.animTime * 5) * 0.12;
+        const playerHalo = ctx.createRadialGradient(0, -this.h / 2, 4, 0, -this.h / 2, 34);
+        playerHalo.addColorStop(0, `rgba(120, 230, 255, ${readPulse * 0.16})`);
+        playerHalo.addColorStop(0.55, `rgba(0, 210, 255, ${readPulse * 0.08})`);
+        playerHalo.addColorStop(1, 'transparent');
+        ctx.fillStyle = playerHalo;
+        ctx.beginPath();
+        ctx.ellipse(0, -this.h / 2, 25, 38, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(0, 3, this.crouching ? 22 : 18, 6, 0, 0, Math.PI * 2);
+        ctx.stroke();
 
         // 二段跳指示（脚下光环）
         if (!this.onGround && this.jumpCount < this.maxJumps) {
@@ -639,38 +670,35 @@ class Player {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
-        // 头部装备轮廓（头盔）
+        // 头部装备 — 赛博Visor框架（保留头盔弧线）
         ctx.beginPath();
-        ctx.arc(0, headY, 10, -Math.PI * 0.8, Math.PI * 0.8);
-        ctx.strokeStyle = isFlashing ? '#cc3333' : '#667788';
+        ctx.arc(0, headY, 10, -Math.PI * 0.78, Math.PI * 0.78);
+        ctx.strokeStyle = isFlashing ? '#cc3333' : '#334455';
         ctx.lineWidth = 2.5;
         ctx.stroke();
 
-        // 头 — 填充 + 边框
+        // 头 — 圆形填充 + 边框（火柴人标志性圆头）
         ctx.beginPath();
         ctx.arc(0, headY, 9, 0, Math.PI * 2);
         const headGrad = ctx.createRadialGradient(-2, headY - 2, 2, 0, headY, 9);
         headGrad.addColorStop(0, bodyColor);
         headGrad.addColorStop(0.7, bodyColor === '#fff' ? '#ddd' : '#cc3333');
-        headGrad.addColorStop(1, '#888');
+        headGrad.addColorStop(1, '#666');
         ctx.fillStyle = headGrad;
         ctx.fill();
-        ctx.strokeStyle = '#555';
+        ctx.strokeStyle = '#444';
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // 眼睛（朝向感知 + 发光）
-        const eyeGlow = 0.7 + Math.sin(this.animTime * 3) * 0.3;
-        ctx.fillStyle = `rgba(100, 220, 255, ${eyeGlow})`;
-        ctx.shadowColor = '#64dcff';
-        ctx.shadowBlur = 4;
-        ctx.beginPath();
-        ctx.arc(3, eyeY, 2.2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(3, eyeY, 0.9, 0, Math.PI * 2);
-        ctx.fillStyle = '#fff';
-        ctx.fill();
+        // 赛博Visor — 横向发光条，覆盖眼部区域
+        const visorY = eyeY + 1;
+        const visorGlow = 0.8 + Math.sin(this.animTime * 3) * 0.2;
+        ctx.fillStyle = `rgba(0, 210, 255, ${visorGlow})`;
+        ctx.shadowColor = '#00d2ff';
+        ctx.shadowBlur = 6;
+        ctx.fillRect(-5, visorY - 1.5, 10, 3);
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.fillRect(-3, visorY - 0.5, 6, 0.8);
         ctx.shadowBlur = 0;
 
         // 身干护甲线条
@@ -680,18 +708,42 @@ class Player {
         ctx.moveTo(0, torsoTop);
         ctx.lineTo(0, torsoBot);
         ctx.stroke();
-        // 肩甲轮廓
-        ctx.strokeStyle = isFlashing ? '#cc3333' : '#556677';
+        // 肩甲轮廓 + 关节环
+        ctx.strokeStyle = isFlashing ? '#cc3333' : '#445566';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(-4, shoulderY);
         ctx.lineTo(0, torsoTop);
         ctx.lineTo(4, shoulderY);
         ctx.stroke();
+        // 肩关节装甲环
+        ctx.beginPath(); ctx.arc(-3, shoulderY + 1, 3.5, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(3, shoulderY + 1, 3.5, 0, Math.PI * 2); ctx.stroke();
         // 胸甲细节
         ctx.beginPath();
         ctx.moveTo(-3, chestY);
         ctx.lineTo(3, chestY);
+        ctx.stroke();
+
+        // 胸部能量核心 — 脉动光圈
+        const coreAlpha = 0.5 + Math.sin(this.animTime * 4) * 0.3;
+        ctx.beginPath();
+        ctx.arc(0, chestY - 2, 5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0, 210, 255, ${coreAlpha * 0.25})`;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(0, chestY - 2, 2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0, 240, 255, ${coreAlpha})`;
+        ctx.shadowColor = '#00e5ff';
+        ctx.shadowBlur = 5;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // 髋部装甲环
+        ctx.strokeStyle = '#445566';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(0, legTop, 5, 2.5, 0, 0, Math.PI * 2);
         ctx.stroke();
 
         // 腿
@@ -710,6 +762,11 @@ class Player {
             ctx.lineTo(rightLeg.kneeX, rightLeg.kneeY);
             ctx.lineTo(rightLeg.footX, rightLeg.footY);
             ctx.stroke();
+            // 膝关节环（蹲姿）
+            ctx.strokeStyle = '#334455';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.arc(leftLeg.kneeX, leftLeg.kneeY, 3, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(rightLeg.kneeX, rightLeg.kneeY, 3, 0, Math.PI * 2); ctx.stroke();
         } else {
             ctx.beginPath();
             ctx.moveTo(0, legTop);
@@ -719,6 +776,11 @@ class Player {
             ctx.moveTo(0, legTop);
             ctx.lineTo(rightLeg, 0);
             ctx.stroke();
+            // 膝关节环（站姿）
+            ctx.strokeStyle = '#334455';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.arc(leftLeg / 2, legTop / 2, 3, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(rightLeg / 2, legTop / 2, 3, 0, Math.PI * 2); ctx.stroke();
         }
 
         // 手臂 - 射击手
@@ -732,44 +794,164 @@ class Player {
         ctx.lineTo(16, 0);
         ctx.stroke();
 
-        // 武器
+        // 武器 — 按类型绘制独特轮廓
         if (this.weapon) {
             const wpLvl = this.weapon.level || 1;
-            const wpLen = 12 + wpLvl * 2;
-            const wpH = 4 + wpLvl;
-            // 武器主体
-            ctx.fillStyle = this.weapon.color;
-            ctx.fillRect(12, -wpH / 2, wpLen, wpH);
-            ctx.strokeStyle = '#555';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(12, -wpH / 2, wpLen, wpH);
-            // 武器细节线条
-            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-            ctx.beginPath();
-            ctx.moveTo(14, -wpH / 2 + 1);
-            ctx.lineTo(12 + wpLen - 2, -wpH / 2 + 1);
-            ctx.stroke();
+            const wpType = this.weapon.type;
 
-            // 高级别武器发光 + 能量流动
-            if (wpLvl >= 3) {
-                ctx.shadowColor = this.weapon.color;
-                ctx.shadowBlur = 6 + wpLvl;
-                ctx.strokeStyle = this.weapon.color + '80';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(12, -wpH / 2, wpLen, wpH);
-                // 能量流动动画
-                const flowOffset = (this.animTime * 30) % wpLen;
-                ctx.fillStyle = 'rgba(255,255,255,0.4)';
-                ctx.fillRect(12 + flowOffset, -wpH / 2, 3, wpH);
-                ctx.shadowBlur = 0;
+            if (wpType === 'pistol') {
+                // 手枪：紧凑枪身 + 套筒 + 握把
+                const wLen = 18 + wpLvl * 1;
+                ctx.fillStyle = '#8899aa';
+                ctx.fillRect(12, -3, wLen - 4, 6);
+                ctx.fillStyle = '#667788';
+                ctx.fillRect(20, -4, 6, 8);
+                ctx.fillStyle = '#445566';
+                ctx.fillRect(15, 3, 8, 4);
+                ctx.strokeStyle = '#334';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(12, -3, wLen - 4, 6);
+                // 枪管高光
+                ctx.strokeStyle = '#aabbcc';
+                ctx.beginPath();
+                ctx.moveTo(14, -1); ctx.lineTo(12 + wLen - 2, -1);
+                ctx.stroke();
+                // 高级别：瞄具红点
+                if (wpLvl >= 3) {
+                    ctx.fillStyle = '#ff0000';
+                    ctx.shadowColor = '#ff0000';
+                    ctx.shadowBlur = 3;
+                    ctx.beginPath(); ctx.arc(24, -4, 1.5, 0, Math.PI * 2); ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+            } else if (wpType === 'shotgun') {
+                // 散弹枪：长管 + 泵动握把 + 宽口
+                const wLen = 20 + wpLvl * 2;
+                ctx.fillStyle = '#885522';
+                ctx.fillRect(12, -4, wLen, 8);
+                ctx.fillStyle = '#664400';
+                ctx.fillRect(16, 4, 8, 6);
+                ctx.strokeStyle = '#332200';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(12, -4, wLen, 8);
+                // 枪管散热孔
+                ctx.fillStyle = '#221100';
+                for (let h = 0; h < 3; h++) {
+                    ctx.fillRect(20 + h * 5, -2, 2, 4);
+                }
+                // 枪口加宽
+                ctx.fillStyle = '#996633';
+                ctx.fillRect(12 + wLen - 3, -5, 4, 10);
+                // 高级别：双管
+                if (wpLvl >= 3) {
+                    ctx.fillStyle = '#553311';
+                    ctx.fillRect(12, -8, wLen - 4, 3);
+                }
+            } else if (wpType === 'smg') {
+                // 冲锋枪：紧凑枪身 + 加长弹匣 + 消音器
+                const wLen = 16 + wpLvl * 1;
+                ctx.fillStyle = '#445566';
+                ctx.fillRect(12, -3, wLen, 6);
+                ctx.fillStyle = '#333';
+                ctx.fillRect(15, 3, 4, 10);
+                // 弹匣
+                ctx.fillStyle = '#222';
+                ctx.fillRect(16, 3, 6, 8);
+                ctx.strokeStyle = '#222';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(12, -3, wLen, 6);
+                // 枪管
+                ctx.fillStyle = '#555';
+                ctx.fillRect(12 + wLen - 2, -2, 8, 4);
+                // 高级别：能量弹链
+                if (wpLvl >= 3) {
+                    ctx.strokeStyle = '#3498db';
+                    ctx.shadowColor = '#3498db';
+                    ctx.shadowBlur = 3;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    const flow = (this.animTime * 40) % wLen;
+                    ctx.moveTo(12 + flow, 0);
+                    ctx.lineTo(12 + Math.min(flow + 6, wLen), 0);
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+            } else if (wpType === 'laser') {
+                // 激光枪：细长科幻枪身 + 能量线圈 + 发射端
+                const wLen = 18 + wpLvl * 2;
+                ctx.fillStyle = '#3a2a4a';
+                ctx.fillRect(12, -2, wLen, 4);
+                // 能量线圈
+                const coilAlpha = 0.5 + Math.sin(this.animTime * 8) * 0.3;
+                ctx.fillStyle = `rgba(224, 86, 253, ${coilAlpha})`;
+                ctx.fillRect(16, -4, 6, 8);
+                ctx.fillRect(24, -4, 6, 8);
+                // 发射端
+                ctx.fillStyle = '#e056fd';
+                ctx.fillRect(12 + wLen - 2, -3, 3, 6);
+                ctx.strokeStyle = '#2a1a3a';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(12, -2, wLen, 4);
+                // 高级别：能量脉冲
+                if (wpLvl >= 3) {
+                    ctx.shadowColor = '#e056fd';
+                    ctx.shadowBlur = 6;
+                    ctx.strokeStyle = '#e056fd80';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(12, -2, wLen, 4);
+                    ctx.shadowBlur = 0;
+                }
+            } else if (wpType === 'rocket') {
+                // 火箭筒：粗管 + 尾喷口 + 稳定翼
+                const wLen = 18 + wpLvl * 1;
+                ctx.fillStyle = '#cc3333';
+                ctx.fillRect(12, -5, wLen, 10);
+                // 尾喷锥
+                ctx.fillStyle = '#882222';
+                ctx.beginPath();
+                ctx.moveTo(12, -5);
+                ctx.lineTo(6, -8);
+                ctx.lineTo(6, 8);
+                ctx.lineTo(12, 5);
+                ctx.closePath();
+                ctx.fill();
+                // 稳定翼
+                ctx.fillStyle = '#993333';
+                ctx.fillRect(10, -9, 6, 4);
+                ctx.fillRect(10, 5, 6, 4);
+                // 瞄准镜
+                ctx.fillStyle = '#555';
+                ctx.fillRect(20, -7, 8, 2);
+                ctx.strokeStyle = '#882222';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(12, -5, wLen, 10);
+                // 高级别：尾焰预热
+                if (wpLvl >= 3) {
+                    ctx.fillStyle = `rgba(255, 100, 0, ${0.3 + Math.sin(this.animTime * 6) * 0.2})`;
+                    ctx.fillRect(3, -2, 5, 4);
+                }
+            } else {
+                // 默认武器外观 (grenade/molotov/others)
+                const wLen = 12 + wpLvl * 2;
+                const wH = 4 + wpLvl;
+                ctx.fillStyle = this.weapon.color;
+                ctx.fillRect(12, -wH / 2, wLen, wH);
+                ctx.strokeStyle = '#555';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(12, -wH / 2, wLen, wH);
+                ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                ctx.beginPath();
+                ctx.moveTo(14, -wH / 2 + 1);
+                ctx.lineTo(12 + wLen - 2, -wH / 2 + 1);
+                ctx.stroke();
             }
-            // 枪管发光条纹
-            ctx.strokeStyle = this.weapon.color + 'aa';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(15, 0);
-            ctx.lineTo(12 + wpLen, 0);
-            ctx.stroke();
+
+            // 通用：高级别武器能量流动
+            if (wpLvl >= 3) {
+                const flowX = (this.animTime * 30) % 24;
+                ctx.fillStyle = 'rgba(255,255,255,0.35)';
+                ctx.fillRect(12 + flowX, -2, 3, 4);
+            }
         } else {
             // 无武器时绘制默认手枪外观
             ctx.fillStyle = '#888';
@@ -1144,8 +1326,9 @@ class ThrownProjectile {
 
                 // 随时间淡出
                 const lifeRatio = 1 - this.fireZoneLife / this.maxFireZoneLife;
-                if (lifeRatio < 0.3) ctx.globalAlpha = lifeRatio / 0.3;
-                ctx.globalAlpha = 1;
+                if (lifeRatio < 0.3) {
+                    ctx.globalAlpha = lifeRatio / 0.3;
+                }
             } else {
                 ctx.save();
                 ctx.translate(sx, sy);
@@ -1255,6 +1438,7 @@ class Enemy {
         this.animTime = Math.random() * 10;
         this.exploded = false;
         this.baseY = config.baseY || y;
+        this.hitFlashTimer = 0;
 
         // 巡逻
         this.patrolDir = Math.random() > 0.5 ? 1 : -1;
@@ -1275,6 +1459,7 @@ class Enemy {
             this.deathTimer += dt;
             return this.deathTimer < 0.5;
         }
+        this.hitFlashTimer = Math.max(0, this.hitFlashTimer - dt);
 
         // 固定炮台：完全静止，只转向和射击
         if (this.type === 'turret' && this.onGround) {
@@ -1291,7 +1476,10 @@ class Enemy {
                 b.x += b.vx * dt;
                 b.y += b.vy * dt;
                 b.life -= dt;
-                if (b.life <= 0) this.bullets.splice(i, 1);
+                if (b.life <= 0) {
+                    const last = this.bullets.pop();
+                    if (i < this.bullets.length) this.bullets[i] = last;
+                }
             }
             return true;
         }
@@ -1496,6 +1684,7 @@ class Enemy {
         if (this.y > 700) {
             this.dead = true;
             this.health = 0;
+            this.fellToAbyss = true;
             return false;
         }
 
@@ -1517,7 +1706,10 @@ class Enemy {
             b.x += b.vx * dt;
             b.y += b.vy * dt;
             b.life -= dt;
-            if (b.life <= 0) this.bullets.splice(i, 1);
+            if (b.life <= 0) {
+                const last = this.bullets.pop();
+                if (i < this.bullets.length) this.bullets[i] = last;
+            }
         }
 
         return true;
@@ -1543,6 +1735,7 @@ class Enemy {
 
     takeDamage(amount) {
         this.health -= amount;
+        this.hitFlashTimer = 0.12;
         Particles.spawnBlood(this.x, this.y - this.h / 2, 4);
         if (this.health <= 0) {
             this.health = 0;
@@ -1592,8 +1785,45 @@ class Enemy {
             return;
         }
 
+        if (this.hitFlashTimer > 0) {
+            const flash = this.hitFlashTimer / 0.12;
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            const g = ctx.createRadialGradient(sx, sy - this.h / 2, 1, sx, sy - this.h / 2, 40);
+            g.addColorStop(0, `rgba(255,255,255,${0.58 * flash})`);
+            g.addColorStop(0.36, `rgba(255,214,96,${0.24 * flash})`);
+            g.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.ellipse(sx, sy - this.h / 2, 30, 42, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = `rgba(255,255,255,${0.72 * flash})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(sx - 18, sy - this.h / 2);
+            ctx.lineTo(sx + 18, sy - this.h / 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
         ctx.save();
         ctx.translate(sx, sy);
+
+        const hostilePulse = 0.58 + Math.sin(this.animTime * 6) * 0.12;
+        const hostileGlow = ctx.createRadialGradient(0, -this.h / 2, 2, 0, -this.h / 2, 34);
+        hostileGlow.addColorStop(0, `rgba(255, 70, 45, ${hostilePulse * 0.16})`);
+        hostileGlow.addColorStop(0.55, `rgba(255, 30, 20, ${hostilePulse * 0.08})`);
+        hostileGlow.addColorStop(1, 'transparent');
+        ctx.fillStyle = hostileGlow;
+        ctx.beginPath();
+        ctx.ellipse(0, -this.h / 2, 24, 34, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = `rgba(255, 70, 45, ${hostilePulse * 0.45})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(0, this.onGround ? 2 : -this.h / 2, this.onGround ? 16 : 22, this.onGround ? 5 : 26, 0, 0, Math.PI * 2);
+        ctx.stroke();
 
         // 自爆兵：发光效果
         if (this.type === 'kamikaze') {
@@ -1921,26 +2151,96 @@ class Enemy {
         ctx.lineWidth = 2.5;
         ctx.lineCap = 'round';
 
-        // 头 — 填充 + 边框
-        ctx.beginPath();
-        ctx.arc(0, -42, 8, 0, Math.PI * 2);
-        const hG = ctx.createRadialGradient(-1, -43, 1, 0, -42, 8);
-        hG.addColorStop(0, '#fff');
-        hG.addColorStop(0.6, this.color);
-        hG.addColorStop(1, '#444');
-        ctx.fillStyle = hG;
-        ctx.fill();
-        ctx.stroke();
+        // 头部 — 按兵种区分轮廓
+        const headCY = -42;
+        const ePulse = 0.7 + Math.sin(this.animTime * 6) * 0.3;
 
-        // 眼睛（红色，脉冲发光）
-        const eyePulse = 0.7 + Math.sin(this.animTime * 6) * 0.3;
-        ctx.fillStyle = `rgba(255, 0, 0, ${eyePulse})`;
-        ctx.shadowColor = '#ff0000';
-        ctx.shadowBlur = 4 * eyePulse;
-        ctx.beginPath();
-        ctx.arc(3, -43, 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
+        if (this.type === 'walker') {
+            // 重装兵：方角头盔
+            ctx.beginPath();
+            ctx.moveTo(-9, headCY + 2);
+            ctx.lineTo(-9, headCY - 7);
+            ctx.lineTo(-5, headCY - 11);
+            ctx.lineTo(5, headCY - 11);
+            ctx.lineTo(9, headCY - 7);
+            ctx.lineTo(9, headCY + 2);
+            ctx.closePath();
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = `rgba(255, 50, 0, ${ePulse})`;
+            ctx.shadowColor = '#ff3300';
+            ctx.shadowBlur = 3;
+            ctx.fillRect(-4, headCY - 2, 8, 2.5);
+            ctx.shadowBlur = 0;
+        } else if (this.type === 'runner') {
+            // 突击兵：流线尖头
+            ctx.beginPath();
+            ctx.moveTo(0, headCY - 13);
+            ctx.lineTo(7, headCY + 2);
+            ctx.lineTo(-7, headCY + 2);
+            ctx.closePath();
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = `rgba(255, 100, 0, ${ePulse})`;
+            ctx.shadowColor = '#ff6600';
+            ctx.shadowBlur = 3;
+            ctx.beginPath();
+            ctx.arc(3, headCY - 2, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        } else if (this.type === 'shooter') {
+            // 射手：圆头+战术Visor
+            ctx.beginPath();
+            ctx.arc(0, headCY, 8, 0, Math.PI * 2);
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = `rgba(255, 180, 0, ${ePulse})`;
+            ctx.shadowColor = '#ffaa00';
+            ctx.shadowBlur = 4;
+            ctx.fillRect(-5, headCY - 1, 10, 2);
+            ctx.shadowBlur = 0;
+        } else if (this.type === 'jumper') {
+            // 跳跃兵：小圆头
+            ctx.beginPath();
+            ctx.arc(0, headCY, 6, 0, Math.PI * 2);
+            const jG = ctx.createRadialGradient(-1, headCY - 1, 1, 0, headCY, 6);
+            jG.addColorStop(0, '#fff');
+            jG.addColorStop(0.6, this.color);
+            jG.addColorStop(1, '#333');
+            ctx.fillStyle = jG;
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.lineWidth = 2.5;
+            ctx.fillStyle = `rgba(255, 200, 0, ${ePulse})`;
+            ctx.shadowColor = '#ffcc00';
+            ctx.shadowBlur = 3;
+            ctx.beginPath();
+            ctx.arc(2, headCY - 1, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        } else {
+            // 导弹兵/默认：圆头+红色独眼
+            ctx.beginPath();
+            ctx.arc(0, headCY, 8, 0, Math.PI * 2);
+            const mG = ctx.createRadialGradient(-1, headCY - 1, 1, 0, headCY, 8);
+            mG.addColorStop(0, '#fff');
+            mG.addColorStop(0.6, this.color);
+            mG.addColorStop(1, '#444');
+            ctx.fillStyle = mG;
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = `rgba(255, 0, 0, ${ePulse})`;
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 4;
+            ctx.beginPath();
+            ctx.arc(3, headCY - 1, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
 
         // 身干
         ctx.beginPath();
@@ -1959,7 +2259,7 @@ class Enemy {
         ctx.lineTo(-legAnim * (this.onGround ? 1 : 0.3), 0);
         ctx.stroke();
 
-        // 手臂
+        // 手臂 + 兵种护甲
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(0, -30);
@@ -1969,6 +2269,41 @@ class Enemy {
         ctx.moveTo(0, -30);
         ctx.lineTo(-8, -24);
         ctx.stroke();
+
+        // 兵种特有装备
+        if (this.type === 'walker') {
+            // 重装肩铠
+            ctx.fillStyle = '#222';
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = 1.5;
+            ctx.fillRect(-7, -35, 14, 8);
+            ctx.strokeRect(-7, -35, 14, 8);
+        } else if (this.type === 'missile') {
+            // 肩扛导弹舱
+            ctx.fillStyle = '#222';
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 1.5;
+            ctx.fillRect(6, -36, 10, 8);
+            ctx.strokeRect(6, -36, 10, 8);
+            ctx.fillStyle = '#ff3300';
+            ctx.beginPath();
+            ctx.arc(11, -32, 2, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (this.type === 'jumper') {
+            // 弹簧腿关节
+            ctx.strokeStyle = '#888';
+            ctx.lineWidth = 1;
+            const lMid = legAnim * (this.onGround ? 1 : 0.3) / 2;
+            for (let s = 0; s < 3; s++) {
+                const sy = -7 + s * 3;
+                ctx.beginPath();
+                ctx.arc(lMid, sy, 2.5, 0, Math.PI);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(-lMid, sy, 2.5, 0, Math.PI);
+                ctx.stroke();
+            }
+        }
 
         ctx.restore();
 
@@ -2223,7 +2558,10 @@ class Boss {
             b.x += b.vx * dt;
             b.y += b.vy * dt;
             b.life -= dt;
-            if (b.life <= 0) this.bullets.splice(i, 1);
+            if (b.life <= 0) {
+                const last = this.bullets.pop();
+                if (i < this.bullets.length) this.bullets[i] = last;
+            }
         }
 
         // 护盾
@@ -2325,14 +2663,7 @@ class Boss {
             this.dead = true;
             this.deathTimer = 0;
             Audio.play('bossDeath');
-            if (this.level === 1) {
-                Audio.stopBgm();
-                Audio.setMasterGainBoost(3);
-                Audio.playMp3('bossExplode');
-                setTimeout(function() {
-                    Audio.restoreMasterGain();
-                }, 3000);
-            }
+            // 音效统一由 game.js 处理，避免重复播放
             Particles.spawnExplosion(this.x, this.y - this.h / 2);
         }
     }
@@ -2418,6 +2749,52 @@ class Boss {
             }
         }
 
+        // Boss战场能量场边界
+        if (this.phase > 0 && !this.dead) {
+            const screenW = Renderer.width();
+            const screenH = Renderer.height();
+            const pulseA = 0.3 + Math.sin(this.animTime * 3) * 0.15;
+            for (const side of [-1, 1]) {
+                const px = side * screenW * 0.42;
+                const colG = ctx.createLinearGradient(px, 0, px, screenH);
+                colG.addColorStop(0, 'transparent');
+                colG.addColorStop(0.3, `rgba(255, 30, 30, ${pulseA * 0.3})`);
+                colG.addColorStop(0.5, `rgba(255, 60, 60, ${pulseA})`);
+                colG.addColorStop(0.7, `rgba(255, 30, 30, ${pulseA * 0.3})`);
+                colG.addColorStop(1, 'transparent');
+                ctx.fillStyle = colG;
+                ctx.fillRect(px - 3, 0, 6, screenH);
+                // 能量粒子流动
+                ctx.fillStyle = `rgba(255, 80, 80, ${pulseA + 0.2})`;
+                const flowY = (this.animTime * 120) % screenH;
+                for (let f = 0; f < 3; f++) {
+                    const fy = (flowY + f * screenH / 3) % screenH;
+                    ctx.beginPath();
+                    ctx.arc(px, fy, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            // 地面裂痕 + 脉冲光环
+            if (this.onGround) {
+                ctx.strokeStyle = `rgba(255, 40, 40, ${pulseA * 0.4})`;
+                ctx.lineWidth = 1;
+                for (let c = 0; c < 5; c++) {
+                    const cx = (c - 2) * 40;
+                    const cl = 15 + Math.sin(c * 2.7 + this.animTime) * 8;
+                    const ox = Math.sin(c * 4.1) * 10;
+                    ctx.beginPath();
+                    ctx.moveTo(cx, 4);
+                    ctx.lineTo(cx + ox, 4 + cl);
+                    ctx.stroke();
+                }
+                ctx.strokeStyle = `rgba(255, 20, 20, ${pulseA * 0.25})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.ellipse(0, 2, 55 + Math.sin(this.animTime * 2) * 8, 8, 0, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
         ctx.scale(this.facing, 1);
 
         // 受伤闪烁
@@ -2447,43 +2824,66 @@ class Boss {
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // 角/王冠（根据等级增强）
+        // 角/王冠（能量连接增强）
         if (this.level >= 2) {
+            const hornLen = 10 + this.level * 2;
+            const lHX = -12, lHY = -this.h - hornLen;
+            const rHX = 12, rHY = -this.h - hornLen;
+
+            // 角主体
             ctx.strokeStyle = '#f1c40f';
             ctx.lineWidth = 3;
-            const hornLen = 10 + this.level * 2;
             ctx.beginPath();
             ctx.moveTo(-8, -this.h + 3);
-            ctx.lineTo(-12, -this.h - hornLen);
+            ctx.lineTo(lHX, lHY);
             ctx.lineTo(-4, -this.h + 1);
             ctx.moveTo(8, -this.h + 3);
-            ctx.lineTo(12, -this.h - hornLen);
+            ctx.lineTo(rHX, rHY);
             ctx.lineTo(4, -this.h + 1);
             ctx.stroke();
-            // 角尖发光
+
+            // 双角间能量电弧
+            const arcAlpha = 0.35 + Math.sin(this.animTime * 3) * 0.25;
+            ctx.strokeStyle = `rgba(241, 196, 15, ${arcAlpha})`;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(lHX, lHY);
+            ctx.quadraticCurveTo(0, lHY - 10, rHX, rHY);
+            ctx.stroke();
+
+            // 角尖发光（增强）
             ctx.fillStyle = '#f1c40f';
             ctx.shadowColor = '#f1c40f';
-            ctx.shadowBlur = 4;
+            ctx.shadowBlur = 6;
             ctx.beginPath();
-            ctx.arc(-12, -this.h - hornLen, 2, 0, Math.PI * 2);
+            ctx.arc(lHX, lHY, 2.5, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(12, -this.h - hornLen, 2, 0, Math.PI * 2);
+            ctx.arc(rHX, rHY, 2.5, 0, Math.PI * 2);
             ctx.fill();
             ctx.shadowBlur = 0;
         }
 
-        // 眼睛（更霸气）
-        ctx.strokeStyle = bodyColor;
-        ctx.lineWidth = 4;
+        // 眼睛（双目光芒增强）
         const eyeGlow = Math.sin(this.animTime * 5) * 0.5 + 0.5;
-        ctx.fillStyle = `rgba(255, 0, 0, ${0.7 + eyeGlow * 0.3})`;
+        ctx.fillStyle = `rgba(255, 30, 0, ${0.7 + eyeGlow * 0.3})`;
         ctx.shadowColor = '#ff0000';
-        ctx.shadowBlur = 6 + this.phase * 2;
+        ctx.shadowBlur = 7 + this.phase * 2;
         ctx.beginPath();
-        ctx.arc(5, -this.h + 10, 3.5, 0, Math.PI * 2);
+        ctx.arc(3, -this.h + 10, 3, 0, Math.PI * 2);
         ctx.fill();
+        ctx.beginPath();
+        ctx.arc(-3, -this.h + 10, 3, 0, Math.PI * 2);
+        ctx.fill();
+        // 眼部高光
+        ctx.fillStyle = '#fff';
         ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(4, -this.h + 9, 1, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(-2, -this.h + 9, 1, 0, Math.PI * 2);
+        ctx.fill();
 
         // 身干（加粗）
         ctx.strokeStyle = bodyColor;
@@ -2492,15 +2892,26 @@ class Boss {
         ctx.moveTo(0, -this.h + 24);
         ctx.lineTo(0, -this.h + 55);
         ctx.stroke();
-        // 胸甲纹路
+        // 胸甲装甲板 — 三层装甲横纹
         ctx.strokeStyle = bodyColor === '#fff' ? '#ddd' : '#445566';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(-6, -this.h + 30);
-        ctx.lineTo(6, -this.h + 30);
-        ctx.moveTo(-5, -this.h + 38);
-        ctx.lineTo(5, -this.h + 38);
+        ctx.moveTo(-9, -this.h + 30);
+        ctx.lineTo(9, -this.h + 30);
+        ctx.moveTo(-8, -this.h + 37);
+        ctx.lineTo(8, -this.h + 37);
+        ctx.moveTo(-6, -this.h + 44);
+        ctx.lineTo(6, -this.h + 44);
         ctx.stroke();
+        // 装甲板铆钉高光
+        ctx.fillStyle = bodyColor === '#fff' ? '#eee' : this.color + '50';
+        ctx.beginPath(); ctx.arc(-7, -this.h + 30, 1.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(7, -this.h + 30, 1.2, 0, Math.PI * 2); ctx.fill();
+        // 护肩环（Boss版）
+        ctx.strokeStyle = '#556677';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(-5, -this.h + 33, 4.5, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(5, -this.h + 33, 4.5, 0, Math.PI * 2); ctx.stroke();
 
         // 腿（更粗）
         const legAnim = Math.sin(this.animTime * 6) * 15;

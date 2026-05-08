@@ -1,18 +1,19 @@
-﻿:root {
-    --bg: #071019;
-    --panel: rgba(8, 16, 28, 0.78);
-    --panel-strong: rgba(10, 18, 32, 0.92);
-    --panel-line: rgba(130, 214, 255, 0.18);
-    --panel-line-strong: rgba(130, 214, 255, 0.42);
-    --text: #e8f2ff;
-    --muted: #8da5c4;
-    --cyan: #7ce7ff;
-    --cyan-strong: #2fd7ff;
-    --gold: #ffd76b;
-    --red: #ff637d;
-    --green: #65f2b1;
-    --purple: #b48cff;
-    --shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+﻿/* ==================== 赛博道场 · Cyber Dojo ==================== */
+:root {
+    --bg: #05070c;
+    --panel: rgba(5, 10, 18, 0.68);
+    --panel-strong: rgba(7, 13, 24, 0.9);
+    --panel-line: rgba(91, 229, 255, 0.18);
+    --panel-line-strong: rgba(91, 229, 255, 0.42);
+    --text: #eff7ff;
+    --muted: #9aa7b7;
+    --cyan: #00e5ff;
+    --cyan-strong: #00e5ff;
+    --gold: #c9a44b;
+    --red: #c41e3a;
+    --green: #5eb896;
+    --purple: #9b8ec4;
+    --shadow: 0 26px 90px rgba(0, 0, 0, 0.62);
 }
 
 * {
@@ -26,11 +27,11 @@ body {
     height: 100%;
     overflow: hidden;
     background:
-        radial-gradient(circle at top, rgba(64, 152, 255, 0.16), transparent 36%),
-        radial-gradient(circle at 80% 20%, rgba(0, 255, 194, 0.08), transparent 24%),
-        linear-gradient(180deg, #071019 0%, #03070f 100%);
+        linear-gradient(145deg, rgba(0, 229, 255, 0.06), transparent 38%),
+        linear-gradient(218deg, rgba(196, 30, 58, 0.05), transparent 42%),
+        linear-gradient(180deg, #05070c 0%, #02030a 100%);
     color: var(--text);
-    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-family: "Microsoft YaHei", "Noto Sans SC", "Source Han Sans SC", sans-serif;
 }
 
 body {
@@ -50,7 +51,7 @@ canvas {
     position: fixed;
     inset: 0;
     z-index: 20;
-    background: #02060d;
+    background: #02030a;
     overflow: hidden;
     cursor: pointer;
 }
@@ -71,6 +72,7 @@ canvas {
     height: 100%;
     object-fit: cover;
     object-position: center;
+    filter: saturate(1.08) contrast(1.05);
 }
 
 @keyframes bootFadeOut {
@@ -94,14 +96,15 @@ canvas {
 
 .screen-grid {
     background:
-        linear-gradient(rgba(124, 231, 255, 0.055) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(124, 231, 255, 0.055) 1px, transparent 1px);
-    background-size: 64px 64px;
-    mask-image: linear-gradient(180deg, rgba(0,0,0,0.5), rgba(0,0,0,0));
+        linear-gradient(rgba(91, 229, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(91, 229, 255, 0.028) 1px, transparent 1px),
+        linear-gradient(115deg, transparent 0 48%, rgba(255, 70, 110, 0.035) 49% 50%, transparent 51% 100%);
+    background-size: 72px 72px, 72px 72px, 180px 180px;
+    mask-image: linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0));
 }
 
 .screen-noise {
-    opacity: 0.08;
+    opacity: 0.06;
     background-image:
         radial-gradient(circle at 20% 20%, rgba(255,255,255,0.7) 0 1px, transparent 1.2px),
         radial-gradient(circle at 70% 40%, rgba(255,255,255,0.5) 0 1px, transparent 1.2px),
@@ -110,7 +113,9 @@ canvas {
 }
 
 .screen-vignette {
-    background: radial-gradient(circle at center, transparent 45%, rgba(0, 0, 0, 0.48) 100%);
+    background:
+        linear-gradient(180deg, rgba(0, 0, 0, 0.22), transparent 22%, transparent 78%, rgba(0, 0, 0, 0.3)),
+        radial-gradient(circle at center, transparent 43%, rgba(0, 0, 0, 0.56) 100%);
 }
 
 #watermark {
@@ -120,10 +125,10 @@ canvas {
     transform: translateX(-50%);
     z-index: 9;
     padding: 7px 14px;
-    border: 1px solid rgba(124, 231, 255, 0.2);
-    border-radius: 999px;
-    background: rgba(6, 12, 20, 0.5);
-    color: rgba(220, 238, 255, 0.62);
+    border: 1px solid rgba(0, 229, 255, 0.18);
+    border-radius: 8px;
+    background: rgba(3, 8, 15, 0.58);
+    color: rgba(220, 238, 255, 0.72);
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.28em;
@@ -153,9 +158,9 @@ canvas {
     position: absolute;
     inset: 0;
     background:
-        linear-gradient(180deg, rgba(3, 8, 18, 0.45), rgba(2, 6, 14, 0.78)),
-        radial-gradient(circle at top, rgba(39, 130, 255, 0.1), transparent 35%);
-    backdrop-filter: blur(10px);
+        linear-gradient(180deg, rgba(3, 8, 18, 0.24), rgba(2, 6, 14, 0.72)),
+        linear-gradient(100deg, rgba(0, 229, 255, 0.08), transparent 32%, rgba(196, 30, 58, 0.08));
+    backdrop-filter: blur(6px);
 }
 
 /* 主界面标题场景样式 */
@@ -169,7 +174,7 @@ canvas {
     height: 100%;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
 }
 
 .title-scene__image {
@@ -178,29 +183,43 @@ canvas {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    opacity: 0.3;
+    opacity: 0.92;
+    filter: saturate(1.16) contrast(1.08) brightness(1.08);
 }
 
 .title-scene__shade {
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.7) 100%);
+    background:
+        radial-gradient(circle at 76% 48%, rgba(0, 229, 255, 0.16), transparent 28%),
+        linear-gradient(90deg, rgba(2, 5, 12, 0.84) 0%, rgba(3, 8, 15, 0.52) 34%, rgba(2, 5, 12, 0.18) 62%, rgba(2, 5, 12, 0.1) 100%),
+        linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.48) 100%);
+}
+
+.title-scene::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0;
+    height: 22vh;
+    background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.74));
 }
 
 .title-scene__content {
     position: relative;
     z-index: 2;
-    text-align: center;
-    padding: 40px;
-    max-width: 800px;
+    text-align: left;
+    padding: 40px 28px;
+    margin-left: clamp(24px, 4vw, 66px);
+    max-width: min(660px, 48vw);
+    transform: translateY(-2vh);
 }
 
 .studio-signature {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin-bottom: 20px;
+    justify-content: flex-start;
+    gap: 10px;
+    margin-bottom: 24px;
     color: var(--muted);
     font-size: 14px;
 }
@@ -213,9 +232,25 @@ canvas {
 }
 
 .studio-signature__name {
-    color: var(--cyan);
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    border: 2px solid var(--red);
+    border-radius: 2px;
+    transform: rotate(-4deg);
+    color: var(--red);
     font-size: 18px;
     font-weight: 800;
+}
+
+.studio-signature__name::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border: 1px solid var(--red);
+    border-radius: 3px;
+    opacity: 0.3;
+    pointer-events: none;
 }
 
 .studio-signature__tail {
@@ -235,7 +270,7 @@ canvas {
 }
 
 .hero-actions--title {
-    justify-content: center;
+    justify-content: flex-start;
 }
 
 .menu-shell {
@@ -243,7 +278,7 @@ canvas {
     width: min(520px, calc(100vw - 40px));
     padding: 28px 28px 24px;
     border: 1px solid var(--panel-line);
-    border-radius: 24px;
+    border-radius: 14px;
     background:
         linear-gradient(180deg, rgba(14, 23, 38, 0.94), rgba(7, 13, 24, 0.9));
     box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.04);
@@ -261,14 +296,14 @@ canvas {
 
 .menu-shell::before {
     background:
-        linear-gradient(135deg, rgba(124, 231, 255, 0.14), transparent 24%),
-        linear-gradient(315deg, rgba(255, 215, 107, 0.1), transparent 18%);
+        linear-gradient(135deg, rgba(0, 229, 255, 0.1), transparent 24%),
+        linear-gradient(315deg, rgba(201, 164, 75, 0.08), transparent 18%);
 }
 
 .menu-shell::after {
     inset: 12px;
     border: 1px solid rgba(255, 255, 255, 0.04);
-    border-radius: 18px;
+    border-radius: 10px;
 }
 
 .menu-shell--hero {
@@ -283,15 +318,15 @@ canvas {
 }
 
 .menu-shell--danger {
-    border-color: rgba(255, 99, 125, 0.26);
+    border-color: rgba(196, 30, 58, 0.26);
 }
 
 .menu-shell--success {
-    border-color: rgba(101, 242, 177, 0.26);
+    border-color: rgba(94, 184, 150, 0.26);
 }
 
 .menu-shell--victory {
-    border-color: rgba(255, 215, 107, 0.3);
+    border-color: rgba(201, 164, 75, 0.3);
 }
 
 .menu-kicker {
@@ -301,13 +336,13 @@ canvas {
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    border-radius: 999px;
-    background: rgba(124, 231, 255, 0.08);
-    border: 1px solid rgba(124, 231, 255, 0.22);
+    border-radius: 8px;
+    background: rgba(0, 229, 255, 0.08);
+    border: 1px solid rgba(0, 229, 255, 0.2);
     color: var(--cyan);
     font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.24em;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
 }
 
@@ -331,7 +366,8 @@ canvas {
 .hero-title span {
     font-size: clamp(26px, 4vw, 46px);
     font-weight: 800;
-    color: rgba(232, 242, 255, 0.9);
+    color: rgba(210, 239, 255, 0.92);
+    text-shadow: 0 0 18px rgba(0, 229, 255, 0.2);
 }
 
 .hero-title strong,
@@ -340,7 +376,10 @@ canvas {
     line-height: 0.98;
     font-weight: 900;
     color: #ffffff;
-    text-shadow: 0 0 24px rgba(47, 215, 255, 0.15);
+    text-shadow:
+        0 0 18px rgba(0, 229, 255, 0.32),
+        0 8px 0 rgba(196, 30, 58, 0.18),
+        0 26px 46px rgba(0, 0, 0, 0.7);
 }
 
 .menu h2 {
@@ -353,7 +392,7 @@ canvas {
     position: relative;
     z-index: 1;
     margin: 0;
-    color: var(--muted);
+    color: rgba(221, 232, 243, 0.82);
     line-height: 1.7;
 }
 
@@ -383,22 +422,22 @@ canvas {
     appearance: none;
     min-width: 170px;
     padding: 14px 20px;
-    border: 1px solid rgba(124, 231, 255, 0.28);
-    border-radius: 14px;
+    border: 1px solid rgba(0, 229, 255, 0.24);
+    border-radius: 8px;
     background:
-        linear-gradient(180deg, rgba(33, 110, 255, 0.34), rgba(13, 50, 136, 0.52));
+        linear-gradient(180deg, rgba(0, 180, 220, 0.28), rgba(20, 40, 100, 0.42));
     color: #f5fbff;
     font-size: 15px;
     font-weight: 700;
     letter-spacing: 0.06em;
     cursor: pointer;
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-    box-shadow: 0 12px 32px rgba(11, 40, 96, 0.36);
+    box-shadow: 0 14px 36px rgba(11, 40, 96, 0.42), inset 0 1px 0 rgba(255,255,255,0.16);
 }
 
 .menu-btn:hover {
     transform: translateY(-2px);
-    border-color: rgba(124, 231, 255, 0.46);
+    border-color: rgba(0, 229, 255, 0.46);
     box-shadow: 0 16px 38px rgba(18, 67, 161, 0.44);
 }
 
@@ -420,7 +459,7 @@ canvas {
 
 .hero-panel {
     padding: 18px 18px 16px;
-    border-radius: 18px;
+    border-radius: 10px;
     background: rgba(255, 255, 255, 0.035);
     border: 1px solid rgba(255, 255, 255, 0.06);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
@@ -467,7 +506,7 @@ canvas {
     gap: 14px;
     min-height: 56px;
     padding: 12px 14px;
-    border-radius: 14px;
+    border-radius: 8px;
     background: rgba(255,255,255,0.035);
     border: 1px solid rgba(255,255,255,0.06);
     color: var(--text);
@@ -480,9 +519,9 @@ canvas {
     justify-content: center;
     min-width: 94px;
     padding: 8px 10px;
-    border-radius: 10px;
-    background: rgba(124, 231, 255, 0.08);
-    border: 1px solid rgba(124, 231, 255, 0.16);
+    border-radius: 6px;
+    background: rgba(0, 229, 255, 0.06);
+    border: 1px solid rgba(0, 229, 255, 0.14);
     color: #fff;
     font-size: 12px;
     font-family: Consolas, monospace;
@@ -500,7 +539,7 @@ canvas {
 .tip-line {
     margin: 0;
     padding: 12px 14px;
-    border-radius: 12px;
+    border-radius: 8px;
     font-size: 14px;
     line-height: 1.55;
     background: rgba(255,255,255,0.03);
@@ -531,7 +570,7 @@ canvas {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 18px;
+    gap: 12px;
 }
 
 #hud-top {
@@ -541,18 +580,19 @@ canvas {
 #hud-bottom {
     bottom: 18px;
     align-items: flex-end;
+    justify-content: center;
 }
 
 .hud-card {
     position: relative;
     display: flex;
-    gap: 10px;
-    padding: 12px 14px;
-    border: 1px solid rgba(124, 231, 255, 0.14);
-    border-radius: 18px;
-    background: var(--panel);
-    backdrop-filter: blur(12px);
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.24);
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--panel-line);
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(8, 16, 28, 0.76), rgba(2, 6, 12, 0.66));
+    backdrop-filter: blur(14px) saturate(1.2);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255,255,255,0.08);
 }
 
 .hud-card::before {
@@ -566,7 +606,7 @@ canvas {
 
 .hud-card--health {
     align-items: center;
-    min-width: 300px;
+    min-width: 288px;
 }
 
 .hud-card--center,
@@ -577,7 +617,9 @@ canvas {
 }
 
 .hud-card--center {
-    min-width: 180px;
+    align-items: flex-end;
+    min-width: 176px;
+    padding-right: 14px;
 }
 
 .hud-card--boss {
@@ -587,25 +629,31 @@ canvas {
 
 .hud-card--loadout {
     align-items: stretch;
-    gap: 8px;
+    gap: 6px;
+    order: 2;
 }
 
 .hud-card--throwables {
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    order: 1;
+}
+
+.hud-card--upgrade {
+    order: 3;
 }
 
 #health-icon {
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 12px;
-    background: rgba(255, 99, 125, 0.12);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(196, 30, 58, 0.1);
     color: var(--red);
     font-size: 18px;
     font-weight: 900;
-    box-shadow: inset 0 0 0 1px rgba(255, 99, 125, 0.16);
+    box-shadow: inset 0 0 0 1px rgba(196, 30, 58, 0.16);
     animation: heartbeat 1.2s infinite;
 }
 
@@ -619,19 +667,19 @@ canvas {
     position: relative;
     overflow: hidden;
     background: rgba(0, 0, 0, 0.56);
-    border-radius: 999px;
+    border-radius: 8px;
 }
 
 #health-bar-bg {
-    width: 240px;
-    height: 20px;
+    width: 220px;
+    height: 18px;
     border: 1px solid rgba(255,255,255,0.12);
 }
 
 #boss-health-bar-bg {
     width: 220px;
     height: 14px;
-    border: 1px solid rgba(255, 99, 125, 0.25);
+    border: 1px solid rgba(196, 30, 58, 0.25);
 }
 
 #health-bar-fill,
@@ -643,8 +691,8 @@ canvas {
 }
 
 #health-bar-fill {
-    background: linear-gradient(90deg, #ff637d 0%, #ff8e67 100%);
-    box-shadow: 0 0 18px rgba(255, 99, 125, 0.25);
+    background: linear-gradient(90deg, var(--red) 0%, #e85d6f 100%);
+    box-shadow: 0 0 18px rgba(196, 30, 58, 0.4);
 }
 
 #health-bar-fill::after {
@@ -656,7 +704,7 @@ canvas {
 }
 
 #boss-health-bar-fill {
-    background: linear-gradient(90deg, #6a0a14 0%, #ff425b 48%, #ff9ba8 100%);
+    background: linear-gradient(90deg, #6a0a14 0%, #c41e3a 48%, #e86a78 100%);
 }
 
 #boss-health-bar-fill::after {
@@ -668,9 +716,9 @@ canvas {
 }
 
 .weapon-slot.active {
-    border-color: rgba(255, 215, 107, 0.54);
-    background: rgba(255, 215, 107, 0.08);
-    box-shadow: 0 0 0 1px rgba(255, 215, 107, 0.18), 0 12px 24px rgba(255, 191, 52, 0.18);
+    border-color: rgba(201, 164, 75, 0.48);
+    background: rgba(201, 164, 75, 0.08);
+    box-shadow: 0 0 0 1px rgba(201, 164, 75, 0.16), 0 12px 24px rgba(201, 150, 50, 0.16);
     transform: translateY(-2px);
     position: relative;
 }
@@ -685,12 +733,12 @@ canvas {
 }
 
 #health-bar-fill {
-    background: linear-gradient(90deg, #ff637d 0%, #ff8e67 100%);
-    box-shadow: 0 0 18px rgba(255, 99, 125, 0.25);
+    background: linear-gradient(90deg, var(--red) 0%, #e85d6f 100%);
+    box-shadow: 0 0 18px rgba(196, 30, 58, 0.4);
 }
 
 #boss-health-bar-fill {
-    background: linear-gradient(90deg, #6a0a14 0%, #ff425b 48%, #ff9ba8 100%);
+    background: linear-gradient(90deg, #6a0a14 0%, #c41e3a 48%, #e86a78 100%);
 }
 
 #health-text {
@@ -710,7 +758,7 @@ canvas {
     left: 50%;
     transform: translateX(-50%);
     padding: 10px 18px;
-    border: 1px solid rgba(255, 99, 125, 0.32);
+    border: 1px solid rgba(196, 30, 58, 0.32);
     border-radius: 999px;
     background: rgba(84, 10, 20, 0.78);
     color: #fff;
@@ -727,24 +775,24 @@ canvas {
 
 #level-name {
     color: #fff;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 800;
 }
 
 #score-display {
     color: var(--gold);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
 }
 
 #mute-btn {
     pointer-events: auto;
     appearance: none;
-    width: 34px;
-    height: 34px;
-    margin-top: 4px;
+    width: 30px;
+    height: 30px;
+    margin-top: 2px;
     border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 10px;
+    border-radius: 8px;
     background: rgba(255,255,255,0.04);
     color: #fff;
     font-size: 16px;
@@ -758,8 +806,8 @@ canvas {
 }
 
 #mute-btn.muted {
-    background: rgba(255, 99, 125, 0.12);
-    border-color: rgba(255, 99, 125, 0.25);
+    background: rgba(196, 30, 58, 0.1);
+    border-color: rgba(196, 30, 58, 0.25);
 }
 
 #boss-name {
@@ -779,19 +827,19 @@ canvas {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-width: 82px;
-    min-height: 72px;
-    padding: 9px 12px;
+    min-width: 72px;
+    min-height: 58px;
+    padding: 8px 10px;
     border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 14px;
+    border-radius: 8px;
     background: rgba(255,255,255,0.03);
     transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .weapon-slot.active {
-    border-color: rgba(255, 215, 107, 0.54);
-    background: rgba(255, 215, 107, 0.08);
-    box-shadow: 0 0 0 1px rgba(255, 215, 107, 0.18), 0 12px 24px rgba(255, 191, 52, 0.18);
+    border-color: rgba(201, 164, 75, 0.48);
+    background: rgba(201, 164, 75, 0.08);
+    box-shadow: 0 0 0 1px rgba(201, 164, 75, 0.16), 0 12px 24px rgba(201, 150, 50, 0.16);
     transform: translateY(-2px);
 }
 
@@ -804,7 +852,7 @@ canvas {
 
 .slot-name {
     color: #fff;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     white-space: nowrap;
 }
@@ -823,7 +871,7 @@ canvas {
 
 #current-weapon-level {
     color: var(--gold);
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 800;
 }
 
@@ -841,8 +889,8 @@ canvas {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 12px;
-    border-radius: 14px;
+    padding: 8px 10px;
+    border-radius: 8px;
     border: 1px solid rgba(255,255,255,0.08);
     background: rgba(255,255,255,0.03);
     color: var(--muted);
@@ -850,8 +898,8 @@ canvas {
 }
 
 .thrown-item.active {
-    border-color: rgba(255, 215, 107, 0.52);
-    background: rgba(255, 215, 107, 0.08);
+    border-color: rgba(201, 164, 75, 0.48);
+    background: rgba(201, 164, 75, 0.08);
     color: #fff;
 }
 
@@ -899,9 +947,9 @@ canvas {
     transform: translateX(-50%);
     width: 8px;
     height: 8px;
-    background: #ff6600;
+    background: #e87820;
     border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-    box-shadow: 0 0 8px #ff4400, 0 -2px 4px #ff8800;
+    box-shadow: 0 0 8px #c44408, 0 -2px 4px #e87820;
 }
 
 #pickup-hint {
@@ -911,7 +959,7 @@ canvas {
     transform: translateX(-50%);
     padding: 10px 18px;
     border-radius: 999px;
-    border: 1px solid rgba(124, 231, 255, 0.22);
+    border: 1px solid rgba(0, 229, 255, 0.2);
     background: rgba(7, 18, 30, 0.82);
     color: #fff;
     font-size: 14px;
@@ -931,8 +979,8 @@ canvas {
 }
 
 @keyframes borderGlow {
-    0%, 100% { border-color: rgba(124, 231, 255, 0.2); }
-    50% { border-color: rgba(124, 231, 255, 0.5); }
+    0%, 100% { border-color: rgba(0, 229, 255, 0.15); }
+    50% { border-color: rgba(0, 229, 255, 0.4); }
 }
 
 .hud-card {
@@ -988,7 +1036,7 @@ canvas {
 
 .level-card:hover {
     transform: translateY(-4px);
-    border-color: rgba(124, 231, 255, 0.4);
+    border-color: rgba(0, 229, 255, 0.4);
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
     background: rgba(255, 255, 255, 0.06);
 }
@@ -1011,8 +1059,8 @@ canvas {
     width: 32px;
     height: 32px;
     border-radius: 10px;
-    background: rgba(124, 231, 255, 0.1);
-    border: 1px solid rgba(124, 231, 255, 0.2);
+    background: rgba(0, 229, 255, 0.1);
+    border: 1px solid rgba(0, 229, 255, 0.2);
     color: var(--cyan);
     font-size: 14px;
     font-weight: 800;
@@ -1085,7 +1133,7 @@ canvas {
 
 .difficulty-card:hover {
     transform: translateY(-4px);
-    border-color: rgba(124, 231, 255, 0.4);
+    border-color: rgba(0, 229, 255, 0.4);
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
     background: rgba(255, 255, 255, 0.06);
 }
@@ -1172,6 +1220,30 @@ canvas {
         padding: 16px;
     }
 
+    .title-scene {
+        align-items: flex-end;
+    }
+
+    .title-scene__shade {
+        background:
+            linear-gradient(180deg, rgba(2, 5, 12, 0.08) 0%, rgba(2, 5, 12, 0.86) 58%, rgba(2, 5, 12, 0.94) 100%),
+            linear-gradient(90deg, rgba(2, 5, 12, 0.54), rgba(2, 5, 12, 0.34));
+    }
+
+    .title-scene__content {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 0 18px 24px;
+        text-align: center;
+        transform: none;
+    }
+
+    .studio-signature,
+    .hero-actions--title {
+        justify-content: center;
+    }
+
     .menu-shell,
     .menu-shell--hero,
     .menu-shell--wide {
@@ -1235,7 +1307,7 @@ canvas {
     gap: 10px;
     margin-top: 18px;
     padding: 10px 18px;
-    border-radius: 14px;
+    border-radius: 8px;
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(8px);
@@ -1258,8 +1330,8 @@ canvas {
     appearance: none;
     padding: 6px 12px;
     border-radius: 8px;
-    border: 1px solid rgba(124, 231, 255, 0.25);
-    background: rgba(33, 110, 255, 0.2);
+    border: 1px solid rgba(0, 229, 255, 0.25);
+    background: rgba(0, 180, 220, 0.18);
     color: var(--text);
     font-size: 12px;
     font-weight: 700;
@@ -1268,8 +1340,8 @@ canvas {
 }
 
 .player-bar__btn:hover {
-    background: rgba(33, 110, 255, 0.35);
-    border-color: rgba(124, 231, 255, 0.45);
+    background: rgba(0, 180, 220, 0.32);
+    border-color: rgba(0, 229, 255, 0.45);
 }
 
 /* 玩家菜单 */
@@ -1294,7 +1366,7 @@ canvas {
 }
 
 .player-name-input:focus {
-    border-color: rgba(124, 231, 255, 0.45);
+    border-color: rgba(0, 229, 255, 0.45);
 }
 
 .player-name-input::placeholder {
@@ -1325,12 +1397,12 @@ canvas {
 
 .player-list-item:hover {
     background: rgba(255, 255, 255, 0.07);
-    border-color: rgba(124, 231, 255, 0.3);
+    border-color: rgba(0, 229, 255, 0.3);
 }
 
 .player-list-item.active {
-    background: rgba(33, 110, 255, 0.15);
-    border-color: rgba(124, 231, 255, 0.35);
+    background: rgba(0, 180, 220, 0.12);
+    border-color: rgba(0, 229, 255, 0.35);
 }
 
 .player-list-item__name {
@@ -1342,8 +1414,8 @@ canvas {
 .player-list-item__tag {
     padding: 4px 10px;
     border-radius: 8px;
-    background: rgba(124, 231, 255, 0.1);
-    border: 1px solid rgba(124, 231, 255, 0.2);
+    background: rgba(0, 229, 255, 0.1);
+    border: 1px solid rgba(0, 229, 255, 0.2);
     color: var(--cyan);
     font-size: 12px;
     font-weight: 700;
@@ -1371,8 +1443,8 @@ canvas {
 }
 
 .leaderboard-item--top1 {
-    background: rgba(255, 215, 0, 0.08);
-    border-color: rgba(255, 215, 0, 0.3);
+    background: rgba(201, 164, 75, 0.08);
+    border-color: rgba(201, 164, 75, 0.3);
 }
 
 .leaderboard-item--top2 {

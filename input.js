@@ -50,11 +50,7 @@ const Input = (() => {
 
     function isDown(code) { return !!keys[code]; }
     function wasPressed(code) { 
-        if (justPressed.has(code)) {
-            justPressed.delete(code);
-            return true;
-        }
-        return false;
+        return justPressed.has(code);
     }
     function getMouse() { return { x: mouseX, y: mouseY }; }
     function isMouseDown() { return mouseDown; }

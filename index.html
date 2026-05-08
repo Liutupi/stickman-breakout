@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -8,8 +8,8 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="boot-screen" class="boot-screen" onclick="Game.bootStart()">
-        <img class="boot-screen__image" src="果沐兄弟.png" alt="果沐兄弟">
+    <div id="boot-screen" class="boot-screen hidden" aria-hidden="true" onclick="Game.bootStart()">
+        <img class="boot-screen__image" src="assets/title-key-art-guomu.png" alt="果沐兄弟火柴人突围行动启动封面">
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -24,7 +24,7 @@
     <div id="ui-layer">
         <div id="start-menu" class="menu menu--title">
             <div class="title-scene">
-                <img class="title-scene__image" src="果沐兄弟.png" alt="果沐兄弟启动封面">
+                <img class="title-scene__image" src="assets/title-key-art-guomu.png" alt="果沐兄弟火柴人突围行动主菜单封面">
                 <div class="title-scene__shade"></div>
                 <div class="title-scene__content">
                     <div class="studio-signature">
@@ -305,6 +305,6 @@
     <script src="entities.js"></script>
     <script src="levels.js"></script>
     <script src="renderer.js"></script>
-    <script src="game.js"></script>
+    <script src="game.js?v=2"></script>
 </body>
 </html>

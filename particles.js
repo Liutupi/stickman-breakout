@@ -88,12 +88,14 @@ class FloatingText {
         ctx.globalAlpha = alpha;
         ctx.translate(sx, sy);
         ctx.scale(this.scale, this.scale);
-        ctx.font = `bold 16px sans-serif`;
+        ctx.font = `900 17px "Microsoft YaHei", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 10;
         // 描边
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(0,0,0,0.82)';
+        ctx.lineWidth = 4;
         ctx.strokeText(this.text, 0, 0);
         // 填充
         ctx.fillStyle = this.color;
@@ -106,8 +108,11 @@ const Particles = (() => {
     let particles = [];
     let floatingTexts = [];
 
+    const MAX_PARTICLES = 500;
+
     function spawn(x, y, count, color, speed, life, size) {
         for (let i = 0; i < count; i++) {
+            if (particles.length >= MAX_PARTICLES) return;
             const angle = Utils.rand(0, Math.PI * 2);
             const spd = Utils.rand(speed * 0.3, speed);
             const p = new Particle(
@@ -123,6 +128,7 @@ const Particles = (() => {
     function spawnBlood(x, y, count) {
         const colors = ['#e74c3c', '#c0392b', '#ff4444', '#aa0000'];
         for (let i = 0; i < count; i++) {
+            if (particles.length >= MAX_PARTICLES) return;
             const angle = Utils.rand(0, Math.PI * 2);
             const spd = Utils.rand(80, 250);
             const p = new Particle(
@@ -140,6 +146,7 @@ const Particles = (() => {
     function spawnSparks(x, y, count) {
         const colors = ['#f1c40f', '#ff9500', '#fff', '#ffcc00'];
         for (let i = 0; i < count; i++) {
+            if (particles.length >= MAX_PARTICLES) return;
             const angle = Utils.rand(0, Math.PI * 2);
             const spd = Utils.rand(100, 300);
             const p = new Particle(
@@ -189,27 +196,45 @@ const Particles = (() => {
         }
     }
 
-    function spawnHitImpact(x, y) {
-        // 冲击波环
-        for (let i = 0; i < 12; i++) {
-            const angle = (Math.PI * 2 * i) / 12;
-            const spd = Utils.rand(100, 200);
+    function spawnHitImpact(x, y, angle) {
+        // 方向性火花 — 主要朝命中方向扇形喷溅
+        const baseAngle = angle !== undefined ? angle : -Math.PI / 2;
+        for (let i = 0; i < 16; i++) {
+            const spread = (Math.random() - 0.5) * Math.PI * 0.8; // 扇形范围
+            const a = baseAngle + spread;
+            const spd = Utils.rand(100, 280);
             const p = new Particle(
                 x, y,
-                Math.cos(angle) * spd,
-                Math.sin(angle) * spd,
-                '#ffffff', Utils.rand(0.1, 0.25), Utils.rand(1, 2.5)
+                Math.cos(a) * spd,
+                Math.sin(a) * spd,
+                '#ffffff', Utils.rand(0.08, 0.22), Utils.rand(1, 3)
             );
             p.type = 'spark';
             particles.push(p);
         }
-        spawnSparks(x, y, 6);
+        // 金色火花点缀
+        for (let i = 0; i < 6; i++) {
+            const a = baseAngle + (Math.random() - 0.5) * Math.PI * 0.6;
+            const spd = Utils.rand(50, 180);
+            const p = new Particle(
+                x, y,
+                Math.cos(a) * spd,
+                Math.sin(a) * spd,
+                '#f1c40f', Utils.rand(0.1, 0.25), Utils.rand(1.5, 3.5)
+            );
+            p.type = 'spark';
+            particles.push(p);
+        }
     }
 
     function spawnDamageNum(x, y, amount) {
         const colors = ['#ff4444', '#ff6600', '#f1c40f', '#ff0000'];
-        const color = amount > 25 ? colors[3] : amount > 15 ? colors[0] : amount > 8 ? colors[1] : colors[2];
-        floatingTexts.push(new FloatingText(x, y - Utils.rand(10, 25), Math.round(amount).toString(), color));
+        const color = amount > 30 ? colors[3] : amount > 15 ? colors[0] : amount > 8 ? colors[1] : colors[2];
+        const ft = new FloatingText(x, y - Utils.rand(10, 30), Math.round(amount).toString(), color);
+        // 伤害越大缩放越大
+        if (amount > 20) ft.targetScale = 1.6;
+        else if (amount > 10) ft.targetScale = 1.3;
+        floatingTexts.push(ft);
     }
 
     function spawnCritNum(x, y, amount) {
@@ -230,11 +255,17 @@ const Particles = (() => {
     function update(dt) {
         for (let i = particles.length - 1; i >= 0; i--) {
             particles[i].update(dt);
-            if (particles[i].dead) particles.splice(i, 1);
+            if (particles[i].dead) {
+                const last = particles.pop();
+                if (i < particles.length) particles[i] = last;
+            }
         }
         for (let i = floatingTexts.length - 1; i >= 0; i--) {
             floatingTexts[i].update(dt);
-            if (floatingTexts[i].dead) floatingTexts.splice(i, 1);
+            if (floatingTexts[i].dead) {
+                const last = floatingTexts.pop();
+                if (i < floatingTexts.length) floatingTexts[i] = last;
+            }
         }
     }
 

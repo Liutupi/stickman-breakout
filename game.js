@@ -1,4 +1,4 @@
-// ==================== 涓绘父鎴忛€昏緫 ====================
+// ==================== 主游戏逻辑 ====================
 const Game = (() => {
     let state = 'menu'; // menu, playing, paused, dead, levelComplete, victory
     let player = null;
@@ -21,7 +21,7 @@ const Game = (() => {
     let transitionToken = 0;
     let ui = null;
     let menus = null;
-    let bootScreenDismissed = false;
+    let bootScreenDismissed = true;
     let currentDifficulty = 'normal';
     let pendingLevelIndex = null;
     let currentPlayerName = '匿名特工';
@@ -292,7 +292,7 @@ const Game = (() => {
 
     function bindBootScreen() {
         ensureUIRefs();
-        if (!ui.bootScreen) return;
+        if (!ui.bootScreen || ui.bootScreen.classList.contains('hidden')) return;
 
         window.addEventListener('keydown', () => {
             bootStart();
@@ -483,7 +483,8 @@ const Game = (() => {
     }
 
     function selectLevel(index) {
-        showDifficultySelect(index);
+        pendingLevelIndex = index;
+        selectDifficulty(currentDifficulty);
     }
 
     function updateHUD() {
@@ -607,18 +608,10 @@ const Game = (() => {
         Renderer.generateBackground(levelData);
         Audio.startAmbient(index);
 
-        if (index === 0) {
-            Audio.playBgm('bgm_level1');
-        } else if (index === 1) {
-            Audio.playBgm('bgm_level2');
-        } else if (index === 2) {
-            Audio.playBgm('bgm_level3');
-        } else if (index === 3) {
-            Audio.playBgm('bgm_level4');
-        } else if (index === 4) {
-            Audio.playBgm('bgm_level5');
-        } else if (index === 5) {
-            Audio.playBgm('bgm_level5'); // 第6关复用第5关BGM
+        // BGM 映射表
+        const bgmMap = ['bgm_level1', 'bgm_level2', 'bgm_level3', 'bgm_level4', 'bgm_level5', 'bgm_level5'];
+        if (bgmMap[index]) {
+            Audio.playBgm(bgmMap[index]);
         } else {
             Audio.stopBgm();
         }
@@ -640,6 +633,11 @@ const Game = (() => {
 
         if (state === 'playing') {
             update(dt);
+        } else if (state === 'paused') {
+            // 暂停状态下按 Escape 恢复游戏
+            if (Input.wasPressed('Escape')) {
+                resume();
+            }
         }
 
         render();
@@ -650,7 +648,7 @@ const Game = (() => {
         // 鏇存柊杈撳叆绯荤粺锛堟寜閿寜浣忔椂闂达級
         Input.update(dt);
 
-        // 绉诲姩骞冲彴鏇存柊
+        // 移动平台更新
         for (const p of levelData.platforms) {
             if (p.moving) {
                 if (p._startX === undefined) {
@@ -673,60 +671,65 @@ const Game = (() => {
             }
         }
 
-        // 鐜╁
+        // 玩家更新
         player.update(dt, levelData.platforms);
 
         // 浣庤閲忓績璺?+ 鍋滄粸璀﹀憡闊虫晥
         Audio.updateLowHealth(dt, player.health / player.maxHealth);
         Audio.updateWarning(dt, player.stagnationTimer);
 
-        // 鐩告満
+        // 相机
         const targetX = player.x - Renderer.width() * 0.35;
-        Utils.camera.x = Utils.lerp(Utils.camera.x, targetX, 0.08);
+        const smoothX = 1 - Math.pow(0.02, dt);
+        Utils.camera.x = Utils.lerp(Utils.camera.x, targetX, smoothX);
         Utils.camera.x = Utils.clamp(Utils.camera.x, levelData.cameraBounds.minX, levelData.cameraBounds.maxX);
         const targetY = player.y - Renderer.height() * 0.55;
-        Utils.camera.y = Utils.lerp(Utils.camera.y, Utils.clamp(targetY, -200, 200), 0.06);
+        const smoothY = 1 - Math.pow(0.03, dt);
+        Utils.camera.y = Utils.lerp(Utils.camera.y, Utils.clamp(targetY, -200, 200), smoothY);
 
-        // 鏁屼汉
+        // 敌人
         for (let i = enemies.length - 1; i >= 0; i--) {
             const alive = enemies[i].update(dt, levelData.platforms, player.x, player.y);
             if (!alive) {
-                if (enemies[i].type === 'kamikaze' && !enemies[i].exploded) {
-                    enemies[i].exploded = true;
-                    Particles.spawnExplosion(enemies[i].x, enemies[i].y - enemies[i].h / 2);
-                    Audio.play('explode');
-                    if (!player.dead) {
-                        const dist = Utils.dist(enemies[i].x, enemies[i].y, player.x, player.y);
-                        if (dist < 120) {
-                            const dmg = dist < 60 ? enemies[i].damage : enemies[i].damage * 0.6;
-                            player.takeDamage(dmg);
+                if (!enemies[i].fellToAbyss) {
+                    if (enemies[i].type === 'kamikaze' && !enemies[i].exploded) {
+                        enemies[i].exploded = true;
+                        Particles.spawnExplosion(enemies[i].x, enemies[i].y - enemies[i].h / 2);
+                        Audio.play('explode');
+                        if (!player.dead) {
+                            const dist = Utils.dist(enemies[i].x, enemies[i].y, player.x, player.y);
+                            if (dist < 120) {
+                                const dmg = dist < 60 ? enemies[i].damage : enemies[i].damage * 0.6;
+                                player.takeDamage(dmg);
+                            }
                         }
+                    } else {
+                        Particles.spawn(
+                            enemies[i].x, enemies[i].y - enemies[i].h / 2,
+                            6, enemies[i].color, 120, 0.4, 3
+                        );
                     }
-                } else {
-                    Particles.spawn(
-                        enemies[i].x, enemies[i].y - enemies[i].h / 2,
-                        6, enemies[i].color, 120, 0.4, 3
-                    );
+                    player.addScore(enemies[i].score);
+                    if (Math.random() < 0.30) {
+                        const types = Object.keys(WeaponData).filter(t => !['pistol', 'grenade', 'molotov', 'health'].includes(t));
+                        drops.push(new WeaponDrop(
+                            enemies[i].x, enemies[i].y - 20,
+                            types[Utils.randInt(0, types.length - 1)]
+                        ));
+                    }
+                    if (Math.random() < 0.15) {
+                        const thrownType = Math.random() < 0.5 ? 'grenade' : 'molotov';
+                        drops.push(new WeaponDrop(enemies[i].x, enemies[i].y - 20, thrownType));
+                    }
+                    if (Math.random() < 0.15) {
+                        drops.push(new WeaponDrop(enemies[i].x, enemies[i].y - 20, 'health'));
+                    }
+                    if (currentLevel >= 3 && Math.random() < 0.12) {
+                        drops.push(new WeaponDrop(enemies[i].x, enemies[i].y - 20, 'shield'));
+                    }
                 }
-                player.addScore(enemies[i].score);
-                if (Math.random() < 0.30) {
-                    const types = Object.keys(WeaponData).filter(t => !['pistol', 'grenade', 'molotov', 'health'].includes(t));
-                    drops.push(new WeaponDrop(
-                        enemies[i].x, enemies[i].y - 20,
-                        types[Utils.randInt(0, types.length - 1)]
-                    ));
-                }
-                if (Math.random() < 0.15) {
-                    const thrownType = Math.random() < 0.5 ? 'grenade' : 'molotov';
-                    drops.push(new WeaponDrop(enemies[i].x, enemies[i].y - 20, thrownType));
-                }
-                if (Math.random() < 0.15) {
-                    drops.push(new WeaponDrop(enemies[i].x, enemies[i].y - 20, 'health'));
-                }
-                if (currentLevel >= 3 && Math.random() < 0.12) {
-                    drops.push(new WeaponDrop(enemies[i].x, enemies[i].y - 20, 'shield'));
-                }
-                enemies.splice(i, 1);
+                const last = enemies.pop();
+                if (i < enemies.length) enemies[i] = last;
             }
         }
 
@@ -767,6 +770,7 @@ const Game = (() => {
                     const dist = Utils.dist(t.x, t.y, player.x, player.y - 25);
                     if (dist < t.radius * 0.7) {
                         if (!player.shieldActive) {
+                            // 燃烧瓶自伤：直接扣血（绕过无敌帧，持续灼烧不中断）
                             player.health -= 10 * dt;
                             if (Math.random() < 0.1) Particles.spawn(player.x, player.y - 25, 1, '#ff6600', 30, 0.3);
                             if (player.health <= 0) {
@@ -793,11 +797,11 @@ const Game = (() => {
                 }
             }
 
-            // 鐢熸垚 Boss
+            // 生成 Boss
             if (bossWarningTimer >= 2) {
                 boss = new Boss(levelData.boss.x, levelData.boss.y, { ...levelData.boss });
                 bossSpawned = true;
-                bossAnnounceTimer = 3; // 鏄剧ず3绉払oss鍑虹幇鎻愮ず
+                bossAnnounceTimer = 3; // 显示3秒Boss出现提示
                 Audio.play('boss');
                 Particles.spawnExplosion(levelData.boss.x, levelData.boss.y - 40);
                 Renderer.shake(8, 0.3);
@@ -811,52 +815,16 @@ const Game = (() => {
                 boss = null;
                 player.addScore(levelData.boss.score);
                 Audio.play('levelup');
-                if (currentLevel === 0) {
+                // Boss 击败音效映射表
+                const BOSS_SOUNDS = {
+                    0: 'bossExplode', 1: 'bossLaugh', 2: 'bossLuck',
+                    3: 'bossRespect', 4: 'bossBad', 5: 'bossSurrender', 6: 'bossSurrender'
+                };
+                const bossSound = BOSS_SOUNDS[currentLevel];
+                if (bossSound) {
                     Audio.stopBgm();
                     Audio.setMasterGainBoost(3);
-                    Audio.playMp3WithCallback('bossExplode', 1, function() {
-                        Audio.restoreMasterGain();
-                        schedulePostBossTransition();
-                    });
-                } else if (currentLevel === 1) {
-                    Audio.stopBgm();
-                    Audio.setMasterGainBoost(3);
-                    Audio.playMp3WithCallback('bossLaugh', 1, function() {
-                        Audio.restoreMasterGain();
-                        schedulePostBossTransition();
-                    });
-                } else if (currentLevel === 2) {
-                    Audio.stopBgm();
-                    Audio.setMasterGainBoost(3);
-                    Audio.playMp3WithCallback('bossLuck', 1, function() {
-                        Audio.restoreMasterGain();
-                        schedulePostBossTransition();
-                    });
-                } else if (currentLevel === 3) {
-                    Audio.stopBgm();
-                    Audio.setMasterGainBoost(3);
-                    Audio.playMp3WithCallback('bossRespect', 1, function() {
-                        Audio.restoreMasterGain();
-                        schedulePostBossTransition();
-                    });
-                } else if (currentLevel === 4) {
-                    Audio.stopBgm();
-                    Audio.setMasterGainBoost(3);
-                    Audio.playMp3WithCallback('bossBad', 1, function() {
-                        Audio.restoreMasterGain();
-                        schedulePostBossTransition();
-                    });
-                } else if (currentLevel === 5) {
-                    Audio.stopBgm();
-                    Audio.setMasterGainBoost(3);
-                    Audio.playMp3WithCallback('bossSurrender', 1, function() {
-                        Audio.restoreMasterGain();
-                        schedulePostBossTransition();
-                    });
-                } else if (currentLevel === 6) {
-                    Audio.stopBgm();
-                    Audio.setMasterGainBoost(3);
-                    Audio.playMp3WithCallback('bossSurrender', 1, function() {
+                    Audio.playMp3WithCallback(bossSound, 1, function() {
                         Audio.restoreMasterGain();
                         schedulePostBossTransition();
                     });
@@ -866,18 +834,27 @@ const Game = (() => {
             }
         }
 
-        // 姝﹀櫒鎺夎惤鏇存柊
+        // 武器掉落更新
         for (let i = drops.length - 1; i >= 0; i--) {
+            const distToPlayer = player ? Utils.dist(player.x, player.y, drops[i].x, drops[i].y) : Infinity;
+            drops[i].nearPlayer = distToPlayer < 110;
+            drops[i].pickupReady = distToPlayer < 65;
+            drops[i].pickupVector = player
+                ? { x: player.x - drops[i].x, y: player.y - drops[i].y }
+                : { x: 0, y: 0 };
             drops[i].update(dt);
-            if (drops[i].dead) drops.splice(i, 1);
+            if (drops[i].dead) {
+                const last = drops.pop();
+                if (i < drops.length) drops[i] = last;
+            }
         }
 
-        // 鎷惧彇
+        // 拾取
         if (Input.wasPressed('KeyE')) {
             player.tryPickup(drops);
         }
 
-        // 鍗囩骇
+        // 升级
         if (Input.wasPressed('KeyR')) {
             if (player.upgradeWeapon()) {
                 Particles.spawn(player.x, player.y - 30, 15, '#f1c40f', 200, 0.6);
@@ -889,13 +866,13 @@ const Game = (() => {
             const b = player.bullets[i];
             let hit = false;
 
-            // vs 鏁屼汉
+            // vs 敌人
             for (const e of enemies) {
                 if (e.dead) continue;
                 const er = e.getRect();
                 if (b.x > er.x && b.x < er.x + er.w && b.y > er.y && b.y < er.y + er.h) {
                     e.takeDamage(b.damage);
-                    Particles.spawnHitImpact(b.x, b.y);
+                    Particles.spawnHitImpact(b.x, b.y, Math.atan2(b.vy, b.vx));
                     Particles.spawnDamageNum(b.x, b.y - er.h / 2, b.damage);
                     if (b.explosion) {
                         Particles.spawnExplosion(b.x, b.y);
@@ -912,7 +889,7 @@ const Game = (() => {
                 const br = boss.getRect();
                 if (b.x > br.x && b.x < br.x + br.w && b.y > br.y && b.y < br.y + br.h) {
                     boss.takeDamage(b.damage);
-                    Particles.spawnHitImpact(b.x, b.y);
+                    Particles.spawnHitImpact(b.x, b.y, Math.atan2(b.vy, b.vx));
                     Particles.spawnDamageNum(b.x, b.y - 15, b.damage);
                     if (b.explosion) {
                         Particles.spawnExplosion(b.x, b.y);
@@ -924,7 +901,8 @@ const Game = (() => {
 
             if (hit) {
                 Particles.spawnSparks(b.x, b.y, 4);
-                player.bullets.splice(i, 1);
+                const last = player.bullets.pop();
+                if (i < player.bullets.length) player.bullets[i] = last;
             }
         }
 
@@ -938,7 +916,8 @@ const Game = (() => {
                     if (!mb.homing) continue;
                     const dx = b.x - mb.x, dy = b.y - mb.y;
                     if (dx * dx + dy * dy < (b.size + mb.size + 4) * (b.size + mb.size + 4)) {
-                        e.bullets.splice(j, 1);
+                        const last = e.bullets.pop();
+                        if (j < e.bullets.length) e.bullets[j] = last;
                         missileHit = true;
                         Particles.spawnExplosion(mb.x, mb.y);
                         player.addScore(10);
@@ -952,7 +931,7 @@ const Game = (() => {
             }
         }
 
-        // 纰版挒妫€娴? 鏁屼汉瀛愬脊 vs 鐜╁
+        // 碰撞检测：敌人子弹 vs 玩家
         if (!player.dead) {
             const playerRect = player.getRect();
 
@@ -992,7 +971,7 @@ const Game = (() => {
             ui.deathInfo.innerHTML = `关卡: ${levelData.name}<br>特工: ${currentPlayerName} · ${diffLabel}<br>基础得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">总积分: ${final.total}</strong>`;
         }
 
-        // 鏆傚仠
+        // 暂停
         if (Input.wasPressed('Escape')) {
             if (state === 'playing') {
                 state = 'paused';
@@ -1001,7 +980,7 @@ const Game = (() => {
             }
         }
 
-        // 绮掑瓙
+        // 粒子更新
         Particles.update(dt);
 
         // Boss 鍑虹幇鍏憡璁℃椂
@@ -1013,7 +992,7 @@ const Game = (() => {
         updateHUD();
     }
 
-    // ---- 娓叉煋 ----
+    // ---- 渲染 ----
     function render() {
         ctx = Renderer.ctx();
         if (!ctx) return;
@@ -1174,7 +1153,8 @@ const Game = (() => {
 
     // ---- 鍏紑鏂规硶 ----
     function start() {
-        showDifficultySelect(0);
+        pendingLevelIndex = 0;
+        selectDifficulty(currentDifficulty);
     }
 
     function resume() {
@@ -1191,13 +1171,8 @@ const Game = (() => {
         state = 'playing';
     }
 
-    function restartLevel() {
-        hideAllMenus();
-        carryOverScore = 0;
-        gameTime = 0;
-        loadLevel(currentLevel);
-        state = 'playing';
-    }
+    // restartLevel 与 restart 逻辑完全一致，作为别名保留兼容
+    const restartLevel = restart;
 
     function nextLevel() {
         hideAllMenus();
@@ -1245,6 +1220,11 @@ const Game = (() => {
         Audio.stopAmbient();
         Audio.stopBgm();
         state = 'menu';
+        levelData = null; // 清理渲染状态，避免菜单状态下无谓渲染
+        player = null;
+        enemies = [];
+        boss = null;
+        drops = [];
         hideAllMenus();
         showMenu('start-menu');
         ui.hud.classList.add('hidden');

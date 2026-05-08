@@ -314,6 +314,9 @@ class WeaponDrop {
         this.dead = false;
         this.width = 40;
         this.height = 24;
+        this.nearPlayer = false;
+        this.pickupReady = false;
+        this.pickupVector = { x: 0, y: 0 };
     }
 
     update(dt) {
@@ -326,15 +329,80 @@ class WeaponDrop {
         const bob = Math.sin(this.bobOffset) * 4;
         const sx = this.x - Utils.camera.x;
         const sy = this.y + bob - Utils.camera.y;
+        const focus = this.pickupReady ? 1 : this.nearPlayer ? 0.55 : 0;
+        const pulse = Math.sin(this.bobOffset * 2.2) * 0.5 + 0.5;
+
+        // 剩余时间闪烁（即将消失时整体透明度变化）
+        if (this.life < 4) {
+            ctx.globalAlpha = 0.5 + Math.sin(this.life * 10) * 0.5;
+        }
+
+        if (focus > 0) {
+            const px = sx + this.pickupVector.x;
+            const py = sy + this.pickupVector.y;
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            ctx.strokeStyle = this.data.color + Math.floor((0.16 + focus * 0.18) * 255).toString(16).padStart(2, '0');
+            ctx.lineWidth = this.pickupReady ? 2 : 1;
+            ctx.setLineDash([8, 10]);
+            ctx.lineDashOffset = -this.bobOffset * 16;
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(px, py - 18);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.beginPath();
+            ctx.ellipse(sx, sy + 17, 36 + pulse * 7, 10 + pulse * 2, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = this.data.color + Math.floor((0.34 + focus * 0.28) * 255).toString(16).padStart(2, '0');
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = this.data.color + Math.floor((0.08 + focus * 0.12) * 255).toString(16).padStart(2, '0');
+            ctx.beginPath();
+            ctx.ellipse(sx, sy + 17, 42 + pulse * 8, 12 + pulse * 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        const beamAlpha = 0.18 + Math.sin(this.bobOffset * 1.7) * 0.05;
+        const beam = ctx.createLinearGradient(sx, sy - 34, sx, sy + 18);
+        beam.addColorStop(0, 'transparent');
+        beam.addColorStop(0.45, this.data.color + Math.floor(beamAlpha * 255).toString(16).padStart(2, '0'));
+        beam.addColorStop(1, 'transparent');
+        ctx.fillStyle = beam;
+        ctx.fillRect(sx - 1.5, sy - 34, 3, 52);
 
         // 发光底座
         ctx.beginPath();
-        ctx.ellipse(sx, sy + 12, 22, 6, 0, 0, Math.PI * 2);
-        const g = ctx.createRadialGradient(sx, sy + 12, 0, sx, sy + 12, 22);
-        g.addColorStop(0, this.data.color + '50');
+        ctx.ellipse(sx, sy + 17, 27, 7, 0, 0, Math.PI * 2);
+        const g = ctx.createRadialGradient(sx, sy + 17, 0, sx, sy + 17, 27);
+        g.addColorStop(0, this.data.color + '66');
         g.addColorStop(1, 'transparent');
         ctx.fillStyle = g;
         ctx.fill();
+
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.shadowColor = this.data.color;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = 'rgba(5, 10, 18, 0.88)';
+        this.roundRect(ctx, -24, -18, 48, 32, 8);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = this.data.color;
+        ctx.lineWidth = focus > 0 ? 2.2 : 1.5;
+        this.roundRect(ctx, -24, -18, 48, 32, 8);
+        ctx.stroke();
+        if (focus > 0) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.58)';
+            ctx.lineWidth = 1;
+            this.roundRect(ctx, -19, -13, 38, 22, 6);
+            ctx.stroke();
+        }
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.fillRect(-18, -15, 36, 2);
+        ctx.restore();
 
         // 武器图标
         ctx.save();
@@ -343,15 +411,37 @@ class WeaponDrop {
         ctx.restore();
 
         // 名称标签
+        const labelW = Math.max(42, this.data.name.length * 12);
+        ctx.fillStyle = 'rgba(3, 7, 14, 0.76)';
+        this.roundRect(ctx, sx - labelW / 2, sy + 20, labelW, 17, 8);
+        ctx.fill();
+        ctx.strokeStyle = this.data.color + '88';
+        ctx.lineWidth = 1;
+        this.roundRect(ctx, sx - labelW / 2, sy + 20, labelW, 17, 8);
+        ctx.stroke();
         ctx.fillStyle = this.data.color;
         ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(this.data.name, sx, sy + 26);
+        ctx.fillText(this.data.name, sx, sy + 32);
 
-        // 剩余时间闪烁
-        if (this.life < 4) {
-            ctx.globalAlpha = 0.5 + Math.sin(this.life * 10) * 0.5;
+        if (this.pickupReady) {
+            ctx.save();
+            ctx.translate(sx, sy - 34);
+            ctx.fillStyle = 'rgba(3, 7, 14, 0.86)';
+            this.roundRect(ctx, -17, -11, 34, 22, 7);
+            ctx.fill();
+            ctx.strokeStyle = this.data.color;
+            ctx.lineWidth = 1.5;
+            this.roundRect(ctx, -17, -11, 34, 22, 7);
+            ctx.stroke();
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 13px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('E', 0, 1);
+            ctx.restore();
         }
+
         ctx.globalAlpha = 1;
     }
 
@@ -487,6 +577,20 @@ class WeaponDrop {
                 ctx.fill();
                 break;
         }
+    }
+
+    roundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
     }
 
     getRect() {
