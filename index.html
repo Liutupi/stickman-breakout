@@ -84,6 +84,19 @@
                     <div class="control-item"><span class="key">Esc</span><span>暂停游戏</span></div>
                 </div>
 
+                <div class="controls-mobile-hint">
+                    <h3>📱 手机端操作</h3>
+                    <div class="controls-grid">
+                        <div class="control-item"><span class="key">左下角摇杆</span><span>左右移动</span></div>
+                        <div class="control-item"><span class="key">跳 / 蹲 / 冲</span><span>跳跃、下蹲、冲刺</span></div>
+                        <div class="control-item"><span class="key">右侧区域</span><span>拖动瞄准，按住射击</span></div>
+                        <div class="control-item"><span class="key">拾</span><span>拾取武器与补给</span></div>
+                        <div class="control-item"><span class="key">投</span><span>按住瞄准，松手投掷</span></div>
+                        <div class="control-item"><span class="key">切</span><span>循环切换武器</span></div>
+                        <div class="control-item"><span class="key">⏸</span><span>暂停游戏</span></div>
+                    </div>
+                </div>
+
                 <div class="tips-stack">
                     <p class="tip-line tip-blue">空中再次跳跃可完成二段位移，适合越平台与躲弹幕。</p>
                     <p class="tip-line tip-green">按住 Q 会显示投掷轨迹与爆炸范围，适合预判落点。</p>
@@ -295,6 +308,27 @@
 
             <div id="pickup-hint" class="hidden">按 E 拾取装备</div>
         </div>
+    </div>
+
+    <!-- 移动端虚拟控制 -->
+    <div id="mobile-controls" class="mobile-controls">
+        <div id="stick-area" class="stick-area">
+            <div id="stick-knob" class="stick-knob"></div>
+        </div>
+        <div class="mobile-actions mobile-actions-left">
+            <button class="m-btn m-btn-jump" id="m-btn-jump">跳</button>
+            <button class="m-btn m-btn-crouch" id="m-btn-crouch">蹲</button>
+            <button class="m-btn m-btn-dash" id="m-btn-dash">冲</button>
+        </div>
+        <div id="aim-area" class="aim-area">
+            <div class="aim-hint">拖动瞄准<br>按住射击</div>
+        </div>
+        <div class="mobile-actions mobile-actions-right">
+            <button class="m-btn m-btn-pickup" id="m-btn-pickup">拾</button>
+            <button class="m-btn m-btn-throw" id="m-btn-throw">投</button>
+            <button class="m-btn m-btn-switch" id="m-btn-switch">切</button>
+        </div>
+        <button class="m-btn m-btn-pause" id="m-btn-pause">⏸</button>
     </div>
 
     <script src="utils.js"></script>

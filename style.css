@@ -1511,3 +1511,270 @@ canvas {
         flex-direction: column;
     }
 }
+/* ==================== 移动端虚拟控制 ==================== */
+.mobile-controls {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    pointer-events: none;
+    display: none;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.touch-device .mobile-controls {
+    display: block;
+}
+
+/* 菜单打开时隐藏虚拟控制 */
+.touch-device .menu:not(.hidden) ~ .mobile-controls,
+.touch-device #start-menu:not(.hidden) ~ .mobile-controls {
+    display: none;
+}
+
+/* 虚拟摇杆 */
+.stick-area {
+    position: absolute;
+    left: 24px;
+    bottom: 24px;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(4px);
+    pointer-events: auto;
+    touch-action: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.stick-knob {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(0, 229, 255, 0.25);
+    border: 2px solid rgba(0, 229, 255, 0.5);
+    box-shadow: 0 0 16px rgba(0, 229, 255, 0.25);
+    pointer-events: none;
+    transition: transform 0.05s linear;
+}
+
+/* 左侧动作按钮 */
+.mobile-actions {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: auto;
+}
+
+.mobile-actions-left {
+    left: 156px;
+    bottom: 24px;
+}
+
+.mobile-actions-right {
+    right: 24px;
+    bottom: 156px;
+}
+
+/* 瞄准射击区 */
+.aim-area {
+    position: absolute;
+    right: 24px;
+    bottom: 24px;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: rgba(255, 51, 95, 0.08);
+    border: 1px solid rgba(255, 51, 95, 0.2);
+    backdrop-filter: blur(4px);
+    pointer-events: auto;
+    touch-action: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.aim-hint {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.5;
+    pointer-events: none;
+}
+
+/* 功能按钮 */
+.m-btn {
+    appearance: none;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    pointer-events: auto;
+    touch-action: none;
+    backdrop-filter: blur(4px);
+    transition: background 0.1s ease, transform 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.m-btn:active {
+    background: rgba(0, 229, 255, 0.25);
+    border-color: rgba(0, 229, 255, 0.5);
+    transform: scale(0.92);
+}
+
+.m-btn-jump {
+    background: rgba(0, 229, 255, 0.12);
+    border-color: rgba(0, 229, 255, 0.3);
+}
+
+.m-btn-crouch {
+    background: rgba(255, 145, 0, 0.12);
+    border-color: rgba(255, 145, 0, 0.3);
+}
+
+.m-btn-dash {
+    background: rgba(101, 242, 177, 0.12);
+    border-color: rgba(101, 242, 177, 0.3);
+}
+
+.m-btn-pickup {
+    background: rgba(201, 164, 75, 0.12);
+    border-color: rgba(201, 164, 75, 0.3);
+}
+
+.m-btn-throw {
+    background: rgba(255, 51, 95, 0.12);
+    border-color: rgba(255, 51, 95, 0.3);
+}
+
+.m-btn-switch {
+    background: rgba(155, 89, 182, 0.12);
+    border-color: rgba(155, 89, 182, 0.3);
+}
+
+.m-btn-pause {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+/* 手机端操作说明 */
+.controls-mobile-hint {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.controls-mobile-hint h3 {
+    color: var(--cyan);
+    font-size: 15px;
+    font-weight: 800;
+    margin-bottom: 12px;
+}
+
+/* 小屏幕移动端适配 */
+@media (max-width: 420px) {
+    .stick-area {
+        left: 12px;
+        bottom: 12px;
+        width: 100px;
+        height: 100px;
+    }
+
+    .stick-knob {
+        width: 40px;
+        height: 40px;
+    }
+
+    .mobile-actions-left {
+        left: 124px;
+        bottom: 12px;
+    }
+
+    .aim-area {
+        right: 12px;
+        bottom: 12px;
+        width: 120px;
+        height: 120px;
+    }
+
+    .mobile-actions-right {
+        right: 12px;
+        bottom: 136px;
+    }
+
+    .m-btn {
+        width: 46px;
+        height: 46px;
+        font-size: 13px;
+    }
+
+    .m-btn-pause {
+        top: 10px;
+        right: 10px;
+        width: 40px;
+        height: 40px;
+    }
+}
+
+/* 横屏手机优化 */
+@media (max-height: 420px) and (orientation: landscape) {
+    .stick-area {
+        left: 12px;
+        bottom: 8px;
+        width: 90px;
+        height: 90px;
+    }
+
+    .stick-knob {
+        width: 36px;
+        height: 36px;
+    }
+
+    .mobile-actions-left {
+        left: 110px;
+        bottom: 8px;
+        flex-direction: row;
+        gap: 8px;
+    }
+
+    .aim-area {
+        right: 12px;
+        bottom: 8px;
+        width: 110px;
+        height: 110px;
+    }
+
+    .mobile-actions-right {
+        right: 12px;
+        bottom: 8px;
+        flex-direction: row;
+        gap: 8px;
+        align-items: flex-end;
+        justify-content: flex-end;
+    }
+
+    .m-btn {
+        width: 42px;
+        height: 42px;
+        font-size: 12px;
+    }
+}

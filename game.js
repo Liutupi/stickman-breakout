@@ -105,6 +105,7 @@ const Game = (() => {
             victoryInfo: $('victory-info'),
             deathInfo: $('death-info'),
             weaponSlots,
+            mobileControls: $('mobile-controls'),
         };
 
         return ui;
@@ -346,11 +347,13 @@ const Game = (() => {
         const menuList = menus || document.querySelectorAll('.menu');
         menuList.forEach(menu => menu.classList.add('hidden'));
         if (id) $(id).classList.remove('hidden');
+        if (ui && ui.mobileControls) ui.mobileControls.classList.add('hidden');
     }
 
     function hideAllMenus() {
         const menuList = menus || document.querySelectorAll('.menu');
         menuList.forEach(menu => menu.classList.add('hidden'));
+        if (ui && ui.mobileControls) ui.mobileControls.classList.remove('hidden');
     }
 
     function showLevelSelect() {
