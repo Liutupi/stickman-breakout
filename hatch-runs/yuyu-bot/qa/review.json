@@ -1,0 +1,962 @@
+{
+  "ok": true,
+  "frames_root": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames",
+  "errors": [],
+  "warnings": [],
+  "rows": [
+    {
+      "state": "idle",
+      "expected_frames": 6,
+      "actual_frames": 6,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\idle\\00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 19090,
+          "bbox": [
+            34,
+            5,
+            158,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 240
+        },
+        {
+          "index": 1,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\idle\\01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 19075,
+          "bbox": [
+            33,
+            5,
+            158,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 219
+        },
+        {
+          "index": 2,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\idle\\02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18940,
+          "bbox": [
+            34,
+            5,
+            158,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 183
+        },
+        {
+          "index": 3,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\idle\\03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18823,
+          "bbox": [
+            34,
+            5,
+            157,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 205
+        },
+        {
+          "index": 4,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\idle\\04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18739,
+          "bbox": [
+            34,
+            5,
+            157,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 184
+        },
+        {
+          "index": 5,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\idle\\05.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18718,
+          "bbox": [
+            34,
+            5,
+            157,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 147
+        }
+      ]
+    },
+    {
+      "state": "running-right",
+      "expected_frames": 8,
+      "actual_frames": 8,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running-right\\00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18343,
+          "bbox": [
+            33,
+            5,
+            159,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 308
+        },
+        {
+          "index": 1,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running-right\\01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18264,
+          "bbox": [
+            36,
+            5,
+            155,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 357
+        },
+        {
+          "index": 2,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running-right\\02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18067,
+          "bbox": [
+            37,
+            5,
+            155,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 398
+        },
+        {
+          "index": 3,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running-right\\03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18925,
+          "bbox": [
+            28,
+            5,
+            163,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 370
+        },
+        {
+          "index": 4,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running-right\\04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 17390,
+          "bbox": [
+            37,
+            5,
+            155,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 257
+        },
+        {
+          "index": 5,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running-right\\05.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18253,
+          "bbox": [
+            36,
+            5,
+            155,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 389
+        },
+        {
+          "index": 6,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running-right\\06.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18509,
+          "bbox": [
+            32,
+            5,
+            160,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 316
+        },
+        {
+          "index": 7,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running-right\\07.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18749,
+          "bbox": [
+            35,
+            5,
+            156,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 288
+        }
+      ]
+    },
+    {
+      "state": "running-left",
+      "expected_frames": 8,
+      "actual_frames": 8,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running-left\\00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 17626,
+          "bbox": [
+            37,
+            5,
+            155,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 399
+        },
+        {
+          "index": 1,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running-left\\01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 17518,
+          "bbox": [
+            38,
+            5,
+            153,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 408
+        },
+        {
+          "index": 2,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running-left\\02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18167,
+          "bbox": [
+            37,
+            5,
+            155,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 357
+        },
+        {
+          "index": 3,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running-left\\03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 17892,
+          "bbox": [
+            37,
+            5,
+            155,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 400
+        },
+        {
+          "index": 4,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running-left\\04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18710,
+          "bbox": [
+            30,
+            5,
+            161,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 412
+        },
+        {
+          "index": 5,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running-left\\05.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18211,
+          "bbox": [
+            37,
+            5,
+            155,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 320
+        },
+        {
+          "index": 6,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running-left\\06.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18327,
+          "bbox": [
+            35,
+            5,
+            157,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 319
+        },
+        {
+          "index": 7,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running-left\\07.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 17879,
+          "bbox": [
+            37,
+            5,
+            155,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 381
+        }
+      ]
+    },
+    {
+      "state": "waving",
+      "expected_frames": 4,
+      "actual_frames": 4,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\waving\\00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 19624,
+          "bbox": [
+            26,
+            5,
+            166,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 137
+        },
+        {
+          "index": 1,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\waving\\01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 19937,
+          "bbox": [
+            21,
+            5,
+            170,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 143
+        },
+        {
+          "index": 2,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\waving\\02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 19957,
+          "bbox": [
+            23,
+            5,
+            169,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 98
+        },
+        {
+          "index": 3,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\waving\\03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 19181,
+          "bbox": [
+            34,
+            5,
+            157,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 122
+        }
+      ]
+    },
+    {
+      "state": "jumping",
+      "expected_frames": 5,
+      "actual_frames": 5,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\jumping\\00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 24083,
+          "bbox": [
+            21,
+            5,
+            170,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 220
+        },
+        {
+          "index": 1,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\jumping\\01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 21176,
+          "bbox": [
+            28,
+            5,
+            164,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 185
+        },
+        {
+          "index": 2,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\jumping\\02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 20471,
+          "bbox": [
+            29,
+            5,
+            162,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 257
+        },
+        {
+          "index": 3,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\jumping\\03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 19165,
+          "bbox": [
+            32,
+            5,
+            159,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 221
+        },
+        {
+          "index": 4,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\jumping\\04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 24295,
+          "bbox": [
+            21,
+            5,
+            171,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 294
+        }
+      ]
+    },
+    {
+      "state": "failed",
+      "expected_frames": 8,
+      "actual_frames": 8,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\failed\\00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 20125,
+          "bbox": [
+            33,
+            5,
+            159,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 219
+        },
+        {
+          "index": 1,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\failed\\01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18592,
+          "bbox": [
+            30,
+            5,
+            161,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 343
+        },
+        {
+          "index": 2,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\failed\\02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18227,
+          "bbox": [
+            32,
+            5,
+            160,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 340
+        },
+        {
+          "index": 3,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\failed\\03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 21218,
+          "bbox": [
+            28,
+            5,
+            163,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 299
+        },
+        {
+          "index": 4,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\failed\\04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18039,
+          "bbox": [
+            29,
+            5,
+            162,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 353
+        },
+        {
+          "index": 5,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\failed\\05.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 19778,
+          "bbox": [
+            25,
+            5,
+            167,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 336
+        },
+        {
+          "index": 6,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\failed\\06.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 21386,
+          "bbox": [
+            27,
+            5,
+            165,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 292
+        },
+        {
+          "index": 7,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\failed\\07.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 19556,
+          "bbox": [
+            28,
+            5,
+            164,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 334
+        }
+      ]
+    },
+    {
+      "state": "waiting",
+      "expected_frames": 6,
+      "actual_frames": 6,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\waiting\\00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18756,
+          "bbox": [
+            36,
+            5,
+            156,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 161
+        },
+        {
+          "index": 1,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\waiting\\01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18536,
+          "bbox": [
+            37,
+            5,
+            155,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 231
+        },
+        {
+          "index": 2,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\waiting\\02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18909,
+          "bbox": [
+            35,
+            5,
+            156,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 150
+        },
+        {
+          "index": 3,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\waiting\\03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18850,
+          "bbox": [
+            36,
+            5,
+            156,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 214
+        },
+        {
+          "index": 4,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\waiting\\04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18457,
+          "bbox": [
+            37,
+            5,
+            154,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 177
+        },
+        {
+          "index": 5,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\waiting\\05.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18972,
+          "bbox": [
+            35,
+            5,
+            156,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 274
+        }
+      ]
+    },
+    {
+      "state": "running",
+      "expected_frames": 6,
+      "actual_frames": 6,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running\\00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18735,
+          "bbox": [
+            36,
+            5,
+            156,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 233
+        },
+        {
+          "index": 1,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running\\01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18389,
+          "bbox": [
+            36,
+            5,
+            155,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 316
+        },
+        {
+          "index": 2,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running\\02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18642,
+          "bbox": [
+            35,
+            5,
+            156,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 115
+        },
+        {
+          "index": 3,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running\\03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18621,
+          "bbox": [
+            36,
+            5,
+            156,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 206
+        },
+        {
+          "index": 4,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running\\04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18738,
+          "bbox": [
+            35,
+            5,
+            156,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 195
+        },
+        {
+          "index": 5,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\running\\05.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18851,
+          "bbox": [
+            35,
+            5,
+            157,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 225
+        }
+      ]
+    },
+    {
+      "state": "review",
+      "expected_frames": 6,
+      "actual_frames": 6,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\review\\00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 19217,
+          "bbox": [
+            34,
+            5,
+            157,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 212
+        },
+        {
+          "index": 1,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\review\\01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 19164,
+          "bbox": [
+            35,
+            5,
+            156,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 314
+        },
+        {
+          "index": 2,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\review\\02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 20566,
+          "bbox": [
+            30,
+            5,
+            161,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 226
+        },
+        {
+          "index": 3,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\review\\03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 19208,
+          "bbox": [
+            35,
+            5,
+            157,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 229
+        },
+        {
+          "index": 4,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\review\\04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 19438,
+          "bbox": [
+            34,
+            5,
+            157,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 268
+        },
+        {
+          "index": 5,
+          "file": "C:\\Users\\Administrator\\Desktop\\\u706b\u67f4\u4eba\u6e38\u620f\\hatch-runs\\yuyu-bot\\frames\\review\\05.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 19240,
+          "bbox": [
+            34,
+            5,
+            157,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 258
+        }
+      ]
+    }
+  ]
+}

@@ -1501,6 +1501,74 @@ canvas {
     font-size: 14px;
 }
 
+.upgrade-choices {
+    position: relative;
+    z-index: 1;
+    margin: 18px 0;
+}
+
+.upgrade-choice-title {
+    margin-bottom: 10px;
+    color: var(--cyan);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.upgrade-choice-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.upgrade-choice-card {
+    min-height: 118px;
+    padding: 14px;
+    border: 1px solid rgba(124, 231, 255, 0.22);
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(15, 32, 48, 0.92), rgba(8, 15, 28, 0.92));
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.upgrade-choice-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(124, 231, 255, 0.55);
+    background:
+        linear-gradient(180deg, rgba(20, 43, 62, 0.95), rgba(9, 20, 36, 0.95));
+}
+
+.upgrade-choice-card.selected {
+    border-color: rgba(201, 164, 75, 0.75);
+    box-shadow: 0 0 0 1px rgba(201, 164, 75, 0.18), 0 0 24px rgba(201, 164, 75, 0.16);
+}
+
+.upgrade-choice-card strong,
+.upgrade-choice-card span {
+    display: block;
+}
+
+.upgrade-choice-card strong {
+    margin-bottom: 8px;
+    color: #f6d57a;
+    font-size: 15px;
+}
+
+.upgrade-choice-card span {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.menu-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    transform: none;
+}
+
 @media (max-width: 720px) {
     .player-bar {
         flex-wrap: wrap;
@@ -1509,6 +1577,10 @@ canvas {
 
     .player-input-row {
         flex-direction: column;
+    }
+
+    .upgrade-choice-grid {
+        grid-template-columns: 1fr;
     }
 }
 /* ==================== 移动端虚拟控制 ==================== */
