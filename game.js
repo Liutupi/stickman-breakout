@@ -40,7 +40,8 @@ const Game = (() => {
             bossHealthMul: 0.7,
             bossDamageMul: 0.7,
             bossSpeedMul: 0.85,
-            scoreMul: 0.8,
+            baseScoreMul: 0.8,
+            bonusMul: 0.8,
         },
         normal: {
             label: '普通',
@@ -51,7 +52,8 @@ const Game = (() => {
             bossHealthMul: 1.0,
             bossDamageMul: 1.0,
             bossSpeedMul: 1.0,
-            scoreMul: 1.0,
+            baseScoreMul: 1.0,
+            bonusMul: 1.0,
         },
         hard: {
             label: '困难',
@@ -62,7 +64,8 @@ const Game = (() => {
             bossHealthMul: 1.5,
             bossDamageMul: 1.4,
             bossSpeedMul: 1.1,
-            scoreMul: 1.5,
+            baseScoreMul: 1.2,
+            bonusMul: 1.8,
         },
     };
 
@@ -153,14 +156,17 @@ const Game = (() => {
 
     function calculateFinalScore(player, time, levelIndex) {
         const config = DIFFICULTY_CONFIG[currentDifficulty] || DIFFICULTY_CONFIG.normal;
-        const baseScore = player ? player.score : 0;
+        const rawBaseScore = player ? player.score : 0;
         const healthRatio = player ? Math.max(0, player.health / player.maxHealth) : 0;
-        const healthBonus = Math.round(healthRatio * 2000);
-        const timeBonus = Math.max(0, Math.round(3000 - time * 15));
-        const rawTotal = baseScore + healthBonus + timeBonus;
-        const total = Math.round(rawTotal * config.scoreMul);
+        const rawHealthBonus = Math.round(healthRatio * 2000);
+        const rawTimeBonus = Math.max(0, Math.round(3000 - time * 15));
+        const baseScore = Math.round(rawBaseScore * config.baseScoreMul);
+        const healthBonus = Math.round(rawHealthBonus * config.bonusMul);
+        const timeBonus = Math.round(rawTimeBonus * config.bonusMul);
+        const rawTotal = rawBaseScore + rawHealthBonus + rawTimeBonus;
+        const total = baseScore + healthBonus + timeBonus;
         const diffBonus = total - rawTotal;
-        return { total, baseScore, healthBonus, timeBonus, healthRatio, diffBonus, scoreMul: config.scoreMul };
+        return { total, baseScore, healthBonus, timeBonus, healthRatio, diffBonus, baseScoreMul: config.baseScoreMul, bonusMul: config.bonusMul };
     }
 
     function recordScore(levelIndex, finalScoreObj) {
@@ -605,8 +611,7 @@ const Game = (() => {
     }
 
     function selectLevel(index) {
-        pendingLevelIndex = index;
-        selectDifficulty(currentDifficulty);
+        showDifficultySelect(index);
     }
 
     function updateHUD() {
@@ -1181,7 +1186,7 @@ const Game = (() => {
             const final = calculateFinalScore(player, gameTime, currentLevel);
             recordScore(currentLevel, final);
             const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
-            const diffText = final.diffBonus !== 0 ? ` | 难度倍率: ${final.scoreMul}x ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
+            const diffText = final.diffBonus !== 0 ? ` | 难度加成: 基础×${final.baseScoreMul} 奖励×${final.bonusMul} ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
             ui.deathInfo.innerHTML = `关卡: ${levelData.name}<br>特工: ${currentPlayerName} · ${diffLabel}<br>基础得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">总积分: ${final.total}</strong>`;
         }
 
@@ -1367,8 +1372,7 @@ const Game = (() => {
 
     // ---- 鍏紑鏂规硶 ----
     function start() {
-        pendingLevelIndex = 0;
-        selectDifficulty(currentDifficulty);
+        showDifficultySelect(0);
     }
 
     function resume() {
@@ -1408,7 +1412,7 @@ const Game = (() => {
         ui.levelCompleteTitle.textContent = `${levelData.name} 通过!`;
         const final = calculateFinalScore(player, gameTime, currentLevel);
         const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
-        const diffText = final.diffBonus !== 0 ? ` | 难度倍率: ${final.scoreMul}x ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
+        const diffText = final.diffBonus !== 0 ? ` | 难度加成: 基础×${final.baseScoreMul} 奖励×${final.bonusMul} ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
         ui.levelCompleteInfo.innerHTML = `特工: ${currentPlayerName} · ${diffLabel}<br>当前累计得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">当前总积分: ${final.total}</strong><br><span style="color:var(--muted);font-size:12px">进入下一关继续累计分数...</span>`;
         Audio.playMp3('levelComplete');
         if (currentLevel >= Levels.length - 1) {
@@ -1428,7 +1432,7 @@ const Game = (() => {
         const final = calculateFinalScore(player, gameTime, currentLevel);
         recordScore(currentLevel, final);
         const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
-        const diffText = final.diffBonus !== 0 ? ` | 难度倍率: ${final.scoreMul}x ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
+        const diffText = final.diffBonus !== 0 ? ` | 难度加成: 基础×${final.baseScoreMul} 奖励×${final.bonusMul} ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
         ui.victoryInfo.innerHTML = `特工: ${currentPlayerName} · ${diffLabel}<br>基础得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">总积分: ${final.total}</strong><br>恭喜你击败了所有 Boss!`;
     }
 
