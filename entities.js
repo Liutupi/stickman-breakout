@@ -1,5 +1,40 @@
 // ==================== 实体系统 ====================
 
+const PlayerUpgradeData = {
+    dash_master: {
+        name: '战术冲刺',
+        desc: '冲刺冷却 -25%，冲刺无敌时间更稳。',
+    },
+    weakpoint_hunter: {
+        name: '弱点猎手',
+        desc: 'Boss 暴露弱点时，你的攻击伤害 +45%。',
+    },
+    ammo_recycler: {
+        name: '弹药回收',
+        desc: '击败敌人时有概率回复当前武器弹药。',
+    },
+    demolition: {
+        name: '爆破专家',
+        desc: '手雷伤害和爆炸范围提升。',
+    },
+    fire_control: {
+        name: '火焰压制',
+        desc: '燃烧瓶范围和持续时间提升，并更克制冰墙。',
+    },
+    shield_reactor: {
+        name: '护盾反冲',
+        desc: '护盾持续更久，挡弹时爆发反冲能量。',
+    },
+    aerial_hunter: {
+        name: '空中猎杀',
+        desc: '空中射击伤害 +25%，适合压制飞行 Boss。',
+    },
+    field_medic: {
+        name: '战地强化',
+        desc: '最大生命 +25，并立即治疗。',
+    },
+};
+
 // ---- 火柴人主角 ----
 class Player {
     constructor(x, y) {
@@ -30,6 +65,17 @@ class Player {
         this.dashSpeed = 1800;
         this.dashDuration = 0.12;
         this.trailPositions = [];  // 移动拖尾
+
+        // 完美闪避
+        this.perfectDodgeWindow = 0;
+        this.perfectDodgeActive = false;
+        this.perfectDodgeTimer = 0;
+
+        // 下砸冲击
+        this.groundPounding = false;
+        this.groundPoundJustLanded = false;
+        this.groundPoundDamage = 30;
+        this.groundPoundRadius = 130;
 
         // 武器
         this.weapons = [new Weapon('pistol'), null, null, null, null];
@@ -72,6 +118,21 @@ class Player {
         this.shieldTimer = 0;
         this.shieldActive = false;
         this.shieldStorage = 0;
+
+        this.upgrades = new Set();
+        this.upgradeStats = {
+            dashCooldownMul: 1,
+            dashIFrameBonus: 0,
+            bossWeakDamageMul: 1,
+            ammoRecycleChance: 0,
+            explosiveRadiusMul: 1,
+            thrownDamageMul: 1,
+            molotovRadiusMul: 1,
+            molotovDurationMul: 1,
+            shieldDurationBonus: 0,
+            shieldPulseDamage: 0,
+            aerialDamageMul: 1,
+        };
     }
 
     get weapon() { return this.weapons[this.currentWeapon]; }
@@ -92,8 +153,16 @@ class Player {
         if (Input.isDown('KeyA') || Input.isDown('ArrowLeft')) moveX = -1;
         if (Input.isDown('KeyD') || Input.isDown('ArrowRight')) moveX = 1;
 
-        // 下蹲
+        // 下砸冲击（空中按S/↓）
         const crouchInput = Input.isDown('KeyS') || Input.isDown('ArrowDown');
+        if (crouchInput && !this.onGround && !this.groundPounding && this.dashTimer <= 0 && this.vy > -200) {
+            this.groundPounding = true;
+            this.vy = 1800;
+            Audio.play('dash');
+            Particles.spawn(this.x, this.y - this.h / 2, 12, '#ff6600', 150, 0.5);
+        }
+
+        // 下蹲
         if (crouchInput && this.onGround) {
             if (!this.crouching) {
                 this.crouching = true;
@@ -113,12 +182,15 @@ class Player {
         if (this.dashTimer > 0) {
             this.dashTimer -= dt;
             this.invincibleTimer = 0.08;
+            this.perfectDodgeWindow = Math.max(0, this.perfectDodgeWindow - dt);
         } else if (Input.wasPressed('KeyC') && this.dashCooldown <= 0) {
             this.dashTimer = this.dashDuration;
-            this.dashCooldown = 1.2;
+            this.dashCooldown = 1.2 * this.upgradeStats.dashCooldownMul;
             const dashDir = moveX !== 0 ? moveX : this.facing;
             this.vx = dashDir * this.dashSpeed;
             this.vy = 0;
+            this.invincibleTimer = Math.max(this.invincibleTimer, 0.08 + this.upgradeStats.dashIFrameBonus);
+            this.perfectDodgeWindow = 0.15;
             Audio.play('dash');
             Particles.spawn(this.x, this.y - this.h / 2, 8, '#ffffff', 50, 0.25);
         }
@@ -126,7 +198,7 @@ class Player {
         // Shift 键释放护盾
         if ((Input.wasPressed('ShiftLeft') || Input.wasPressed('ShiftRight')) && !this.shieldActive && this.shieldStorage > 0) {
             this.shieldStorage--;
-            this.shieldTimer = 8;
+            this.shieldTimer = 8 + this.upgradeStats.shieldDurationBonus;
             this.shieldActive = true;
             Particles.spawn(this.x, this.y - 25, 12, '#00d2ff', 150, 0.5);
             Audio.play('pickup');
@@ -197,6 +269,11 @@ class Player {
             // 跑动尘土
             if (Math.abs(this.vx) > 50 && Math.random() < 0.4) {
                 Particles.spawnDust(this.x + Utils.rand(-8, 8), this.y);
+            }
+            // 下砸冲击落地
+            if (this.groundPounding) {
+                this.groundPounding = false;
+                this.groundPoundJustLanded = true;
             }
         }
 
@@ -286,6 +363,10 @@ class Player {
         // 射击
         if (this.weapon) {
             this.weapon.update(dt);
+            // 完美闪避期间攻速翻倍
+            if (this.perfectDodgeActive) {
+                this.weapon.cooldown -= dt;
+            }
             this.shootFlash = Math.max(0, this.shootFlash - dt * 10);
 
             if (Input.isMouseDown() && this.weapon.canFire()) {
@@ -294,8 +375,12 @@ class Player {
                     this.shootFlash = 1;
                     const tipX = this.x + Math.cos(this.armAngle) * this.gunTipOffset.x;
                     const tipY = (this.crouching ? this.y - 14 : this.y - 30) + Math.sin(this.armAngle) * this.gunTipOffset.x;
+                    const damageMul = (!this.onGround ? this.upgradeStats.aerialDamageMul : 1);
                     for (const b of result) {
-                        this.bullets.push(new Bullet(tipX, tipY, this.armAngle, b));
+                        this.bullets.push(new Bullet(tipX, tipY, this.armAngle, {
+                            ...b,
+                            damage: b.damage * damageMul,
+                        }));
                     }
                     Particles.spawnSparks(tipX, tipY, 3);
                 }
@@ -315,6 +400,15 @@ class Player {
 
         // 无敌时间
         if (this.invincibleTimer > 0) this.invincibleTimer -= dt;
+
+        // 完美闪避反击状态
+        if (this.perfectDodgeActive) {
+            this.perfectDodgeTimer -= dt;
+            this.invincibleTimer = Math.max(this.invincibleTimer, dt + 0.01);
+            if (this.perfectDodgeTimer <= 0) {
+                this.perfectDodgeActive = false;
+            }
+        }
 
         // 护盾计时
         if (this.shieldTimer > 0) {
@@ -388,11 +482,17 @@ class Player {
             // 松开Q时投掷
             this.aiming = false;
             if (this.selectedThrown === 'grenade' && this.grenadeCount > 0) {
-                this.thrown.push(new ThrownProjectile('grenade', this.x, this.y - (this.crouching ? 14 : 30), this.aimTarget.x, this.aimTarget.y));
+                this.thrown.push(new ThrownProjectile('grenade', this.x, this.y - (this.crouching ? 14 : 30), this.aimTarget.x, this.aimTarget.y, {
+                    radiusMul: this.upgradeStats.explosiveRadiusMul,
+                    damageMul: this.upgradeStats.thrownDamageMul,
+                }));
                 this.grenadeCount--;
                 this.thrownCooldown = 0.6;
             } else if (this.selectedThrown === 'molotov' && this.molotovCount > 0) {
-                this.thrown.push(new ThrownProjectile('molotov', this.x, this.y - (this.crouching ? 14 : 30), this.aimTarget.x, this.aimTarget.y));
+                this.thrown.push(new ThrownProjectile('molotov', this.x, this.y - (this.crouching ? 14 : 30), this.aimTarget.x, this.aimTarget.y, {
+                    radiusMul: this.upgradeStats.molotovRadiusMul,
+                    durationMul: this.upgradeStats.molotovDurationMul,
+                }));
                 this.molotovCount--;
                 this.thrownCooldown = 0.6;
             }
@@ -445,6 +545,60 @@ class Player {
 
     addScore(pts) {
         this.score += pts;
+    }
+
+    hasUpgrade(id) {
+        return this.upgrades.has(id);
+    }
+
+    applyUpgrade(id, silent = false) {
+        if (!PlayerUpgradeData[id] || this.upgrades.has(id)) return false;
+        this.upgrades.add(id);
+
+        switch (id) {
+            case 'dash_master':
+                this.upgradeStats.dashCooldownMul *= 0.75;
+                this.upgradeStats.dashIFrameBonus += 0.08;
+                break;
+            case 'weakpoint_hunter':
+                this.upgradeStats.bossWeakDamageMul = 1.45;
+                break;
+            case 'ammo_recycler':
+                this.upgradeStats.ammoRecycleChance += 0.28;
+                break;
+            case 'demolition':
+                this.upgradeStats.explosiveRadiusMul *= 1.25;
+                this.upgradeStats.thrownDamageMul *= 1.2;
+                break;
+            case 'fire_control':
+                this.upgradeStats.molotovRadiusMul *= 1.2;
+                this.upgradeStats.molotovDurationMul *= 1.35;
+                break;
+            case 'shield_reactor':
+                this.upgradeStats.shieldDurationBonus += 3;
+                this.upgradeStats.shieldPulseDamage += 18;
+                break;
+            case 'aerial_hunter':
+                this.upgradeStats.aerialDamageMul *= 1.25;
+                break;
+            case 'field_medic':
+                this.increaseMaxHealth(25);
+                this.health = Math.min(this.maxHealth, this.health + 35);
+                break;
+        }
+        if (!silent) {
+            Particles.spawn(this.x, this.y - 28, 18, '#7ce7ff', 180, 0.6);
+            Audio.play('upgrade');
+        }
+        return true;
+    }
+
+    tryRecycleAmmo() {
+        if (this.upgradeStats.ammoRecycleChance <= 0 || !this.weapon || this.weapon.infinite) return;
+        if (Math.random() > this.upgradeStats.ammoRecycleChance) return;
+        const ammo = Math.max(1, Math.ceil(this.weapon.maxAmmo * 0.12));
+        this.weapon.ammo = Math.min(this.weapon.maxAmmo, this.weapon.ammo + ammo);
+        Particles.spawnAmmoText(this.x, this.y - this.h - 10, `+${ammo}弹药`, '#7ce7ff');
     }
 
     tryPickup(drops) {
@@ -605,6 +759,33 @@ class Player {
             ctx.beginPath();
             ctx.ellipse(0, 4, this.crouching ? 18 : 14, 4, 0, 0, Math.PI * 2);
             ctx.fill();
+        }
+
+        // 完美闪避反击特效
+        if (this.perfectDodgeActive) {
+            const pdAlpha = 0.3 + Math.sin(this.animTime * 10) * 0.15;
+            const pdRadius = 38 + Math.sin(this.animTime * 8) * 6;
+            ctx.beginPath();
+            ctx.arc(0, -this.h / 2, pdRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(0, 210, 255, ${pdAlpha + 0.3})`;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            const g = ctx.createRadialGradient(0, -this.h / 2, 0, 0, -this.h / 2, pdRadius);
+            g.addColorStop(0, `rgba(0, 210, 255, ${pdAlpha * 0.3})`);
+            g.addColorStop(1, 'transparent');
+            ctx.fillStyle = g;
+            ctx.fill();
+            // 流光残影
+            ctx.globalAlpha = 0.15;
+            ctx.strokeStyle = '#00d2ff';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 3; i++) {
+                const angle = this.animTime * 5 + (Math.PI * 2 * i) / 3;
+                ctx.beginPath();
+                ctx.arc(0, -this.h / 2, pdRadius * 0.7, angle, angle + 1);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
         }
 
         const readPulse = 0.52 + Math.sin(this.animTime * 5) * 0.12;
@@ -1185,7 +1366,7 @@ class Player {
 
 // ---- 投掷物（手雷/燃烧瓶）----
 class ThrownProjectile {
-    constructor(type, x, y, targetX, targetY) {
+    constructor(type, x, y, targetX, targetY, opts = {}) {
         this.type = type;
         this.x = x; this.y = y;
         this.targetX = targetX; this.targetY = targetY;
@@ -1193,12 +1374,12 @@ class ThrownProjectile {
         this.progress = 0;
         this.speed = type === 'grenade' ? 2.2 : 2.0;
         this.arcHeight = type === 'grenade' ? 100 : 80;
-        this.damage = type === 'grenade' ? 55 : 0;
-        this.radius = type === 'grenade' ? 160 : 140;
+        this.damage = (type === 'grenade' ? 55 : 0) * (opts.damageMul || 1);
+        this.radius = (type === 'grenade' ? 160 : 140) * (opts.radiusMul || 1);
         this.dead = false;
         this.exploded = false;
         this.fireZoneLife = 0;
-        this.maxFireZoneLife = type === 'molotov' ? 8.0 : 0;
+        this.maxFireZoneLife = type === 'molotov' ? 8.0 * (opts.durationMul || 1) : 0;
         this.animTime = 0;
     }
 
@@ -1869,7 +2050,7 @@ class Enemy {
             for (const b of this.bullets) {
                 ctx.beginPath();
                 ctx.arc(b.x - Utils.camera.x, b.y - Utils.camera.y, b.size, 0, Math.PI * 2);
-                ctx.fillStyle = '#ff4444';
+                ctx.fillStyle = b.reflected ? '#00d2ff' : '#ff4444';
                 ctx.fill();
             }
             if (this.health < this.maxHealth) {
@@ -2369,6 +2550,8 @@ class Boss {
         this.deathTimer = 0;
         this.name = config.name || 'Boss';
         this.color = config.color || '#e74c3c';
+        this.archetype = config.archetype || 'steel_guardian';
+        this.accentColor = config.accentColor || this.color;
         this.level = config.level || 1;
         this.phase = 0; // 战斗阶段
         this.animTime = 0;
@@ -2382,6 +2565,12 @@ class Boss {
         this.shieldActive = false;
         this.shieldTimer = 0;
         this.flashTimer = 0;
+        this.windup = null;
+        this.stunTimer = 0;
+        this.vulnerableTimer = 0;
+        this.chargeTimer = 0;
+        this.chargeDir = 0;
+        this.hazards = [];
     }
 
     getRect() {
@@ -2405,6 +2594,9 @@ class Boss {
             return true;
         }
 
+        this.vulnerableTimer = Math.max(0, this.vulnerableTimer - dt);
+        this.updateHazards(dt);
+
         // 入场动画
         if (!this.entranceDone) {
             this.entranceTimer += dt;
@@ -2414,6 +2606,13 @@ class Boss {
 
         const distToPlayer = Utils.dist(this.x, this.y, playerX, playerY);
         this.facing = playerX > this.x ? 1 : -1;
+
+        if (this.stunTimer > 0) {
+            this.stunTimer -= dt;
+            this.vx *= 0.82;
+            this.updateBossBullets(dt, playerX, playerY);
+            return true;
+        }
 
         // 阶段转换
         const healthRatio = this.health / this.maxHealth;
@@ -2432,12 +2631,28 @@ class Boss {
         this.attackCooldown = Math.max(0, this.attackCooldown - dt);
         this.attackTimer += dt;
 
-        if (this.attackCooldown <= 0) {
+        if (this.windup) {
+            this.windup.timer -= dt;
+            if (this.windup.timer <= 0) {
+                const attack = this.windup;
+                this.windup = null;
+                this.performAttack(attack, playerX, playerY);
+            }
+        } else if (this.attackCooldown <= 0) {
             this.executeAttack(playerX, playerY, distToPlayer);
         }
 
         // 移动（追踪玩家）
-        if (distToPlayer > 80) {
+        if (this.chargeTimer > 0) {
+            this.chargeTimer -= dt;
+            this.vx = this.chargeDir * this.speed * (3.8 + this.phase * 0.35);
+            if (this.chargeTimer <= 0) {
+                this.stunTimer = 1.1;
+                this.vulnerableTimer = 1.6;
+                Renderer.shake(7, 0.18);
+                Particles.spawnExplosion(this.x, this.y - this.h / 2);
+            }
+        } else if (distToPlayer > 80) {
             const dir = playerX > this.x ? 1 : -1;
             this.vx = dir * this.speed * (1 + this.phase * 0.2);
         } else {
@@ -2473,7 +2688,7 @@ class Boss {
         }
 
         // 前方有断层：智能跳跃
-        if (!hasGroundAhead && this.onGround && gapJumpTarget) {
+        if (this.chargeTimer <= 0 && !hasGroundAhead && this.onGround && gapJumpTarget) {
             const targetX = gapJumpTarget.x + gapJumpTarget.w / 2;
             const dx = targetX - this.x;
             const dy = gapJumpTarget.y - this.y;
@@ -2485,7 +2700,7 @@ class Boss {
             this.vx = Math.sign(dx) * jumpSpeed;
             this.onGround = false;
             this.facing = Math.sign(dx) || this.facing;
-        } else if (!hasGroundAhead && this.onGround && !gapJumpTarget) {
+        } else if (this.chargeTimer <= 0 && !hasGroundAhead && this.onGround && !gapJumpTarget) {
             // 前方无任何平台可达：急刹车转向
             this.vx *= -0.5;
             this.facing *= -1;
@@ -2553,16 +2768,7 @@ class Boss {
         }
 
         // 更新子弹
-        for (let i = this.bullets.length - 1; i >= 0; i--) {
-            const b = this.bullets[i];
-            b.x += b.vx * dt;
-            b.y += b.vy * dt;
-            b.life -= dt;
-            if (b.life <= 0) {
-                const last = this.bullets.pop();
-                if (i < this.bullets.length) this.bullets[i] = last;
-            }
-        }
+        this.updateBossBullets(dt, playerX, playerY);
 
         // 护盾
         if (this.shieldTimer > 0) {
@@ -2573,11 +2779,78 @@ class Boss {
         return true;
     }
 
-    executeAttack(px, py, dist) {
-        // 根据阶段扩充可用技能池
-        let pool = [...this.abilities];
+    updateHazards(dt) {
+        for (let i = this.hazards.length - 1; i >= 0; i--) {
+            const h = this.hazards[i];
+            h.timer = Math.max(0, (h.timer || 0) - dt);
+            h.life -= dt;
+            if (h.life <= 0 || h.health <= 0) {
+                const last = this.hazards.pop();
+                if (i < this.hazards.length) this.hazards[i] = last;
+            }
+        }
+    }
+
+    updateBossBullets(dt, playerX, playerY) {
+        for (let i = this.bullets.length - 1; i >= 0; i--) {
+            const b = this.bullets[i];
+            if (b.homing) {
+                const targetAngle = Utils.angle(b.x, b.y, playerX, playerY);
+                const currentAngle = Math.atan2(b.vy, b.vx);
+                let diff = targetAngle - currentAngle;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                const turn = Math.sign(diff) * Math.min(Math.abs(diff), (b.turnRate || 2.5) * dt);
+                const speed = Math.hypot(b.vx, b.vy);
+                const newAngle = currentAngle + turn;
+                b.vx = Math.cos(newAngle) * speed;
+                b.vy = Math.sin(newAngle) * speed;
+            }
+            b.x += b.vx * dt;
+            b.y += b.vy * dt;
+            b.life -= dt;
+            if (b.life <= 0) {
+                const last = this.bullets.pop();
+                if (i < this.bullets.length) this.bullets[i] = last;
+            }
+        }
+    }
+
+    isVulnerable() {
+        return this.vulnerableTimer > 0 || this.stunTimer > 0;
+    }
+
+    getAttackPool() {
+        const pools = {
+            steel_guardian: ['charge', 'shockwave', 'shield'],
+            shadow_king: ['teleport', 'shadow_burst', 'shoot'],
+            inferno_demon: ['fire_pillar', 'leap_slam', 'spread'],
+            frost_beast: ['ice_wall', 'ice_spikes', 'shoot'],
+            void_lord: ['portal_barrage', 'homing_orb', 'special'],
+            chaos_creator: ['charge', 'fire_pillar', 'ice_spikes', 'portal_barrage', 'special'],
+        };
+        let pool = [...(pools[this.archetype] || this.abilities)];
         if (this.phase >= 1 && !pool.includes('spread')) pool.push('spread');
         if (this.phase >= 2 && !pool.includes('special')) pool.push('special');
+        return pool;
+    }
+
+    startWindup(type, px, py, duration) {
+        this.windup = {
+            type,
+            x: px,
+            y: py,
+            timer: duration,
+            duration,
+        };
+        this.attackCooldown = duration + 0.35;
+        if (['charge', 'leap_slam', 'fire_pillar', 'ice_spikes', 'portal_barrage'].includes(type)) {
+            Renderer.shake(2 + this.phase, 0.08);
+        }
+    }
+
+    executeAttack(px, py, dist) {
+        const pool = this.getAttackPool();
         const pattern = pool[Utils.randInt(0, pool.length - 1)];
 
         switch (pattern) {
@@ -2585,8 +2858,44 @@ class Boss {
                 if (dist < 120) {
                     this.attackCooldown = 0.8 - this.phase * 0.15;
                 } else {
-                    this.attackCooldown = 0.3;
+                this.attackCooldown = 0.3;
                 }
+                break;
+            case 'charge':
+                this.startWindup('charge', px, py, 0.65);
+                break;
+            case 'shockwave':
+                this.startWindup('shockwave', px, py, 0.45);
+                break;
+            case 'shield':
+                this.shieldActive = true;
+                this.shieldTimer = 1.8 + this.phase * 0.5;
+                this.attackCooldown = 2.0;
+                break;
+            case 'teleport':
+                this.startWindup('teleport', px, py, 0.35);
+                break;
+            case 'shadow_burst':
+                this.startWindup('shadow_burst', px, py, 0.55);
+                break;
+            case 'fire_pillar':
+                this.startWindup('fire_pillar', px, py, 0.8);
+                break;
+            case 'leap_slam':
+                this.startWindup('leap_slam', px, py, 0.7);
+                break;
+            case 'ice_wall':
+                this.startWindup('ice_wall', px, py, 0.45);
+                break;
+            case 'ice_spikes':
+                this.startWindup('ice_spikes', px, py, 0.65);
+                break;
+            case 'portal_barrage':
+                this.startWindup('portal_barrage', px, py, 0.65);
+                break;
+            case 'homing_orb':
+                this.homingOrb(px, py);
+                this.attackCooldown = 1.7 - this.phase * 0.15;
                 break;
             case 'shoot':
                 this.shootAt(px, py);
@@ -2602,6 +2911,161 @@ class Boss {
                 this.attackCooldown = 2.0;
                 break;
         }
+    }
+
+    performAttack(attack, px, py) {
+        switch (attack.type) {
+            case 'charge':
+                this.chargeDir = attack.x > this.x ? 1 : -1;
+                this.facing = this.chargeDir;
+                this.chargeTimer = 0.55 + this.phase * 0.08;
+                Audio.play('bossSpecial');
+                break;
+            case 'shockwave':
+                this.spawnShockwave(-1);
+                this.spawnShockwave(1);
+                this.vulnerableTimer = 0.65;
+                Audio.play('explode');
+                break;
+            case 'teleport': {
+                const side = attack.x > this.x ? -1 : 1;
+                this.x = attack.x + side * 150;
+                this.y = Math.min(this.y, attack.y + 40);
+                this.vulnerableTimer = 0.45;
+                Particles.spawn(this.x, this.y - this.h / 2, 18, this.accentColor, 220, 0.6);
+                Audio.play('dash');
+                break;
+            }
+            case 'shadow_burst':
+                this.spreadShoot(attack.x, attack.y);
+                this.telegraphCloneBurst(attack.x, attack.y);
+                break;
+            case 'fire_pillar':
+                this.hazards.push({
+                    type: 'fire_pillar',
+                    x: attack.x,
+                    y: attack.y,
+                    radius: 70 + this.phase * 12,
+                    timer: 0.45,
+                    life: 2.4,
+                    damage: this.damage * 0.45,
+                    color: '#ff6b21',
+                    health: 1,
+                });
+                Audio.play('explode');
+                break;
+            case 'leap_slam':
+                this.x = attack.x + (this.x < attack.x ? -90 : 90);
+                this.spawnShockwave(-1);
+                this.spawnShockwave(1);
+                this.vulnerableTimer = 1.0;
+                Renderer.shake(8, 0.2);
+                Audio.play('bossSpecial');
+                break;
+            case 'ice_wall':
+                this.hazards.push({
+                    type: 'ice_wall',
+                    x: attack.x,
+                    y: this.y,
+                    w: 34,
+                    h: 120,
+                    timer: 0,
+                    life: 6,
+                    damage: this.damage * 0.25,
+                    color: '#8ee8ff',
+                    health: 90 + this.phase * 35,
+                });
+                Audio.play('bossPhase');
+                break;
+            case 'ice_spikes':
+                for (let i = -1; i <= 1; i++) {
+                    this.hazards.push({
+                        type: 'ice_spike',
+                        x: attack.x + i * 95,
+                        y: attack.y,
+                        radius: 42,
+                        timer: 0.55,
+                        life: 1.6,
+                        damage: this.damage * 0.55,
+                        color: '#9befff',
+                        health: 1,
+                    });
+                }
+                Audio.play('bossPhase');
+                break;
+            case 'portal_barrage':
+                this.portalBarrage(attack.x, attack.y);
+                break;
+        }
+    }
+
+    spawnShockwave(dir) {
+        this.bullets.push({
+            x: this.x + dir * 26,
+            y: this.y - 10,
+            vx: dir * (290 + this.phase * 45),
+            vy: 0,
+            damage: this.damage * 0.5,
+            life: 2.2,
+            size: 10,
+            color: this.accentColor,
+        });
+    }
+
+    telegraphCloneBurst(px, py) {
+        for (const offset of [-130, 130]) {
+            const angle = Utils.angle(this.x + offset, this.y - this.h / 2, px, py);
+            this.bullets.push({
+                x: this.x + offset,
+                y: this.y - this.h / 2,
+                vx: Math.cos(angle) * 320,
+                vy: Math.sin(angle) * 320,
+                damage: this.damage * 0.32,
+                life: 3,
+                size: 4,
+                color: '#54ffb0',
+            });
+        }
+    }
+
+    homingOrb(tx, ty) {
+        const angle = Utils.angle(this.x, this.y - this.h / 2, tx, ty);
+        this.bullets.push({
+            x: this.x,
+            y: this.y - this.h / 2,
+            vx: Math.cos(angle) * 230,
+            vy: Math.sin(angle) * 230,
+            damage: this.damage * 0.45,
+            life: 5,
+            size: 7,
+            color: '#d44dff',
+            homing: true,
+            turnRate: 2.4,
+        });
+        Audio.play('laser');
+    }
+
+    portalBarrage(tx, ty) {
+        const portals = [
+            { x: this.x - 140, y: this.y - this.h - 40 },
+            { x: this.x + 140, y: this.y - this.h - 10 },
+        ];
+        for (const p of portals) {
+            for (let i = -1; i <= 1; i++) {
+                const angle = Utils.angle(p.x, p.y, tx, ty) + i * 0.18;
+                this.bullets.push({
+                    x: p.x,
+                    y: p.y,
+                    vx: Math.cos(angle) * 340,
+                    vy: Math.sin(angle) * 340,
+                    damage: this.damage * 0.34,
+                    life: 3.5,
+                    size: 4,
+                    color: '#ff4dff',
+                });
+            }
+        }
+        Audio.play('laser');
     }
 
     shootAt(tx, ty) {
@@ -2668,6 +3132,145 @@ class Boss {
         }
     }
 
+    drawHazards(ctx) {
+        for (const h of this.hazards) {
+            const sx = h.x - Utils.camera.x;
+            const sy = h.y - Utils.camera.y;
+            const active = !h.timer || h.timer <= 0;
+            ctx.save();
+            if (h.type === 'fire_pillar') {
+                const alpha = active ? 0.55 + Math.sin(this.animTime * 12) * 0.18 : 0.22;
+                ctx.fillStyle = active ? `rgba(255, 90, 20, ${alpha})` : 'rgba(255, 70, 30, 0.18)';
+                ctx.strokeStyle = active ? '#ffdd55' : '#ff5533';
+                ctx.lineWidth = active ? 3 : 2;
+                ctx.beginPath();
+                ctx.ellipse(sx, sy, h.radius, 18, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                if (active) {
+                    const g = ctx.createLinearGradient(sx, sy, sx, sy - 240);
+                    g.addColorStop(0, 'rgba(255, 120, 20, 0.72)');
+                    g.addColorStop(0.55, 'rgba(255, 40, 20, 0.32)');
+                    g.addColorStop(1, 'transparent');
+                    ctx.fillStyle = g;
+                    ctx.fillRect(sx - h.radius * 0.45, sy - 240, h.radius * 0.9, 240);
+                }
+            } else if (h.type === 'ice_spike') {
+                ctx.fillStyle = active ? 'rgba(155, 239, 255, 0.72)' : 'rgba(155, 239, 255, 0.18)';
+                ctx.strokeStyle = '#d9fbff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(sx - h.radius, sy);
+                ctx.lineTo(sx, sy - (active ? 110 : 40));
+                ctx.lineTo(sx + h.radius, sy);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            } else if (h.type === 'ice_wall') {
+                const hp = Utils.clamp(h.health / 120, 0.25, 1);
+                ctx.fillStyle = `rgba(142, 232, 255, ${0.2 + hp * 0.45})`;
+                ctx.strokeStyle = '#d9fbff';
+                ctx.lineWidth = 2;
+                ctx.fillRect(sx - h.w / 2, sy - h.h, h.w, h.h);
+                ctx.strokeRect(sx - h.w / 2, sy - h.h, h.w, h.h);
+                ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+                ctx.beginPath();
+                ctx.moveTo(sx - h.w / 2 + 6, sy - h.h + 12);
+                ctx.lineTo(sx + h.w / 2 - 5, sy - 18);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+    }
+
+    drawWindup(ctx) {
+        if (!this.windup) return;
+        const t = 1 - this.windup.timer / this.windup.duration;
+        const sx = this.windup.x - Utils.camera.x;
+        const sy = this.windup.y - Utils.camera.y;
+        ctx.save();
+        ctx.globalAlpha = 0.35 + t * 0.45;
+        ctx.strokeStyle = this.accentColor;
+        ctx.fillStyle = this.accentColor + '22';
+        ctx.lineWidth = 2 + t * 3;
+        if (this.windup.type === 'charge') {
+            const bx = this.x - Utils.camera.x;
+            const by = this.y - this.h / 2 - Utils.camera.y;
+            ctx.beginPath();
+            ctx.moveTo(bx, by);
+            ctx.lineTo(sx, by);
+            ctx.stroke();
+            ctx.fillRect(Math.min(bx, sx), by - 18, Math.abs(sx - bx), 36);
+        } else {
+            ctx.beginPath();
+            ctx.arc(sx, sy, 36 + t * 34, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    drawArchetypeDetails(ctx, bodyColor) {
+        const pulse = 0.55 + Math.sin(this.animTime * 5) * 0.2;
+        ctx.save();
+        if (this.archetype === 'steel_guardian') {
+            ctx.strokeStyle = '#8fa3b5';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(20, -this.h + 30);
+            ctx.lineTo(38, -this.h + 18);
+            ctx.lineTo(42, -this.h + 52);
+            ctx.stroke();
+            ctx.fillStyle = `rgba(255, 70, 40, ${pulse})`;
+            ctx.fillRect(-18, -this.h + 18, 6, 20);
+            ctx.fillRect(12, -this.h + 18, 6, 20);
+        } else if (this.archetype === 'shadow_king') {
+            ctx.fillStyle = `rgba(20, 255, 140, ${0.08 + pulse * 0.08})`;
+            ctx.beginPath();
+            ctx.moveTo(-28, -this.h + 20);
+            ctx.quadraticCurveTo(-42, -30, -18, 0);
+            ctx.lineTo(18, 0);
+            ctx.quadraticCurveTo(42, -30, 28, -this.h + 20);
+            ctx.closePath();
+            ctx.fill();
+        } else if (this.archetype === 'inferno_demon') {
+            const g = ctx.createRadialGradient(0, -this.h + 42, 2, 0, -this.h + 42, 24);
+            g.addColorStop(0, `rgba(255, 230, 80, ${pulse})`);
+            g.addColorStop(1, 'transparent');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(0, -this.h + 42, 24, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (this.archetype === 'frost_beast') {
+            ctx.strokeStyle = '#d9fbff';
+            ctx.lineWidth = 3;
+            for (const x of [-18, 0, 18]) {
+                ctx.beginPath();
+                ctx.moveTo(x, -this.h + 8);
+                ctx.lineTo(x + 8, -this.h - 18);
+                ctx.stroke();
+            }
+        } else if (this.archetype === 'void_lord') {
+            ctx.strokeStyle = `rgba(255, 77, 255, ${pulse})`;
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.ellipse(0, -this.h / 2, 44 + i * 12, 12 + i * 4, this.animTime * 0.8 + i, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        } else if (this.archetype === 'chaos_creator') {
+            ctx.strokeStyle = `rgba(255, 220, 90, ${pulse})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, -this.h / 2, 55, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = bodyColor;
+            ctx.fillRect(-30, -this.h + 26, 10, 34);
+            ctx.fillRect(20, -this.h + 26, 10, 34);
+        }
+        ctx.restore();
+    }
+
     draw(ctx) {
         const sx = this.x - Utils.camera.x;
         const sy = this.y - Utils.camera.y;
@@ -2704,6 +3307,9 @@ class Boss {
             scale = Math.min(this.entranceTimer / 1.5, 1);
             ctx.globalAlpha = scale;
         }
+
+        this.drawHazards(ctx);
+        this.drawWindup(ctx);
 
         ctx.save();
         ctx.translate(sx, sy);
@@ -2942,6 +3548,8 @@ class Boss {
         ctx.beginPath();
         ctx.arc(20, -this.h + 30 + Math.sin(armAnim) * 10, 4, 0, Math.PI * 2);
         ctx.fill();
+
+        this.drawArchetypeDetails(ctx, bodyColor);
 
         // 护盾（增强版）
         if (this.shieldActive) {

@@ -26,6 +26,9 @@ const Game = (() => {
     let pendingLevelIndex = null;
     let currentPlayerName = '匿名特工';
     let carryOverScore = 0;
+    let persistentUpgradeIds = [];
+    let pendingUpgradeChoices = [];
+    let selectedUpgradeThisReward = false;
 
     const DIFFICULTY_CONFIG = {
         easy: {
@@ -102,6 +105,7 @@ const Game = (() => {
             levelCompleteTitle: $('level-complete-title'),
             levelCompleteInfo: $('level-complete-info'),
             nextLevelBtn: $('next-level-btn'),
+            upgradeChoices: $('upgrade-choices'),
             victoryInfo: $('victory-info'),
             deathInfo: $('death-info'),
             weaponSlots,
@@ -190,6 +194,68 @@ const Game = (() => {
             }
         }
         return entries.sort((a, b) => b.score - a.score);
+    }
+
+    function getAvailableUpgradeChoices() {
+        const ids = Object.keys(PlayerUpgradeData || {}).filter(id => !persistentUpgradeIds.includes(id));
+        const pool = ids.length ? ids : Object.keys(PlayerUpgradeData || {});
+        const choices = [];
+        const copy = [...pool];
+        while (choices.length < 3 && copy.length) {
+            const index = Utils.randInt(0, copy.length - 1);
+            choices.push(copy.splice(index, 1)[0]);
+        }
+        return choices;
+    }
+
+    function renderUpgradeChoices() {
+        if (!ui.upgradeChoices || !PlayerUpgradeData) return;
+        if (currentLevel >= Levels.length - 1) {
+            ui.upgradeChoices.classList.add('hidden');
+            ui.upgradeChoices.innerHTML = '';
+            return;
+        }
+
+        pendingUpgradeChoices = getAvailableUpgradeChoices();
+        selectedUpgradeThisReward = false;
+        ui.upgradeChoices.classList.remove('hidden');
+        ui.upgradeChoices.innerHTML = `
+            <div class="upgrade-choice-title">选择一项战术强化</div>
+            <div class="upgrade-choice-grid">
+                ${pendingUpgradeChoices.map(id => {
+                    const item = PlayerUpgradeData[id];
+                    return `
+                        <button class="upgrade-choice-card" onclick="Game.chooseUpgrade('${id}')">
+                            <strong>${item.name}</strong>
+                            <span>${item.desc}</span>
+                        </button>
+                    `;
+                }).join('')}
+            </div>
+        `;
+        if (ui.nextLevelBtn) {
+            ui.nextLevelBtn.disabled = true;
+            ui.nextLevelBtn.textContent = '先选择强化';
+        }
+    }
+
+    function chooseUpgrade(id) {
+        if (!player || selectedUpgradeThisReward || !pendingUpgradeChoices.includes(id)) return;
+        if (!persistentUpgradeIds.includes(id)) persistentUpgradeIds.push(id);
+        player.applyUpgrade(id);
+        selectedUpgradeThisReward = true;
+        if (ui.upgradeChoices) {
+            const cards = ui.upgradeChoices.querySelectorAll('.upgrade-choice-card');
+            cards.forEach(card => {
+                const selected = card.getAttribute('onclick')?.includes(`'${id}'`);
+                card.classList.toggle('selected', selected);
+                card.disabled = true;
+            });
+        }
+        if (ui.nextLevelBtn) {
+            ui.nextLevelBtn.disabled = false;
+            ui.nextLevelBtn.textContent = '进入下一关';
+        }
     }
 
     function initPlayerSystem() {
@@ -330,15 +396,65 @@ const Game = (() => {
 
     function handleEnemyBulletHitsPlayer(bullets, playerRect) {
         for (const bullet of bullets) {
+            if (bullet.reflected) continue;
             if (bulletHitsRect(bullet, playerRect)) {
                 if (player.shieldActive) {
+                    // 子弹反弹
+                    bullet.vx = -bullet.vx * 1.3;
+                    bullet.vy = -bullet.vy * 1.3;
+                    bullet.reflected = true;
+                    bullet.damage = (bullet.damage || 10) * 2;
+                    if (bullet.homing) bullet.homing = false;
+                    Particles.spawn(bullet.x, bullet.y, 6, '#00d2ff', 100, 0.3);
+                    if (player.upgradeStats.shieldPulseDamage > 0) {
+                        Particles.spawn(player.x, player.y - 25, 10, '#7ce7ff', 120, 0.25);
+                        for (const enemy of enemies) {
+                            if (!enemy.dead && Utils.dist(enemy.x, enemy.y, player.x, player.y) < 105) {
+                                enemy.takeDamage(player.upgradeStats.shieldPulseDamage);
+                            }
+                        }
+                        if (boss && !boss.dead && Utils.dist(boss.x, boss.y, player.x, player.y) < 125) {
+                            boss.takeDamage(player.upgradeStats.shieldPulseDamage);
+                        }
+                    }
+                    continue;
+                }
+                // 完美闪避判定
+                if (player.perfectDodgeWindow > 0) {
+                    player.perfectDodgeWindow = 0;
+                    player.perfectDodgeActive = true;
+                    player.perfectDodgeTimer = 1.5;
+                    player.invincibleTimer = 1.5;
                     bullet.life = 0;
-                    Particles.spawn(bullet.x, bullet.y, 5, '#00d2ff', 60, 0.25);
+                    Renderer.shake(2, 0.1);
+                    Particles.spawn(player.x, player.y - 25, 15, '#00d2ff', 200, 0.5);
+                    Particles.spawnAmmoText(player.x, player.y - 55, '完美闪避！', '#00d2ff');
+                    Audio.play('upgrade');
                     continue;
                 }
                 player.takeDamage(bullet.damage);
                 bullet.life = 0;
                 Renderer.shake(4, 0.1);
+            }
+        }
+    }
+
+    function handleBossHazardsPlayer(hazards, playerRect) {
+        if (!player || player.dead) return;
+        for (const h of hazards) {
+            if (h.timer && h.timer > 0) continue;
+            if (h.type === 'fire_pillar' || h.type === 'ice_spike') {
+                const px = playerRect.x + playerRect.w / 2;
+                const py = playerRect.y + playerRect.h;
+                if (Utils.dist(px, py, h.x, h.y) < h.radius) {
+                    player.takeDamage(h.damage);
+                    Renderer.shake(3, 0.08);
+                }
+            } else if (h.type === 'ice_wall') {
+                const wallRect = { x: h.x - h.w / 2, y: h.y - h.h, w: h.w, h: h.h };
+                if (Utils.rectCollide(wallRect, playerRect)) {
+                    player.takeDamage(h.damage);
+                }
             }
         }
     }
@@ -473,6 +589,9 @@ const Game = (() => {
 
         healthBonus = 0;
         carryOverScore = 0;
+        persistentUpgradeIds = [];
+        pendingUpgradeChoices = [];
+        selectedUpgradeThisReward = false;
         gameTime = 0;
         loadLevel(levelIndex);
         state = 'playing';
@@ -596,6 +715,7 @@ const Game = (() => {
         levelData = cloneLevelWithDifficulty(Levels[index], currentDifficulty);
 
         player = new Player(levelData.playerStart.x, levelData.playerStart.y);
+        for (const id of persistentUpgradeIds) player.applyUpgrade(id, true);
         if (healthBonus > 0) player.increaseMaxHealth(healthBonus);
         if (options.carryOverScore && player) {
             player.score = options.carryOverScore;
@@ -677,6 +797,67 @@ const Game = (() => {
         // 玩家更新
         player.update(dt, levelData.platforms);
 
+        // 下砸冲击落地伤害
+        if (player.groundPoundJustLanded) {
+            player.groundPoundJustLanded = false;
+            Renderer.shake(6, 0.2);
+            Audio.play('explode');
+            Particles.spawnExplosion(player.x, player.y);
+            Particles.spawn(player.x, player.y, 20, '#ff9500', 350, 0.6, 5);
+            const radius = player.groundPoundRadius;
+            const damage = player.groundPoundDamage;
+            for (const enemy of enemies) {
+                if (enemy.dead) continue;
+                const dist = Utils.dist(player.x, player.y, enemy.x, enemy.y);
+                if (dist < radius) {
+                    const dmg = Math.round(damage * (1 - dist / radius));
+                    enemy.takeDamage(dmg);
+                    enemy.vy = -350;
+                    enemy.vx = (enemy.x - player.x) > 0 ? 250 : -250;
+                    Particles.spawnDamageNum(enemy.x, enemy.y - enemy.h / 2, dmg);
+                }
+            }
+            if (boss && !boss.dead) {
+                const dist = Utils.dist(player.x, player.y, boss.x, boss.y);
+                if (dist < radius + 40) {
+                    const dmg = Math.round(damage * 0.8);
+                    boss.takeDamage(dmg);
+                    Particles.spawnDamageNum(boss.x, boss.y - 20, dmg);
+                }
+            }
+        }
+
+        // 反弹子弹伤害敌人
+        for (const enemy of enemies) {
+            if (enemy.dead) continue;
+            for (let i = enemy.bullets.length - 1; i >= 0; i--) {
+                const b = enemy.bullets[i];
+                if (!b.reflected) continue;
+                const er = enemy.getRect();
+                if (bulletHitsRect(b, er)) {
+                    enemy.takeDamage(b.damage);
+                    Particles.spawnHitImpact(b.x, b.y, Math.atan2(b.vy, b.vx));
+                    Particles.spawnDamageNum(b.x, b.y - er.h / 2, b.damage);
+                    const last = enemy.bullets.pop();
+                    if (i < enemy.bullets.length) enemy.bullets[i] = last;
+                }
+            }
+        }
+        if (boss && !boss.dead && boss.bullets) {
+            for (let i = boss.bullets.length - 1; i >= 0; i--) {
+                const b = boss.bullets[i];
+                if (!b.reflected) continue;
+                const br = boss.getRect();
+                if (bulletHitsRect(b, br)) {
+                    boss.takeDamage(b.damage);
+                    Particles.spawnHitImpact(b.x, b.y, Math.atan2(b.vy, b.vx));
+                    Particles.spawnDamageNum(b.x, b.y - 15, b.damage);
+                    const last = boss.bullets.pop();
+                    if (i < boss.bullets.length) boss.bullets[i] = last;
+                }
+            }
+        }
+
         // 浣庤閲忓績璺?+ 鍋滄粸璀﹀憡闊虫晥
         Audio.updateLowHealth(dt, player.health / player.maxHealth);
         Audio.updateWarning(dt, player.stagnationTimer);
@@ -713,6 +894,7 @@ const Game = (() => {
                         );
                     }
                     player.addScore(enemies[i].score);
+                    player.tryRecycleAmmo();
                     if (Math.random() < 0.30) {
                         const types = Object.keys(WeaponData).filter(t => !['pistol', 'grenade', 'molotov', 'health'].includes(t));
                         drops.push(new WeaponDrop(
@@ -750,7 +932,9 @@ const Game = (() => {
                 if (boss && !boss.dead) {
                     const dist = Utils.dist(t.x, t.y, boss.x, boss.y - boss.h / 2);
                     if (dist < t.radius) {
-                        boss.takeDamage(t.damage * (dist < t.radius * 0.5 ? 1 : 0.6));
+                        let dmg = t.damage * (dist < t.radius * 0.5 ? 1 : 0.6);
+                        if (boss.isVulnerable && boss.isVulnerable()) dmg *= player.upgradeStats.bossWeakDamageMul;
+                        boss.takeDamage(dmg);
                     }
                 }
                 t.dead = true;
@@ -766,7 +950,18 @@ const Game = (() => {
                 if (boss && !boss.dead) {
                     const dist = Utils.dist(t.x, t.y, boss.x, boss.y - boss.h / 2);
                     if (dist < t.radius) {
-                        boss.takeDamage(12 * dt);
+                        let dmg = 12 * dt;
+                        if (boss.isVulnerable && boss.isVulnerable()) dmg *= player.upgradeStats.bossWeakDamageMul;
+                        boss.takeDamage(dmg);
+                    }
+                }
+                if (boss && boss.hazards) {
+                    for (const h of boss.hazards) {
+                        if (h.type !== 'ice_wall') continue;
+                        const wallCenterY = h.y - h.h / 2;
+                        if (Utils.dist(t.x, t.y, h.x, wallCenterY) < t.radius + h.w) {
+                            h.health -= (player.hasUpgrade('fire_control') ? 55 : 32) * dt;
+                        }
                     }
                 }
                 if (!player.dead) {
@@ -887,13 +1082,28 @@ const Game = (() => {
                 }
             }
 
+            if (!hit && boss && boss.hazards) {
+                for (const h of boss.hazards) {
+                    if (h.type !== 'ice_wall') continue;
+                    const hr = { x: h.x - h.w / 2, y: h.y - h.h, w: h.w, h: h.h };
+                    if (b.x > hr.x && b.x < hr.x + hr.w && b.y > hr.y && b.y < hr.y + hr.h) {
+                        h.health -= b.damage * (b.explosion ? 2.5 : 1);
+                        Particles.spawnSparks(b.x, b.y, 6);
+                        hit = true;
+                        break;
+                    }
+                }
+            }
+
             // vs Boss
             if (!hit && boss && !boss.dead) {
                 const br = boss.getRect();
                 if (b.x > br.x && b.x < br.x + br.w && b.y > br.y && b.y < br.y + br.h) {
-                    boss.takeDamage(b.damage);
+                    let bossDamage = b.damage;
+                    if (boss.isVulnerable && boss.isVulnerable()) bossDamage *= player.upgradeStats.bossWeakDamageMul;
+                    boss.takeDamage(bossDamage);
                     Particles.spawnHitImpact(b.x, b.y, Math.atan2(b.vy, b.vx));
-                    Particles.spawnDamageNum(b.x, b.y - 15, b.damage);
+                    Particles.spawnDamageNum(b.x, b.y - 15, bossDamage);
                     if (b.explosion) {
                         Particles.spawnExplosion(b.x, b.y);
                         Renderer.shake(6, 0.2);
@@ -942,6 +1152,7 @@ const Game = (() => {
                 handleEnemyBulletHitsPlayer(enemy.bullets, playerRect);
             }
             if (boss) handleEnemyBulletHitsPlayer(boss.bullets, playerRect);
+            if (boss) handleBossHazardsPlayer(boss.hazards, playerRect);
 
             for (const enemy of enemies) {
                 if (enemy.dead) continue;
@@ -1178,6 +1389,7 @@ const Game = (() => {
     const restartLevel = restart;
 
     function nextLevel() {
+        if (currentLevel < Levels.length - 1 && !selectedUpgradeThisReward) return;
         hideAllMenus();
         if (currentLevel < Levels.length - 1) {
             healthBonus += 20;
@@ -1201,8 +1413,10 @@ const Game = (() => {
         Audio.playMp3('levelComplete');
         if (currentLevel >= Levels.length - 1) {
             ui.nextLevelBtn.classList.add('hidden');
+            if (ui.upgradeChoices) ui.upgradeChoices.classList.add('hidden');
         } else {
             ui.nextLevelBtn.classList.remove('hidden');
+            renderUpgradeChoices();
         }
     }
 
@@ -1292,7 +1506,7 @@ const Game = (() => {
         showLevelSelect, hideLevelSelect, selectLevel,
         showDifficultySelect, hideDifficultySelect, selectDifficulty,
         showPlayerMenu, hidePlayerMenu, addNewPlayer,
-        showLeaderboard, hideLeaderboard,
+        showLeaderboard, hideLeaderboard, chooseUpgrade,
     };
 })();
 
