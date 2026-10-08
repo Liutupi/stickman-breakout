@@ -820,3 +820,159 @@ const Levels = [
     },
 
 ];
+
+// ==================== 扩展关卡（第七 ~ 第九关）====================
+// 用紧凑数据描述：地面屋顶段 / 浮空平台 / 敌人列表，敌人 y 坐标自动落在脚下平台上
+(function addExpansionLevels() {
+    const BASE = {
+        walker:   { health: 130, speed: 115, damage: 16, score: 300, color: '#e74c3c' },
+        runner:   { health: 95,  speed: 270, damage: 14, score: 280, color: '#ff4d6d' },
+        shooter:  { health: 105, speed: 90,  canShoot: true, attackRate: 0.85, aggroRange: 620, bulletSpeed: 480, damage: 14, score: 330, color: '#e67e22' },
+        jumper:   { health: 110, speed: 170, damage: 16, score: 300, color: '#9b59b6' },
+        missile:  { health: 115, speed: 190, canShoot: true, attackRate: 1.4, aggroRange: 660, bulletSpeed: 450, damage: 14, score: 350, color: '#ff00ff' },
+        kamikaze: { health: 75,  speed: 350, damage: 72, score: 320, color: '#ff3300', aggroRange: 620 },
+        flyer:    { health: 105, speed: 210, canShoot: true, attackRate: 0.7, aggroRange: 640, damage: 14, score: 330, color: '#bb44ff' },
+        bomber:   { health: 115, speed: 150, canShoot: true, attackRate: 1.0, aggroRange: 660, damage: 14, score: 360, color: '#ff8800' },
+        swooper:  { health: 100, speed: 240, aggroRange: 620, damage: 16, score: 340, color: '#ff4488' },
+        drone:    { health: 70,  speed: 260, canShoot: true, attackRate: 0.42, aggroRange: 580, damage: 12, score: 300, color: '#00ffff' },
+        turret:   { health: 140, speed: 0,   canShoot: true, attackRate: 0.32, aggroRange: 720, damage: 14, score: 420, color: '#ff00ff' },
+        shielder: { health: 150, speed: 85,  damage: 18, score: 420, color: '#4db8e8', shieldHP: 150, aggroRange: 640 },
+        sniper:   { health: 95,  speed: 60,  canShoot: true, attackRate: 2.6, aggroRange: 950, bulletSpeed: 1150, damage: 40, score: 450, color: '#ff3b5c' },
+    };
+
+    function build(cfg) {
+        const platforms = [];
+        for (const [x, w, y] of cfg.ground) platforms.push({ x, y: y || 500, w, h: 100 });
+        for (const [x, y, w, mv] of cfg.floats) {
+            const p = { x, y, w, h: 16 };
+            if (mv) p.moving = mv;
+            platforms.push(p);
+        }
+        const surfaceAt = (x) => {
+            const hits = platforms.filter(p => x >= p.x + 8 && x <= p.x + p.w - 8).sort((a, b) => a.y - b.y);
+            const g = hits.find(p => p.h > 50) || hits[0];
+            return g ? g.y : 500;
+        };
+        const flying = ['flyer', 'bomber', 'swooper', 'drone'];
+        const enemies = cfg.enemies.map(([x, type, mul = 1, extra = {}]) => {
+            const b = BASE[type];
+            const e = { x, type, ...b, ...extra };
+            e.health = Math.round(b.health * cfg.hpMul * mul);
+            e.score = Math.round(b.score * cfg.scoreMul);
+            if (flying.includes(type)) {
+                e.baseY = extra.baseY || (surfaceAt(x) - 190);
+                e.y = e.baseY;
+            } else {
+                e.y = surfaceAt(x) - (type === 'turret' ? 1 : 4);
+            }
+            return e;
+        });
+        const weaponDrops = cfg.drops.map(([x, type]) => ({ x, y: surfaceAt(x) - 4, type }));
+        return { platforms, enemies, weaponDrops };
+    }
+
+    // ---- 第七关：霓虹都市（屋顶跑酷）----
+    const neon = build({
+        hpMul: 1.0, scoreMul: 1.0,
+        ground: [[0, 760, 500], [900, 520, 470], [1560, 600, 510], [2300, 480, 460], [2920, 560, 500], [3620, 420, 450],
+                 [4180, 640, 500], [4960, 500, 470], [5600, 560, 510], [6300, 900, 500]],
+        floats: [[300, 400, 120], [760, 420, 130, { ampY: 40, speedY: 1.6 }], [1180, 360, 110], [1420, 410, 120, { ampX: 60, speedX: 1.5 }],
+                 [1900, 380, 120], [2180, 400, 100, { ampY: 50, speedY: 1.8 }], [2620, 360, 130], [3480, 380, 110, { ampX: 70, speedX: 1.7 }],
+                 [3880, 340, 120], [4060, 420, 100, { ampY: 45, speedY: 2.0 }], [4500, 380, 140], [4820, 400, 110, { ampX: 60, speedX: 1.9 }],
+                 [5250, 360, 120], [5460, 420, 110, { ampY: 50, speedY: 2.1 }], [5900, 380, 130], [6160, 420, 110, { ampX: 50, speedX: 1.8 }]],
+        enemies: [[450, 'walker'], [620, 'shooter'], [1000, 'shielder'], [1250, 'drone'], [1650, 'runner'], [1800, 'sniper'], [1950, 'flyer'],
+                  [2380, 'shielder'], [2600, 'kamikaze'], [2700, 'swooper'], [3000, 'walker'], [3200, 'shooter'], [3350, 'turret'],
+                  [3700, 'sniper'], [3900, 'drone'], [4300, 'shielder'], [4450, 'runner'], [4600, 'bomber'], [4800, 'kamikaze'],
+                  [5050, 'shooter'], [5250, 'flyer'], [5300, 'sniper'], [5700, 'shielder'], [5900, 'missile'], [6000, 'runner'],
+                  [6200, 'drone'], [6400, 'walker', 1.2]],
+        drops: [[200, 'smg'], [700, 'health'], [1100, 'shotgun'], [1700, 'molotov'], [2050, 'health'], [2450, 'laser'], [3100, 'grenade'],
+                [3700, 'health'], [4350, 'rocket'], [5000, 'health'], [5650, 'shotgun'], [6000, 'grenade'], [6450, 'health'], [6600, 'rocket']],
+    });
+    Levels.push({
+        name: '第七关 · 霓虹都市',
+        bgGradient: (ctx, w, h) => {
+            const g = ctx.createLinearGradient(0, 0, 0, h);
+            g.addColorStop(0, '#07051a'); g.addColorStop(0.45, '#1a0b33'); g.addColorStop(0.8, '#3a0e3d'); g.addColorStop(1, '#12061f');
+            return g;
+        },
+        groundColor: '#14112a', groundDetail: '#2a2350', platformColor: '#2b2550', platformDetail: '#463d80',
+        playerStart: { x: 100, y: 400 },
+        cameraBounds: { minX: 0, maxX: 7200 },
+        ...neon,
+        boss: {
+            x: 6900, y: 496, name: '霓虹刺客·影刃', health: 4600, damage: 46, speed: 170, w: 50, h: 92,
+            color: '#ff2fb0', accentColor: '#3ff0ff', archetype: 'neon_assassin', level: 7, score: 5600,
+        },
+        levelWidth: 7200,
+    });
+
+    // ---- 第八关：沙暴遗迹（古代废墟 + 流沙断层）----
+    const desert = build({
+        hpMul: 1.15, scoreMul: 1.1,
+        ground: [[0, 900, 500], [1080, 700, 500], [1960, 520, 480], [2650, 760, 500], [3600, 480, 470], [4260, 820, 500],
+                 [5260, 560, 490], [6020, 700, 500], [6900, 1100, 500]],
+        floats: [[380, 410, 120], [820, 400, 110], [1300, 380, 140], [1620, 420, 100, { ampX: 70, speedX: 1.4 }], [1840, 380, 110],
+                 [2250, 370, 120], [2500, 410, 120, { ampY: 60, speedY: 1.5 }], [2950, 380, 140], [3250, 360, 110], [3420, 410, 110, { ampX: 60, speedX: 1.6 }],
+                 [3900, 360, 120], [4130, 420, 110, { ampY: 55, speedY: 1.7 }], [4600, 380, 150], [4950, 360, 110], [5120, 420, 110, { ampX: 60, speedX: 1.8 }],
+                 [5500, 380, 120], [5850, 410, 120, { ampY: 60, speedY: 1.8 }], [6300, 370, 140], [6740, 410, 110, { ampX: 70, speedX: 1.9 }]],
+        enemies: [[500, 'walker'], [700, 'jumper'], [850, 'sniper'], [1200, 'shielder'], [1400, 'shooter'], [1500, 'swooper'],
+                  [2050, 'turret'], [2200, 'runner'], [2400, 'kamikaze'], [2750, 'shielder'], [2950, 'sniper'], [3100, 'jumper'],
+                  [3250, 'bomber'], [3700, 'shooter'], [3900, 'drone'], [4350, 'walker', 1.2], [4500, 'shielder'], [4700, 'sniper'],
+                  [4900, 'kamikaze'], [5000, 'flyer'], [5350, 'runner'], [5500, 'jumper'], [5700, 'missile'], [6100, 'shielder'],
+                  [6250, 'shooter'], [6400, 'sniper'], [6500, 'swooper'], [6650, 'turret'], [6800, 'drone']],
+        drops: [[300, 'shotgun'], [900, 'health'], [1300, 'grenade'], [1900, 'smg'], [2300, 'health'], [2800, 'rocket'], [3350, 'molotov'],
+                [3800, 'health'], [4400, 'laser'], [4800, 'grenade'], [5400, 'health'], [5900, 'shotgun'], [6200, 'health'], [6700, 'rocket'], [7000, 'health']],
+    });
+    Levels.push({
+        name: '第八关 · 沙暴遗迹',
+        bgGradient: (ctx, w, h) => {
+            const g = ctx.createLinearGradient(0, 0, 0, h);
+            g.addColorStop(0, '#2a1608'); g.addColorStop(0.45, '#6b3a14'); g.addColorStop(0.8, '#a8622a'); g.addColorStop(1, '#3a200c');
+            return g;
+        },
+        groundColor: '#4a3018', groundDetail: '#6b4622', platformColor: '#7a5630', platformDetail: '#9a7040',
+        playerStart: { x: 100, y: 400 },
+        cameraBounds: { minX: 0, maxX: 8000 },
+        ...desert,
+        boss: {
+            x: 7600, y: 496, name: '沙暴巨像·法老之怒', health: 5600, damage: 52, speed: 110, w: 90, h: 120,
+            color: '#e0a84a', accentColor: '#ffe9a8', archetype: 'sand_colossus', level: 8, score: 6400,
+        },
+        levelWidth: 8000,
+    });
+
+    // ---- 第九关：天空要塞（终章）----
+    const sky = build({
+        hpMul: 1.3, scoreMul: 1.25,
+        ground: [[0, 600, 500], [1500, 520, 480], [3300, 600, 500], [5200, 520, 470], [7300, 1300, 500]],
+        floats: [[700, 420, 120], [880, 370, 100, { ampX: 70, speedX: 1.8 }], [1100, 330, 110], [1300, 400, 100, { ampY: 60, speedY: 2.0 }],
+                 [2100, 420, 120], [2320, 360, 100, { ampX: 80, speedX: 2.0 }], [2550, 320, 110], [2780, 380, 100, { ampY: 70, speedY: 2.2 }],
+                 [3000, 420, 120], [3150, 360, 100], [4000, 420, 110], [4200, 360, 100, { ampX: 90, speedX: 2.1 }], [4450, 320, 110],
+                 [4680, 380, 100, { ampY: 70, speedY: 2.3 }], [4950, 420, 110], [5800, 420, 120], [6020, 360, 100, { ampX: 90, speedX: 2.2 }],
+                 [6260, 320, 110], [6500, 380, 100, { ampY: 80, speedY: 2.4 }], [6750, 420, 110], [7000, 380, 120, { ampX: 70, speedX: 2.0 }]],
+        enemies: [[350, 'shielder'], [500, 'shooter'], [800, 'drone'], [1150, 'swooper'], [1600, 'sniper'], [1800, 'shielder'],
+                  [1950, 'kamikaze'], [2200, 'flyer'], [2600, 'bomber'], [2900, 'drone'], [3400, 'walker', 1.3], [3550, 'shielder'],
+                  [3700, 'sniper'], [3850, 'missile'], [4100, 'swooper'], [4500, 'flyer'], [4800, 'bomber'], [5300, 'shielder'],
+                  [5450, 'turret'], [5600, 'sniper'], [5700, 'kamikaze'], [6000, 'drone'], [6300, 'swooper'], [6600, 'flyer'],
+                  [6900, 'bomber'], [7400, 'shielder'], [7550, 'sniper'], [7650, 'runner']],
+        drops: [[250, 'laser'], [550, 'health'], [1000, 'grenade'], [1650, 'shotgun'], [1900, 'health'], [2600, 'molotov'], [3350, 'rocket'],
+                [3600, 'health'], [4500, 'smg'], [5250, 'health'], [5500, 'grenade'], [6300, 'health'], [7350, 'rocket'], [7500, 'health'], [7700, 'shotgun']],
+    });
+    Levels.push({
+        name: '第九关 · 天空要塞',
+        bgGradient: (ctx, w, h) => {
+            const g = ctx.createLinearGradient(0, 0, 0, h);
+            g.addColorStop(0, '#0b1a3a'); g.addColorStop(0.4, '#2a3f7a'); g.addColorStop(0.75, '#c06a5a'); g.addColorStop(1, '#f0a060');
+            return g;
+        },
+        groundColor: '#26324f', groundDetail: '#3c4c72', platformColor: '#4a5a80', platformDetail: '#6a7ca8',
+        playerStart: { x: 100, y: 400 },
+        cameraBounds: { minX: 0, maxX: 8600 },
+        ...sky,
+        boss: {
+            x: 8100, y: 496, name: '天穹审判者·终焉战舰', health: 7200, damage: 58, speed: 150, w: 100, h: 125,
+            color: '#7ce7ff', accentColor: '#ffd36b', archetype: 'sky_judicator', level: 9, score: 9000,
+        },
+        levelWidth: 8600,
+    });
+})();

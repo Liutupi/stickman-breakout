@@ -16,6 +16,9 @@ const Renderer = (() => {
         { color: '#cfefff', kind: 'snow', theme: 'ice' },    // 极寒冰原：雪
         { color: '#b88cff', kind: 'firefly', theme: 'void' }, // 虚空幻境：虚空粒子
         { color: '#ff5a7a', kind: 'ember', theme: 'chaos' },   // 终焉之境
+        { color: '#9fd8ff', kind: 'rain', theme: 'neon' },     // 霓虹都市：夜雨
+        { color: '#f0c070', kind: 'sand', theme: 'desert' },   // 沙暴遗迹：风沙
+        { color: '#ffffff', kind: 'dust', theme: 'sky' },      // 天空要塞：高空气流
     ];
 
     function setAmbient(index) {
@@ -24,7 +27,8 @@ const Renderer = (() => {
         ambientKind = theme.kind;
         bgTheme = theme.theme;
         motes = [];
-        for (let i = 0; i < 70; i++) {
+        const moteCount = theme.kind === 'rain' ? 160 : theme.kind === 'sand' ? 110 : 70;
+        for (let i = 0; i < moteCount; i++) {
             motes.push({
                 x: Math.random(), y: Math.random(),
                 z: Utils.rand(0.3, 1.2),
@@ -42,6 +46,22 @@ const Renderer = (() => {
         const rgb = hexToRgba(ambientColor, 1).replace('rgba(', '').replace(', 1)', '').replace(/ /g, '');
         for (const m of motes) {
             let vx = 0, vy = 0;
+            if (ambientKind === 'rain' || ambientKind === 'sand') {
+                // 雨丝 / 风沙：画成斜线条
+                const k = ambientKind === 'rain';
+                m.x += (k ? -0.01 : -0.09) * m.speed * 0.016 * 3;
+                m.y += (k ? 0.12 : 0.006) * m.speed * 0.016 * 3;
+                const px = (((m.x - Utils.camera.x * 0.0004 * m.z) % 1) + 1) % 1 * width;
+                const py = ((m.y % 1) + 1) % 1 * height;
+                ctx.globalAlpha = (k ? 0.35 : 0.28) * m.z;
+                ctx.strokeStyle = ambientColor;
+                ctx.lineWidth = k ? 1 : m.size * 0.8;
+                ctx.beginPath();
+                ctx.moveTo(px, py);
+                ctx.lineTo(px + (k ? 4 : 26) * m.z, py - (k ? 26 : 2) * m.z);
+                ctx.stroke();
+                continue;
+            }
             if (ambientKind === 'ember') { vy = -0.035 * m.speed; vx = Math.sin(time * 0.7 + m.phase) * 0.01; }
             else if (ambientKind === 'snow') { vy = 0.03 * m.speed; vx = -0.02 + Math.sin(time + m.phase) * 0.01; }
             else { vx = Math.sin(time * 0.5 + m.phase) * 0.012; vy = Math.cos(time * 0.4 + m.phase) * 0.01; }
@@ -278,6 +298,30 @@ const Renderer = (() => {
             ],
             fog: 'rgba(160, 110, 255, 0.10)',
         },
+        neon: {
+            ridges: [
+                { par: 0.05, amp: 0, lift: 0, color: '#120c2a', seed: 1.1, deco: 'tower' },
+                { par: 0.16, amp: 0, lift: 0, color: '#0d0920', seed: 2.7, deco: 'tower' },
+                { par: 0.34, amp: 0, lift: 0, color: '#08061a', seed: 4.4, deco: 'tower' },
+            ],
+            fog: 'rgba(255, 60, 180, 0.08)',
+        },
+        desert: {
+            ridges: [
+                { par: 0.05, amp: 70, lift: 120, color: '#8a5228', seed: 2.4, deco: 'pyramid' },
+                { par: 0.16, amp: 50, lift: 60, color: '#6e3f1e', seed: 5.9, deco: 'pillar' },
+                { par: 0.36, amp: 40, lift: 15, color: '#4f2c14', seed: 8.2, deco: 'pillar' },
+            ],
+            fog: 'rgba(240, 180, 110, 0.14)',
+        },
+        sky: {
+            ridges: [
+                { par: 0.04, amp: 0, lift: 0, color: '#3a4f86', seed: 1.6, deco: 'clouds' },
+                { par: 0.12, amp: 0, lift: 0, color: '#2c3d6e', seed: 3.3, deco: 'fortress' },
+                { par: 0.3, amp: 0, lift: 0, color: '#ffffff', seed: 6.1, deco: 'clouds' },
+            ],
+            fog: 'rgba(255, 190, 150, 0.10)',
+        },
         chaos: {
             ridges: [
                 { par: 0.06, amp: 180, lift: 150, color: '#2a0d18', seed: 2.9, deco: 'spire' },
@@ -304,7 +348,7 @@ const Renderer = (() => {
         drawCelestial(time, horizon);
 
         // 星空
-        if (bgTheme !== 'lava') {
+        if (bgTheme !== 'lava' && bgTheme !== 'desert' && bgTheme !== 'sky') {
             const parStar = Utils.camera.x * 0.03;
             for (const st of bgStars) {
                 const sx = ((st.x - parStar) % (width + 100) + width + 100) % (width + 100);
@@ -320,6 +364,12 @@ const Renderer = (() => {
             const off = Utils.camera.x * r.par;
             if (r.deco === 'islands') {
                 drawIslands(off, r, li, time, horizon);
+            } else if (r.deco === 'tower') {
+                drawTowers(off, r, li, time, horizon);
+            } else if (r.deco === 'clouds') {
+                drawClouds(off, r, li, time, horizon);
+            } else if (r.deco === 'fortress') {
+                drawFortress(off, r, li, time, horizon);
             } else {
                 const base = horizon - r.lift;
                 ctx.fillStyle = r.color;
@@ -365,6 +415,97 @@ const Renderer = (() => {
             ctx.lineTo(width, 0);
             ctx.closePath();
             ctx.fill();
+        }
+    }
+
+
+    // ---- 霓虹都市：摩天楼 + 灯窗 + 霓虹招牌 ----
+    function drawTowers(off, r, li, time, horizon) {
+        const spacing = 70 + li * 30;
+        const start = Math.floor(off / spacing) - 1;
+        const end = Math.ceil((off + width) / spacing) + 1;
+        const neonCols = ['255,47,176', '63,240,255', '255,211,107', '160,110,255'];
+        for (let k = start; k <= end; k++) {
+            const rnd = hash(k * 3.1 + r.seed);
+            const x = k * spacing - off;
+            const w = spacing * (0.6 + rnd * 0.35);
+            const h = (li === 0 ? 260 : li === 1 ? 190 : 120) + rnd * (li === 0 ? 220 : 160);
+            const top = horizon - h + li * 30;
+            ctx.fillStyle = r.color;
+            ctx.fillRect(x, top, w, height - top);
+            if (rnd > 0.6) ctx.fillRect(x + w * 0.4, top - 30, 3, 30); // 天线
+            // 灯窗
+            const winA = li === 2 ? 0.35 : 0.22;
+            for (let wy = top + 10; wy < horizon + 40; wy += 12) {
+                for (let wx = x + 6; wx < x + w - 6; wx += 10) {
+                    const lit = hash(wx * 0.37 + wy * 1.31 + k) > 0.62;
+                    if (!lit) continue;
+                    ctx.fillStyle = `rgba(255, 220, 160, ${winA * (0.6 + 0.4 * Math.sin(time * 0.6 + wx))})`;
+                    ctx.fillRect(wx, wy, 4, 3);
+                }
+            }
+            // 霓虹招牌
+            if (rnd > 0.55 && li > 0) {
+                const col = neonCols[k & 3];
+                const flick = Math.sin(time * 9 + k * 7) > -0.85 ? 1 : 0.25;
+                const sy = top + 30 + rnd * 60;
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                Utils.drawGlow(ctx, col, x + w / 2, sy + 8, 46, 0.35 * flick);
+                ctx.globalAlpha = 0.85 * flick;
+                ctx.strokeStyle = `rgb(${col})`;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x + w * 0.18, sy, w * 0.64, 16);
+                ctx.fillStyle = `rgba(${col},0.55)`;
+                ctx.fillRect(x + w * 0.24, sy + 6, w * 0.52, 4);
+                ctx.restore();
+                ctx.globalAlpha = 1;
+            }
+        }
+    }
+
+    // ---- 天空：云海 ----
+    function drawClouds(off, r, li, time, horizon) {
+        const spacing = li === 0 ? 300 : 220;
+        const drift = time * (li === 0 ? 6 : 14);
+        const start = Math.floor((off + drift) / spacing) - 1;
+        const end = Math.ceil((off + drift + width) / spacing) + 1;
+        for (let k = start; k <= end; k++) {
+            const rnd = hash(k * 5.3 + r.seed);
+            const x = k * spacing - off - drift;
+            const y = li === 0 ? 160 + rnd * 120 : horizon + 30 + rnd * 40;
+            const sc = (li === 0 ? 0.8 : 1.4) * (0.7 + rnd * 0.6);
+            ctx.fillStyle = li === 0 ? 'rgba(255, 220, 200, 0.12)' : 'rgba(255, 235, 225, 0.22)';
+            for (let b = 0; b < 5; b++) {
+                const bx = x + (b - 2) * 34 * sc, by = y - Math.sin(b / 4 * Math.PI) * 18 * sc;
+                ctx.beginPath(); ctx.arc(bx, by, (26 + (b % 2) * 10) * sc, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+    }
+
+    // ---- 天空：远处浮空要塞 ----
+    function drawFortress(off, r, li, time, horizon) {
+        const spacing = 900;
+        const start = Math.floor(off / spacing) - 1;
+        const end = Math.ceil((off + width) / spacing) + 1;
+        for (let k = start; k <= end; k++) {
+            const rnd = hash(k * 7.7 + r.seed);
+            const x = k * spacing + rnd * 300 - off;
+            const y = 230 + rnd * 70 + Math.sin(time * 0.5 + k) * 6;
+            ctx.fillStyle = r.color;
+            ctx.beginPath();
+            ctx.moveTo(x - 160, y); ctx.lineTo(x + 160, y); ctx.lineTo(x + 90, y + 60); ctx.lineTo(x, y + 110); ctx.lineTo(x - 90, y + 60);
+            ctx.closePath(); ctx.fill();
+            for (let t = -2; t <= 2; t++) {
+                const th = 40 + hash(k * 3 + t) * 70;
+                ctx.fillRect(x + t * 50 - 12, y - th, 24, th);
+                ctx.beginPath(); ctx.moveTo(x + t * 50 - 16, y - th); ctx.lineTo(x + t * 50, y - th - 22); ctx.lineTo(x + t * 50 + 16, y - th); ctx.fill();
+            }
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            Utils.drawGlow(ctx, '255,211,107', x, y + 112, 30, 0.5 + Math.sin(time * 2 + k) * 0.2);
+            ctx.restore();
+            ctx.globalAlpha = 1;
         }
     }
 
@@ -450,6 +591,41 @@ const Renderer = (() => {
             }
         } else if (bgTheme === 'lava') {
             Utils.drawGlow(ctx, '255,110,40', width * 0.5, horizon, 500, 0.25);
+        } else if (bgTheme === 'neon') {
+            // 城市天光 + 探照灯
+            Utils.drawGlow(ctx, '255,47,176', width * 0.3, horizon, 520, 0.22);
+            Utils.drawGlow(ctx, '63,240,255', width * 0.8, horizon, 420, 0.16);
+            ctx.globalAlpha = 1;
+            ctx.globalCompositeOperation = 'lighter';
+            for (let i = 0; i < 2; i++) {
+                const a = Math.sin(time * 0.35 + i * 2.2) * 0.45 - Math.PI / 2;
+                const bx = width * (0.25 + i * 0.5), by = horizon;
+                const g = ctx.createLinearGradient(bx, by, bx + Math.cos(a) * 700, by + Math.sin(a) * 700);
+                g.addColorStop(0, 'rgba(160,200,255,0.12)'); g.addColorStop(1, 'rgba(160,200,255,0)');
+                ctx.fillStyle = g;
+                ctx.beginPath();
+                ctx.moveTo(bx - 6, by);
+                ctx.lineTo(bx + Math.cos(a - 0.06) * 800, by + Math.sin(a - 0.06) * 800);
+                ctx.lineTo(bx + Math.cos(a + 0.06) * 800, by + Math.sin(a + 0.06) * 800);
+                ctx.lineTo(bx + 6, by);
+                ctx.closePath(); ctx.fill();
+            }
+        } else if (bgTheme === 'desert') {
+            // 低悬烈日 + 热浪
+            const cx = px, cy = 170;
+            Utils.drawGlow(ctx, '255,200,120', cx, cy, 320, 0.45);
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = '#ffe2a8';
+            ctx.beginPath(); ctx.arc(cx, cy, 58, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = 'rgba(255, 170, 90, 0.35)';
+            for (let i = 0; i < 4; i++) ctx.fillRect(cx - 70, cy + 10 + i * 12 + Math.sin(time * 2 + i) * 2, 140, 3);
+        } else if (bgTheme === 'sky') {
+            // 夕阳
+            const cx = px, cy = horizon - 40;
+            Utils.drawGlow(ctx, '255,170,110', cx, cy, 520, 0.5);
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = '#ffd9a0';
+            ctx.beginPath(); ctx.arc(cx, cy, 64, 0, Math.PI * 2); ctx.fill();
         }
         ctx.restore();
         ctx.globalAlpha = 1;
@@ -457,7 +633,7 @@ const Renderer = (() => {
 
     function drawRidgeDeco(r, off, base, time, li) {
         if (!r.deco) return;
-        const spacing = r.deco === 'pine' ? 26 + li * 6 : r.deco === 'spire' ? 140 : r.deco === 'crystal' ? 90 : r.deco === 'snowcap' ? 1 : 110;
+        const spacing = r.deco === 'pine' ? 26 + li * 6 : r.deco === 'spire' ? 140 : r.deco === 'crystal' ? 90 : r.deco === 'snowcap' ? 1 : r.deco === 'pyramid' ? 520 : r.deco === 'pillar' ? 170 : 110;
         if (r.deco === 'snowcap') {
             // 山顶积雪：沿山脊上沿画一条亮线
             ctx.strokeStyle = li === 0 ? 'rgba(230, 245, 255, 0.35)' : 'rgba(230, 245, 255, 0.22)';
@@ -520,6 +696,30 @@ const Renderer = (() => {
                 ctx.lineWidth = 1;
                 ctx.stroke();
                 ctx.restore();
+                ctx.fillStyle = r.color;
+            } else if (r.deco === 'pyramid') {
+                if (rnd < 0.35) continue;
+                const pw = 140 + rnd * 160, ph = pw * 0.62;
+                ctx.beginPath();
+                ctx.moveTo(x - pw / 2, y + 4); ctx.lineTo(x, y - ph); ctx.lineTo(x + pw / 2, y + 4);
+                ctx.closePath(); ctx.fill();
+                ctx.fillStyle = 'rgba(255, 210, 140, 0.18)';
+                ctx.beginPath();
+                ctx.moveTo(x, y - ph); ctx.lineTo(x + pw / 2, y + 4); ctx.lineTo(x + pw * 0.12, y + 4);
+                ctx.closePath(); ctx.fill();
+                ctx.fillStyle = r.color;
+            } else if (r.deco === 'pillar') {
+                if (rnd < 0.3) continue;
+                const ph = 60 + rnd * 110, pw = 16 + li * 4;
+                const broken = rnd > 0.6;
+                ctx.fillRect(x - pw / 2, y - ph, pw, ph);
+                ctx.fillRect(x - pw / 2 - 5, y - ph - 6, pw + 10, 7);
+                ctx.fillRect(x - pw / 2 - 5, y - 6, pw + 10, 6);
+                if (!broken && rnd > 0.45) {
+                    ctx.fillRect(x - pw / 2 - 5, y - ph - 16, pw + 70, 10); // 横梁
+                }
+                ctx.fillStyle = 'rgba(0,0,0,0.18)';
+                for (let fy = y - ph + 8; fy < y - 10; fy += 14) ctx.fillRect(x - pw / 2 + 3, fy, 2, 8);
                 ctx.fillStyle = r.color;
             } else if (r.deco === 'spire') {
                 const h = 80 + rnd * 120;

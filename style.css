@@ -2273,3 +2273,236 @@ body.menu-open #hud {
     body.touch-device #watermark { display: none; }
     body.touch-device .combo-display { top: 30%; }
 }
+
+/* ==================== 永久养成：成长中心 / 结算奖励 / 关卡锁 ==================== */
+.menu-shell {
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.menu-btn--growth {
+    border-color: rgba(255, 179, 71, 0.45) !important;
+    color: #ffd36b !important;
+    background: linear-gradient(180deg, rgba(255, 150, 40, 0.16), rgba(255, 150, 40, 0.05)) !important;
+}
+
+.player-bar__rank {
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffd36b;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(255, 179, 71, 0.1);
+    border: 1px solid rgba(255, 179, 71, 0.25);
+    white-space: nowrap;
+}
+
+.menu-shell--growth { width: min(1040px, calc(100vw - 32px)); }
+
+.g-head {
+    display: flex;
+    align-items: stretch;
+    gap: 14px;
+    margin: 14px 0 16px;
+}
+
+.g-agent {
+    flex: 1;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: rgba(77, 184, 232, 0.07);
+    border: 1px solid rgba(77, 184, 232, 0.22);
+}
+
+.g-agent__name { font-size: 20px; font-weight: 900; color: #fff; }
+.g-agent__rank { margin-top: 2px; font-size: 14px; font-weight: 700; color: #7fd4ff; }
+.g-agent__xp { margin-top: 6px; font-size: 12px; color: var(--muted); }
+
+.g-xpbar, .reward-xpbar {
+    height: 8px;
+    margin-top: 8px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.g-xpbar > div, .reward-xpbar > div {
+    height: 100%;
+    background: linear-gradient(90deg, #4db8e8, #9fe8ff);
+    box-shadow: 0 0 10px rgba(77, 184, 232, 0.7);
+}
+
+.g-coins {
+    min-width: 170px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(255, 179, 71, 0.16), rgba(255, 179, 71, 0.04));
+    border: 1px solid rgba(255, 179, 71, 0.4);
+}
+
+.g-coins span { font-size: 12px; font-weight: 700; color: #ffcf8a; letter-spacing: 0.2em; }
+.g-coins strong {
+    font-family: "Orbitron", "Noto Sans SC", sans-serif;
+    font-size: 34px;
+    font-weight: 900;
+    color: #ffd36b;
+    text-shadow: 0 0 18px rgba(255, 170, 60, 0.6);
+}
+
+.g-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.g-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.g-card:hover { border-color: rgba(255, 179, 71, 0.35); background: rgba(255, 255, 255, 0.055); }
+.g-card.maxed { border-color: rgba(255, 211, 107, 0.45); }
+.g-card.flash { animation: gFlash 0.5s ease; }
+
+@keyframes gFlash {
+    0% { background: rgba(255, 211, 107, 0.35); transform: scale(1.02); }
+    100% { background: rgba(255, 255, 255, 0.035); transform: scale(1); }
+}
+
+.g-card__tag {
+    flex: 0 0 auto;
+    width: 46px;
+    height: 46px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    font-size: 22px;
+    font-weight: 900;
+    color: #ffd36b;
+    background: rgba(255, 179, 71, 0.1);
+    border: 1px solid rgba(255, 179, 71, 0.35);
+}
+
+.g-card__body { flex: 1; min-width: 0; }
+
+.g-card__name {
+    display: flex;
+    justify-content: space-between;
+    font-size: 15px;
+    font-weight: 800;
+    color: #fff;
+}
+
+.g-card__name span { font-size: 12px; color: var(--muted); font-weight: 700; }
+
+.g-card__pips { display: flex; gap: 3px; margin: 6px 0 5px; }
+.g-card__pips i {
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.1);
+}
+.g-card__pips i.on { background: linear-gradient(90deg, #ff8a2a, #ffd36b); box-shadow: 0 0 6px rgba(255, 170, 60, 0.6); }
+
+.g-card__desc { font-size: 12px; color: #c9d6e8; line-height: 1.5; }
+.g-card__desc em { display: block; font-style: normal; color: var(--muted); }
+
+.g-card__buy {
+    flex: 0 0 auto;
+    min-width: 92px;
+    padding: 10px 10px;
+    border-radius: 9px;
+    border: 1px solid rgba(255, 179, 71, 0.55);
+    background: linear-gradient(180deg, #ff9a3a, #e0661e);
+    color: #1a0a04;
+    font-weight: 900;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.g-card__buy:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
+.g-card__buy:disabled {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: var(--muted);
+    cursor: not-allowed;
+}
+
+.g-sub { margin: 16px 0 8px; font-size: 13px; font-weight: 800; color: #7fd4ff; letter-spacing: 0.08em; }
+
+.g-loadouts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.g-loadout {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px dashed rgba(255, 255, 255, 0.14);
+    color: var(--muted);
+    font-size: 12px;
+}
+.g-loadout b { display: block; font-size: 14px; color: #8a96a8; }
+.g-loadout.on { border-style: solid; border-color: rgba(77, 184, 232, 0.45); background: rgba(77, 184, 232, 0.07); }
+.g-loadout.on b { color: #fff; }
+
+/* 结算奖励 */
+.reward-box {
+    margin: 4px auto 14px;
+    max-width: 420px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: rgba(255, 179, 71, 0.07);
+    border: 1px solid rgba(255, 179, 71, 0.3);
+    text-align: center;
+}
+
+.reward-box__row { display: flex; justify-content: center; gap: 22px; font-weight: 900; font-size: 20px; }
+.reward-coin { color: #ffd36b; text-shadow: 0 0 12px rgba(255, 170, 60, 0.6); }
+.reward-xp { color: #7fd4ff; }
+.reward-box__level { margin-top: 6px; font-size: 13px; font-weight: 700; color: #c9d6e8; }
+.reward-box__level span { display: block; margin-top: 3px; font-size: 11px; color: var(--muted); font-weight: 500; }
+.reward-box__up {
+    margin-top: 8px;
+    font-size: 16px;
+    font-weight: 900;
+    color: #ffe14a;
+    animation: comboBump 0.5s ease 0.4s both;
+}
+.reward-box__unlock { margin-top: 4px; font-size: 13px; font-weight: 800; color: #7dffb5; }
+.reward-box__hint { margin-top: 6px; font-size: 11px; color: var(--muted); }
+
+/* 关卡锁 */
+.level-card.locked { opacity: 0.45; filter: grayscale(0.7); cursor: not-allowed; }
+.level-card.locked:hover { transform: none; }
+.level-card__lock {
+    position: absolute;
+    top: 16px;
+    right: 14px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #ffb3a8;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 120, 100, 0.4);
+}
+.level-card.shake { animation: lockShake 0.35s ease; }
+@keyframes lockShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+}
+
+@media (max-width: 720px) {
+    .g-grid { grid-template-columns: 1fr; }
+    .g-loadouts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .g-head { flex-direction: column; }
+}

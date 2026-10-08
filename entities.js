@@ -421,7 +421,7 @@ class Player {
                     const tipDist = this.gunTipOffset.x + 12;
                     const tipX = this.x + Math.cos(this.armAngle) * tipDist;
                     const tipY = (this.crouching ? this.y - 14 : this.y - 30) + Math.sin(this.armAngle) * tipDist;
-                    const damageMul = (!this.onGround ? this.upgradeStats.aerialDamageMul : 1) * (od ? 1.5 : 1);
+                    const damageMul = (!this.onGround ? this.upgradeStats.aerialDamageMul : 1) * (od ? 1.5 : 1) * (this.prog ? this.prog.dmgMul : 1);
                     for (const b of result) {
                         const bullet = new Bullet(tipX, tipY, this.armAngle, {
                             ...b,
@@ -540,7 +540,7 @@ class Player {
             if (this.selectedThrown === 'grenade' && this.grenadeCount > 0) {
                 this.thrown.push(new ThrownProjectile('grenade', this.x, this.y - (this.crouching ? 14 : 30), this.aimTarget.x, this.aimTarget.y, {
                     radiusMul: this.upgradeStats.explosiveRadiusMul,
-                    damageMul: this.upgradeStats.thrownDamageMul,
+                    damageMul: this.upgradeStats.thrownDamageMul * (this.prog ? this.prog.dmgMul : 1),
                 }));
                 this.grenadeCount--;
                 this.thrownCooldown = 0.6;
@@ -603,6 +603,17 @@ class Player {
 
     addScore(pts) {
         this.score += pts;
+        this.earned = (this.earned || 0) + Math.max(0, pts);
+    }
+
+    // 创建武器（应用养成的弹药扩容）
+    makeWeapon(type) {
+        const w = new Weapon(type);
+        if (this.prog && !w.infinite) {
+            w.maxAmmo = Math.round(w.maxAmmo * this.prog.ammoMul);
+            w.ammo = w.maxAmmo;
+        }
+        return w;
     }
 
     hasUpgrade(id) {
@@ -725,7 +736,7 @@ class Player {
                         // 未拥有该武器，放入固定槽位
                         const slotIndex = this.weaponSlotMap[d.type];
                         if (slotIndex !== undefined) {
-                            this.weapons[slotIndex] = new Weapon(d.type);
+                            this.weapons[slotIndex] = this.makeWeapon(d.type);
                             this.currentWeapon = slotIndex;
                         } else {
                             // 未知武器类型，使用第一个空槽位或替换当前武器
@@ -1825,6 +1836,13 @@ class Enemy {
         this.hitFlashTimer = 0;
         this.kbx = 0;               // 受击击退速度
         this.squash = 0;            // 受击形变
+        // 持盾兵：正面护盾
+        this.shieldHP = config.shieldHP || 0;
+        this.maxShieldHP = this.shieldHP;
+        this.shieldFlash = 0;
+        // 狙击手：瞄准激光
+        this.aimTimer = 0;
+        this.aimLock = null;
 
         // 巡逻
         this.patrolDir = Math.random() > 0.5 ? 1 : -1;
@@ -1956,7 +1974,7 @@ class Enemy {
             const dir = playerX > this.x ? 1 : -1;
             this.facing = dir;
 
-            if (this.type === 'walker' || this.type === 'runner') {
+            if (this.type === 'walker' || this.type === 'runner' || this.type === 'shielder') {
                 this.vx = dir * this.speed;
             } else if (this.type === 'shooter') {
                 // 射击型保持距离
@@ -1990,6 +2008,26 @@ class Enemy {
                 if (this.canShoot && this.attackCooldown <= 0) {
                     this.shoot(playerX, playerY, { homing: true, turnRate: 3, speed: this.bulletSpeed, life: 5, size: 5 });
                     this.attackCooldown = this.attackRate;
+                }
+            } else if (this.type === 'sniper') {
+                // 狙击手：保持距离，红色激光瞄准 1.2 秒后高速狙击（最后 0.25 秒锁定，可闪避）
+                this.vx = distToPlayer < 280 ? -dir * this.speed : 0;
+                if (this.attackCooldown <= 0) {
+                    if (!this._charging) { this._charging = true; Audio.play('sniperCharge'); }
+                    this.aimTimer += dt;
+                    if (this.aimTimer < 0.95 || !this.aimLock) this.aimLock = { x: playerX, y: playerY - 28 };
+                    if (this.aimTimer >= 1.2) {
+                        const ox = this.x + this.facing * 20, oy = this.y - this.h * 0.62;
+                        const ang = Math.atan2(this.aimLock.y - oy, this.aimLock.x - ox);
+                        this.bullets.push({ x: ox, y: oy, vx: Math.cos(ang) * this.bulletSpeed, vy: Math.sin(ang) * this.bulletSpeed,
+                            damage: this.damage, life: 1.6, size: 4, sniper: true });
+                        Audio.play('sniperShot');
+                        this.attackCooldown = this.attackRate;
+                        this.aimTimer = 0;
+                        this._charging = false;
+                        this.aimLock = null;
+                        this.kbx -= this.facing * 120;
+                    }
                 }
             } else if (this.type === 'kamikaze') {
                 this.vx = dir * this.speed;
@@ -2025,6 +2063,7 @@ class Enemy {
                 // 无人机的追踪逻辑在上方已处理
             }
         } else {
+            this.aimTimer = 0; this._charging = false; this.aimLock = null;
             // 巡逻（炮台不巡逻）
             if (this.type !== 'turret') {
                 this.patrolTimer -= dt;
@@ -2043,6 +2082,7 @@ class Enemy {
         this.y += this.vy * dt;
         this.kbx *= Math.pow(0.0008, dt);
         this.squash = Math.max(0, this.squash - dt * 6);
+        this.shieldFlash = Math.max(0, this.shieldFlash - dt * 6);
 
         // 平台碰撞（飞行器跳过）
         if (this.type !== 'flyer') {
@@ -2698,6 +2738,10 @@ class Enemy {
             ctx.fillRect(eShX + 3, eShY + 4, 9, 7);
             ctx.fillStyle = blink ? '#ff3b1f' : '#5a1a10';
             ctx.fillRect(eShX + 6, eShY + 2, 3, 2);
+        } else if (this.type === 'shielder') {
+            // 持盾兵：手臂伸向盾牌握把
+            drawELimb(Utils.ik(eShX, eShY + 1, eShX + 10, eShY + 9, 6.5, 6.5, 1), eShX, eShY + 1);
+            drawELimb(Utils.ik(eShX, eShY + 1, eShX - 6, eShY + 12, 6.5, 6.5, 1), eShX, eShY + 1);
         } else if (this.type === 'walker' || this.type === 'runner' || this.type === 'jumper') {
             // 近战：挥舞的手臂/拳刃
             const swing = moving ? Math.sin(ph) * 0.9 : 0.3;
@@ -2712,9 +2756,16 @@ class Enemy {
             // 射手类：双手持步枪
             const gx = eShX + 12, gy = eShY + 4;
             ctx.fillStyle = flash ? '#fff' : '#2a2f3a';
-            ctx.fillRect(eShX + 3, gy - 2, 17, 3.5);
+            const rifleLen = this.type === 'sniper' ? 30 : 17;
+            ctx.fillRect(eShX + 3, gy - 2, rifleLen, 3.5);
             ctx.fillStyle = limbColor;
-            ctx.fillRect(eShX + 18, gy - 1.2, 4, 1.6);
+            ctx.fillRect(eShX + rifleLen + 1, gy - 1.2, 4, 1.6);
+            if (this.type === 'sniper') {
+                ctx.fillStyle = flash ? '#fff' : '#1a1f28';
+                ctx.fillRect(eShX + 10, gy - 6, 9, 3);   // 瞄准镜
+                ctx.fillStyle = `rgba(255, 60, 90, ${ePulse})`;
+                ctx.fillRect(eShX + 18, gy - 5.5, 1.6, 2);
+            }
             ctx.strokeStyle = limbColor;
             ctx.lineWidth = 2.4;
             drawELimb(Utils.ik(eShX, eShY + 1, gx, gy, 6.5, 7, 1), eShX, eShY + 1);
@@ -2732,7 +2783,21 @@ class Enemy {
         const legAnim = moving ? Math.sin(ph) * 10 : 0;
 
         // 兵种特有装备
-        if (this.type === 'walker') {
+        if (this.type === 'shielder' && this.shieldHP > 0) {
+            const r = this.shieldHP / this.maxShieldHP;
+            ctx.save();
+            ctx.fillStyle = this.shieldFlash > 0 ? `rgba(255,255,255,${0.5 + this.shieldFlash * 0.4})` : `rgba(30, 70, 110, ${0.55 + r * 0.3})`;
+            ctx.strokeStyle = `rgba(120, 220, 255, ${0.6 + r * 0.4})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(11, -44); ctx.lineTo(19, -40); ctx.lineTo(19, -6); ctx.lineTo(11, -2);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.fillStyle = `rgba(120, 220, 255, ${0.25 + r * 0.35})`;
+            ctx.fillRect(14, -36, 2, 26 * r);
+            ctx.restore();
+        } else if (this.type === 'walker') {
             // 重装肩铠
             ctx.fillStyle = '#222';
             ctx.strokeStyle = this.color;
@@ -2801,12 +2866,60 @@ class Enemy {
                 ctx.arc(-4, 0, 4 + Math.sin(this.animTime * 20) * 2, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.restore();
+            } else if (b.sniper) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                const sp = Math.hypot(b.vx, b.vy) || 1;
+                ctx.strokeStyle = 'rgba(255, 80, 110, 0.9)';
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(bx - b.vx / sp * 46, by - b.vy / sp * 46);
+                ctx.lineTo(bx, by);
+                ctx.stroke();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.restore();
             } else {
+                // 敌方子弹：红色发光弹 + 短尾迹，更容易看清
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                Utils.drawGlow(ctx, '255,70,60', bx, by, b.size * 4, 0.7);
+                ctx.globalAlpha = 1;
+                ctx.strokeStyle = 'rgba(255, 90, 70, 0.6)';
+                ctx.lineWidth = b.size * 1.2;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(bx, by);
+                ctx.lineTo(bx - b.vx * 0.025, by - b.vy * 0.025);
+                ctx.stroke();
+                ctx.restore();
                 ctx.beginPath();
                 ctx.arc(bx, by, b.size, 0, Math.PI * 2);
-                ctx.fillStyle = '#d85050';
+                ctx.fillStyle = '#ffd0c8';
                 ctx.fill();
             }
+        }
+
+        // 狙击手瞄准激光
+        if (this.type === 'sniper' && this.aimLock && this.aimTimer > 0 && !this.dead) {
+            const t = Math.min(1, this.aimTimer / 1.2);
+            const ox = this.x + this.facing * 20 - Utils.camera.x, oy = this.y - this.h * 0.62 - Utils.camera.y;
+            const tx = this.aimLock.x - Utils.camera.x, ty = this.aimLock.y - Utils.camera.y;
+            const locked = this.aimTimer >= 0.95;
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.strokeStyle = `rgba(255, 40, 70, ${locked ? (Math.sin(this.aimTimer * 60) > 0 ? 0.95 : 0.4) : 0.15 + t * 0.4})`;
+            ctx.lineWidth = locked ? 2.5 : 1 + t;
+            const ang = Math.atan2(ty - oy, tx - ox);
+            ctx.beginPath();
+            ctx.moveTo(ox, oy);
+            ctx.lineTo(ox + Math.cos(ang) * 1400, oy + Math.sin(ang) * 1400);
+            ctx.stroke();
+            Utils.drawGlow(ctx, '255,40,70', tx, ty, 10 + t * 8, 0.5 + t * 0.4);
+            ctx.restore();
+            ctx.globalAlpha = 1;
         }
     }
 }
@@ -3063,6 +3176,13 @@ class Boss {
         for (let i = this.hazards.length - 1; i >= 0; i--) {
             const h = this.hazards[i];
             h.timer = Math.max(0, (h.timer || 0) - dt);
+            if (h.type === 'boulder' && !h.landed && h.timer <= 0) {
+                h.landed = true;
+                Particles.spawn(h.x, h.y, 14, h.color, 260, 0.6, 4);
+                FX.shockwave(h.x, h.y, 90, h.color === '#7ce7ff' ? '124,231,255' : '220,180,120', 6, 0.3);
+                Renderer.shake(4, 0.1);
+                Audio.play('slam');
+            }
             h.life -= dt;
             if (h.life <= 0 || h.health <= 0) {
                 const last = this.hazards.pop();
@@ -3108,6 +3228,9 @@ class Boss {
             frost_beast: ['ice_wall', 'ice_spikes', 'shoot'],
             void_lord: ['portal_barrage', 'homing_orb', 'special'],
             chaos_creator: ['charge', 'fire_pillar', 'ice_spikes', 'portal_barrage', 'special'],
+            neon_assassin: ['teleport', 'charge', 'laser_sweep', 'shadow_burst'],
+            sand_colossus: ['leap_slam', 'boulder_rain', 'shockwave', 'charge'],
+            sky_judicator: ['laser_sweep', 'boulder_rain', 'portal_barrage', 'homing_orb', 'special'],
         };
         let pool = [...(pools[this.archetype] || this.abilities)];
         if (this.phase >= 1 && !pool.includes('spread')) pool.push('spread');
@@ -3172,6 +3295,13 @@ class Boss {
                 break;
             case 'portal_barrage':
                 this.startWindup('portal_barrage', px, py, 0.65);
+                break;
+            case 'laser_sweep':
+                this.startWindup('laser_sweep', px, py, 0.9 - this.phase * 0.08);
+                Audio.play('laserCharge');
+                break;
+            case 'boulder_rain':
+                this.startWindup('boulder_rain', px, py, 0.6);
                 break;
             case 'homing_orb':
                 this.homingOrb(px, py);
@@ -3276,6 +3406,25 @@ class Boss {
             case 'portal_barrage':
                 this.portalBarrage(attack.x, attack.y);
                 break;
+            case 'laser_sweep':
+                // 横贯全场的激光：跳起或冲刺无敌可躲
+                this.hazards.push({ type: 'laser_beam', x: this.x, y: attack.y - 30, timer: 0, life: 0.45, maxLife: 0.45,
+                    damage: this.damage * 0.5, health: 1, color: this.accentColor });
+                Audio.play('beam');
+                Renderer.shake(6, 0.25);
+                FX.light(this.x, attack.y - 30, 500, '255,80,140', 0.4, 0.6);
+                break;
+            case 'boulder_rain': {
+                const n = 4 + this.phase;
+                for (let i = 0; i < n; i++) {
+                    const delay = 0.5 + i * 0.12;
+                    this.hazards.push({ type: 'boulder', x: attack.x + (i - (n - 1) / 2) * 115 + Utils.rand(-25, 25), y: attack.y,
+                        radius: 46, timer: delay, life: delay + 0.3, damage: this.damage * 0.5, health: 1, landed: false,
+                        color: this.archetype === 'sky_judicator' ? '#7ce7ff' : '#c89a5a' });
+                }
+                Audio.play('bossSpecial');
+                break;
+            }
         }
     }
 
@@ -3447,6 +3596,41 @@ class Boss {
                 ctx.closePath();
                 ctx.fill();
                 ctx.stroke();
+            } else if (h.type === 'laser_beam') {
+                const t = h.life / (h.maxLife || 0.45);
+                const W = Renderer.width();
+                ctx.globalCompositeOperation = 'lighter';
+                const thick = 22 * t + 6;
+                const g = ctx.createLinearGradient(0, sy - thick, 0, sy + thick);
+                g.addColorStop(0, 'rgba(255,60,140,0)');
+                g.addColorStop(0.5, `rgba(255,90,170,${0.85 * t})`);
+                g.addColorStop(1, 'rgba(255,60,140,0)');
+                ctx.fillStyle = g;
+                ctx.fillRect(0, sy - thick, W, thick * 2);
+                ctx.fillStyle = `rgba(255,255,255,${0.9 * t})`;
+                ctx.fillRect(0, sy - 2.5 * t - 1, W, 5 * t + 2);
+            } else if (h.type === 'boulder') {
+                if (!h.landed) {
+                    const k = 1 - Math.min(1, h.timer / 0.6);
+                    ctx.fillStyle = `rgba(0,0,0,${0.2 + k * 0.3})`;
+                    ctx.strokeStyle = `rgba(255,80,60,${0.4 + k * 0.5})`;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.ellipse(sx, sy, h.radius * (0.4 + k * 0.6), 10, 0, 0, Math.PI * 2);
+                    ctx.fill(); ctx.stroke();
+                    const ry = sy - h.timer * 900 - 20;
+                    ctx.translate(sx, ry);
+                    ctx.rotate(h.timer * 8);
+                    ctx.fillStyle = h.color;
+                    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+                    ctx.beginPath();
+                    for (let k2 = 0; k2 < 7; k2++) {
+                        const a = k2 / 7 * Math.PI * 2, r = 18 + ((k2 * 37) % 7);
+                        k2 === 0 ? ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r) : ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+                    }
+                    ctx.closePath();
+                    ctx.fill(); ctx.stroke();
+                }
             } else if (h.type === 'ice_wall') {
                 const hp = Utils.clamp(h.health / 120, 0.25, 1);
                 ctx.fillStyle = `rgba(142, 232, 255, ${0.2 + hp * 0.45})`;
@@ -3474,7 +3658,23 @@ class Boss {
         ctx.strokeStyle = this.accentColor;
         ctx.fillStyle = this.accentColor + '22';
         ctx.lineWidth = 2 + t * 3;
-        if (this.windup.type === 'charge') {
+        if (this.windup.type === 'laser_sweep') {
+            const ly = sy - 30;
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = `rgba(255, 60, 120, ${0.3 + t * 0.6})`;
+            ctx.lineWidth = 1 + t * 2;
+            ctx.setLineDash([18, 10]);
+            ctx.lineDashOffset = -t * 80;
+            ctx.beginPath();
+            ctx.moveTo(0, ly);
+            ctx.lineTo(Renderer.width(), ly);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.font = '900 18px "Noto Sans SC", sans-serif';
+            ctx.fillStyle = `rgba(255, 120, 160, ${Math.sin(t * 30) > 0 ? 1 : 0.4})`;
+            ctx.textAlign = 'center';
+            ctx.fillText('激光扫射！跳跃或冲刺躲避', Renderer.width() / 2, ly - 16);
+        } else if (this.windup.type === 'charge') {
             const bx = this.x - Utils.camera.x;
             const by = this.y - this.h / 2 - Utils.camera.y;
             ctx.beginPath();
@@ -3538,6 +3738,43 @@ class Boss {
                 ctx.beginPath();
                 ctx.ellipse(0, -this.h / 2, 44 + i * 12, 12 + i * 4, this.animTime * 0.8 + i, 0, Math.PI * 2);
                 ctx.stroke();
+            }
+        } else if (this.archetype === 'neon_assassin') {
+            // 双色光刃 + 面罩
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = `rgba(63, 240, 255, ${0.6 + pulse * 0.4})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(22, -this.h + 50); ctx.lineTo(50, -this.h + 18); ctx.stroke();
+            ctx.strokeStyle = `rgba(255, 47, 176, ${0.6 + pulse * 0.4})`;
+            ctx.beginPath(); ctx.moveTo(-22, -this.h + 50); ctx.lineTo(-48, -this.h + 22); ctx.stroke();
+            ctx.fillStyle = `rgba(63, 240, 255, ${pulse})`;
+            ctx.fillRect(-12, -this.h + 12, 24, 4);
+        } else if (this.archetype === 'sand_colossus') {
+            // 法老头饰：金蓝条纹
+            ctx.fillStyle = '#d9a440';
+            ctx.beginPath();
+            ctx.moveTo(-26, -this.h + 4); ctx.lineTo(26, -this.h + 4); ctx.lineTo(34, -this.h + 46); ctx.lineTo(-34, -this.h + 46);
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#2a4a8a';
+            for (let i = 0; i < 4; i++) ctx.fillRect(-30 + i * 2, -this.h + 12 + i * 9, 60 - i * 4 + 8, 3);
+            ctx.fillStyle = `rgba(255, 230, 140, ${pulse})`;
+            ctx.fillRect(-10, -this.h + 18, 20, 5);
+        } else if (this.archetype === 'sky_judicator') {
+            // 光环 + 机翼
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.strokeStyle = `rgba(255, 211, 107, ${0.5 + pulse * 0.5})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.ellipse(0, -this.h - 10, 26, 7, 0, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = `rgba(124, 231, 255, ${0.4 + pulse * 0.4})`;
+            ctx.lineWidth = 2;
+            for (const s of [-1, 1]) {
+                for (let i = 0; i < 4; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(s * 16, -this.h + 34);
+                    ctx.lineTo(s * (60 + i * 10), -this.h + 10 + i * 16 + Math.sin(this.animTime * 3 + i) * 4);
+                    ctx.stroke();
+                }
             }
         } else if (this.archetype === 'chaos_creator') {
             ctx.strokeStyle = `rgba(255, 220, 90, ${pulse})`;

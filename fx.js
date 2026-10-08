@@ -251,7 +251,7 @@ const FX = (() => {
         // 晶片
         if (player && !player.dead) {
             const px = player.x, py = player.y - 26;
-            const magnet = player.overdriveTimer > 0 ? 420 : 260;
+            const magnet = (player.overdriveTimer > 0 ? 420 : 260) * (player.prog ? player.prog.magnetMul : 1);
             for (let i = orbs.length - 1; i >= 0; i--) {
                 const o = orbs[i];
                 o.age += dt;

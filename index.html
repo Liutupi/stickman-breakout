@@ -49,16 +49,18 @@
                     <div class="hero-actions hero-actions--title">
                         <button class="menu-btn menu-btn--primary" onclick="Game.start()">开始行动</button>
                         <button class="menu-btn" onclick="Game.showLevelSelect()">关卡选择</button>
-                        <button class="menu-btn secondary" onclick="Game.showControls()">查看操作</button>
+                        <button class="menu-btn menu-btn--growth" onclick="Game.showGrowth('start-menu')">成长中心</button>
                     </div>
 
                     <div class="player-bar">
                         <span class="player-bar__label">当前特工</span>
                         <span id="current-player-name" class="player-bar__name">匿名特工</span>
+                        <span id="agent-rank" class="player-bar__rank"></span>
                         <button class="player-bar__btn" onclick="Game.showPlayerMenu()">切换</button>
                     </div>
 
                     <div class="hero-actions hero-actions--title" style="margin-top: 14px;">
+                        <button class="menu-btn secondary" onclick="Game.showControls()">查看操作</button>
                         <button class="menu-btn secondary" onclick="Game.showLeaderboard()">作战排行榜</button>
                     </div>
 
@@ -105,6 +107,8 @@
                 </div>
 
                 <div class="tips-stack">
+                    <p class="tip-line tip-green">每局结束都能拿到金币和经验（失败也有），在「成长中心」永久强化生命、火力、暴击等属性。</p>
+                    <p class="tip-line tip-red">持盾兵正面免疫子弹：打头、绕背或用爆炸武器破盾；狙击手红色激光锁定后会开枪，看到激光闪烁就跳或冲刺。</p>
                     <p class="tip-line tip-red">连续击杀累积连击，连击越高分数倍率越高（最高 x3）；挨打会缩短连击时间。</p>
                     <p class="tip-line tip-green">击败敌人掉落金色晶片会自动吸附；走过血包/弹药会自动拾取，新武器也会直接装备。</p>
                     <p class="tip-line tip-purple">打中敌人头部造成「爆头」1.6 倍伤害；每关结算 S/A/B/C 评级，并记录最佳成绩。</p>
@@ -135,6 +139,7 @@
                 <h2>行动失败</h2>
                 <p id="death-info" class="menu-copy"></p>
                 <button class="menu-btn" onclick="Game.restartLevel()">重新挑战</button>
+                <button class="menu-btn menu-btn--growth" onclick="Game.showGrowth('death-menu')">成长中心 · 变强再来</button>
                 <button class="menu-btn secondary" onclick="Game.backToTitle()">返回主菜单</button>
             </div>
         </div>
@@ -146,6 +151,7 @@
                 <p id="level-complete-info" class="menu-copy"></p>
                 <div id="upgrade-choices" class="upgrade-choices hidden"></div>
                 <button class="menu-btn" id="next-level-btn" onclick="Game.nextLevel()">进入下一关</button>
+                <button class="menu-btn menu-btn--growth" onclick="Game.showGrowth('level-complete-menu')">成长中心</button>
             </div>
         </div>
 
@@ -154,6 +160,7 @@
                 <div class="menu-kicker">MISSION COMPLETE</div>
                 <h1>全线突围</h1>
                 <p id="victory-info" class="menu-copy"></p>
+                <button class="menu-btn menu-btn--growth" onclick="Game.showGrowth('victory-menu')">成长中心</button>
                 <button class="menu-btn" onclick="Game.backToTitle()">返回主菜单</button>
             </div>
         </div>
@@ -224,6 +231,16 @@
                     <!-- 玩家列表由JS生成 -->
                 </div>
                 <button class="menu-btn secondary" onclick="Game.hidePlayerMenu()">返回主菜单</button>
+            </div>
+        </div>
+
+        <div id="growth-menu" class="menu hidden">
+            <div class="menu-shell menu-shell--wide menu-shell--growth">
+                <div class="menu-kicker">AGENT GROWTH</div>
+                <h2>成长中心</h2>
+                <p class="menu-copy">用战斗赚来的金币永久强化特工，越玩越强。特工升级还会解锁开局装备。</p>
+                <div id="growth-content"></div>
+                <button class="menu-btn secondary" onclick="Game.hideGrowth()">返回</button>
             </div>
         </div>
 
@@ -365,8 +382,9 @@
     <script src="weapons.js"></script>
     <script src="entities.js"></script>
     <script src="levels.js"></script>
+    <script src="progression.js"></script>
     <script src="renderer.js"></script>
-    <script src="game.js?v=3"></script>
+    <script src="game.js?v=4"></script>
     <script>
     (function() {
         const scene = document.querySelector('.title-scene');

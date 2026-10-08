@@ -57,6 +57,7 @@ const Audio = (() => {
         rocket: 0.946,
         warning: 1.327,
         lowHealth: 2.128,
+        sniperCharge: 0.88, sniperShot: 0.126, laserCharge: 1.2, beam: 0.141, shieldBlock: 1.0, coin: 2.16, agentLevelUp: 1.24,
     };
     let muted = false;
     let volume = 0.3;
@@ -682,6 +683,53 @@ const Audio = (() => {
             case 'enemyShoot':
                 fireSound('enemy', now);
                 break;
+
+            case 'sniperCharge': {
+                // 狙击充能：逐渐升高的电子嗡鸣，提醒玩家躲避
+                const d = out(param || 0, 0.1, 0);
+                tone(d, 'sine', 300, 1400, now, 1.15, 0.12, 0.9);
+                tone(d, 'square', 150, 700, now, 1.15, 0.03, 0.9);
+                break;
+            }
+            case 'sniperShot': {
+                const d = out(param || 0, 0.45, 2);
+                nz(d, now, 0.09, 0.8, 'bandpass', 3500, 900, 0.8);
+                tone(d, 'sine', 240, 40, now, 0.25, 0.8);
+                nz(d, now + 0.02, 0.5, 0.2, 'lowpass', 1200, 200, 0.7);
+                break;
+            }
+            case 'laserCharge': {
+                const d = out(0, 0.3, 0);
+                tone(d, 'sawtooth', 120, 900, now, 0.85, 0.12, 0.7);
+                tone(d, 'sine', 240, 1800, now, 0.85, 0.1, 0.7);
+                nz(d, now, 0.85, 0.15, 'bandpass', 400, 4000, 3, 0.8);
+                break;
+            }
+            case 'beam': {
+                const d = out(0, 0.5, 2.5);
+                tone(d, 'sawtooth', 90, 60, now, 0.5, 0.35);
+                tone(d, 'square', 180, 120, now, 0.5, 0.12);
+                nz(d, now, 0.5, 0.4, 'bandpass', 1200, 600, 1.2);
+                break;
+            }
+            case 'shieldBlock': {
+                const d = out(param || 0, 0.15, 0);
+                metal(d, 1250, now, 0.25, 0.18);
+                nz(d, now, 0.04, 0.35, 'highpass', 3000, 0, 1);
+                break;
+            }
+            case 'coin': {
+                const d = out(0, 0.2, 0);
+                [1568, 2093].forEach((f, i) => tone(d, 'square', f, f, now + i * 0.07, 0.12, 0.06));
+                tone(d, 'sine', 2637, 2637, now + 0.14, 0.25, 0.08);
+                break;
+            }
+            case 'agentLevelUp': {
+                const d = out(0, 0.4, 0);
+                [523, 659, 784, 1047].forEach((f, i) => { tone(d, 'triangle', f, f, now + i * 0.09, 0.4, 0.16); tone(d, 'sine', f * 2, f * 2, now + i * 0.09, 0.3, 0.05); });
+                nz(d, now + 0.3, 0.6, 0.08, 'highpass', 6000, 9000, 0.5);
+                break;
+            }
 
             case 'dry': {
                 const d = out(0, 0, 0);

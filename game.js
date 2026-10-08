@@ -309,6 +309,12 @@ const Game = (() => {
         if (ui.currentPlayerNameEl) {
             ui.currentPlayerNameEl.textContent = currentPlayerName;
         }
+        const rankEl = $('agent-rank');
+        if (rankEl && typeof Progression !== 'undefined') {
+            const prog = Progression.get(currentPlayerName);
+            const lv = Progression.levelInfo(prog.xp);
+            rankEl.textContent = `Lv.${lv.level} ${lv.rank} · ${prog.coins} 金币`;
+        }
     }
 
     function renderPlayerList() {
@@ -487,7 +493,113 @@ const Game = (() => {
                 if (Utils.rectCollide(wallRect, playerRect)) {
                     player.takeDamage(h.damage);
                 }
+            } else if (h.type === 'laser_beam') {
+                if (playerRect.y < h.y + 9 && playerRect.y + playerRect.h > h.y - 9) player.takeDamage(h.damage);
+            } else if (h.type === 'boulder') {
+                const px = playerRect.x + playerRect.w / 2;
+                if (Math.abs(px - h.x) < h.radius && playerRect.y + playerRect.h > h.y - 90) player.takeDamage(h.damage);
             }
+        }
+    }
+
+    // ==================== 永久养成 ====================
+    let rewardGranted = false;
+    let growthReturnMenu = 'start-menu';
+
+    function applyProgression(p) {
+        const st = Progression.stats(Progression.get(currentPlayerName));
+        p.prog = st;
+        if (st.hp) { p.maxHealth += st.hp; p.health = p.maxHealth; }
+        p.upgradeStats.dashCooldownMul *= st.dashMul;
+        p.grenadeCount += st.grenades;
+        p.molotovCount += st.grenades;
+        for (const o of st.loadout) {
+            if (!p.weapons[o.slot]) {
+                const w = p.makeWeapon(o.type);
+                w.ammo = Math.round(w.maxAmmo * 0.6);
+                p.weapons[o.slot] = w;
+            }
+        }
+    }
+
+    function grantRewards(opts) {
+        if (rewardGranted || !player) return null;
+        rewardGranted = true;
+        const res = Progression.grant(currentPlayerName, { scoreGained: player.earned || 0, ...opts });
+        updatePlayerDisplay();
+        if (res.leveledUp) setTimeout(() => Audio.play('agentLevelUp'), 500);
+        else setTimeout(() => Audio.play('coin'), 300);
+        return res;
+    }
+
+    function rewardHTML(res) {
+        if (!res) return '';
+        const pct = Math.round(res.after.cur / res.after.need * 100);
+        let html = `<div class="reward-box">
+            <div class="reward-box__row"><span class="reward-coin">+${res.coins} 金币</span><span class="reward-xp">+${res.xp} 经验</span></div>
+            <div class="reward-box__level">特工 Lv.${res.after.level} · ${res.after.rank}<div class="reward-xpbar"><div style="width:${pct}%"></div></div><span>${res.after.cur} / ${res.after.need}</span></div>`;
+        if (res.leveledUp) html += `<div class="reward-box__up">特工升级！Lv.${res.before.level} → Lv.${res.after.level}</div>`;
+        for (const u of res.unlocks) html += `<div class="reward-box__unlock">解锁开局装备：${u.name}</div>`;
+        html += `<div class="reward-box__hint">金币可在「成长中心」永久强化特工</div></div>`;
+        return html;
+    }
+
+    function showGrowth(returnTo) {
+        growthReturnMenu = returnTo || 'start-menu';
+        showMenu('growth-menu');
+        renderGrowth();
+    }
+
+    function hideGrowth() {
+        showMenu(growthReturnMenu);
+    }
+
+    function renderGrowth(flashId) {
+        const box = $('growth-content');
+        if (!box) return;
+        const prog = Progression.get(currentPlayerName);
+        const lv = Progression.levelInfo(prog.xp);
+        const pct = Math.round(lv.cur / lv.need * 100);
+        const cards = Progression.UPGRADES.map(u => {
+            const l = prog.up[u.id] || 0;
+            const maxed = l >= u.max;
+            const c = Progression.cost(u, l);
+            const afford = prog.coins >= c;
+            const pips = Array.from({ length: u.max }, (_, i) => `<i class="${i < l ? 'on' : ''}"></i>`).join('');
+            return `<div class="g-card ${maxed ? 'maxed' : ''} ${flashId === u.id ? 'flash' : ''}">
+                <div class="g-card__tag">${u.tag}</div>
+                <div class="g-card__body">
+                    <div class="g-card__name">${u.name}<span>Lv.${l}/${u.max}</span></div>
+                    <div class="g-card__pips">${pips}</div>
+                    <div class="g-card__desc">${l > 0 ? u.desc(l) : '尚未强化'}${maxed ? '' : `<em>下一级：${u.next}</em>`}</div>
+                </div>
+                <button class="g-card__buy" ${maxed || !afford ? 'disabled' : ''} onclick="Game.buyUpgrade('${u.id}')">${maxed ? '已满级' : `${c} 金币`}</button>
+            </div>`;
+        }).join('');
+        const loadout = Progression.LOADOUT.map(o => `<div class="g-loadout ${lv.level >= o.level ? 'on' : ''}"><b>${o.name}</b><span>${lv.level >= o.level ? '已解锁 · 开局携带' : `特工 Lv.${o.level} 解锁`}</span></div>`).join('');
+        box.innerHTML = `
+            <div class="g-head">
+                <div class="g-agent">
+                    <div class="g-agent__name">${currentPlayerName}</div>
+                    <div class="g-agent__rank">Lv.${lv.level} · ${lv.rank}</div>
+                    <div class="g-xpbar"><div style="width:${pct}%"></div></div>
+                    <div class="g-agent__xp">经验 ${lv.cur} / ${lv.need}</div>
+                </div>
+                <div class="g-coins"><span>金币</span><strong>${prog.coins}</strong></div>
+            </div>
+            <div class="g-grid">${cards}</div>
+            <div class="g-sub">开局装备（随特工等级解锁）</div>
+            <div class="g-loadouts">${loadout}</div>`;
+    }
+
+    function buyUpgrade(id) {
+        const r = Progression.buy(currentPlayerName, id);
+        if (r.ok) {
+            Audio.play('upgrade');
+            renderGrowth(id);
+            updatePlayerDisplay();
+        } else {
+            Audio.play('dry');
         }
     }
 
@@ -504,7 +616,7 @@ const Game = (() => {
     function addRage(amount) {
         if (!player || player.overdriveTimer > 0) return;
         const before = player.rage;
-        player.rage = Math.min(100, player.rage + amount);
+        player.rage = Math.min(100, player.rage + amount * (player.prog ? player.prog.rageMul : 1));
         if (before < 100 && player.rage >= 100 && !rageReadyAnnounced) {
             rageReadyAnnounced = true;
             FX.banner('怒气已满', { sub: '按 V 释放狂暴模式', color: '#ffb347', glow: '#ff5a1f', size: 40, y: 0.36, life: 1.6, channel: 'rage' });
@@ -563,7 +675,10 @@ const Game = (() => {
 
         registerKill(enemy);
         const mult = comboMultiplier();
-        const value = Math.round(enemy.score * mult);
+        const value = Math.round(enemy.score * mult * (player.prog ? player.prog.orbMul : 1));
+        if (player.prog && player.prog.regen > 0 && player.health < player.maxHealth) {
+            player.health = Math.min(player.maxHealth, player.health + player.prog.regen);
+        }
         const orbCount = Utils.clamp(Math.round(enemy.score / 25), 3, 7);
         FX.spawnOrbs(cx, cy, orbCount, Math.max(1, Math.round(value / orbCount)), 'score');
         if (Math.random() < 0.18 || (player.health < player.maxHealth * 0.35 && Math.random() < 0.35)) {
@@ -629,7 +744,8 @@ const Game = (() => {
         if (!player || player.dead || player.rage < 100 || player.overdriveTimer > 0) return;
         player.rage = 0;
         rageReadyAnnounced = false;
-        player.overdriveTimer = OVERDRIVE_DURATION;
+        player.overdriveMax = OVERDRIVE_DURATION + (player.prog ? player.prog.odBonus : 0);
+        player.overdriveTimer = player.overdriveMax;
         player.invincibleTimer = Math.max(player.invincibleTimer, 0.6);
         FX.slowMo(0.3, 0.55);
         FX.hitStop(0.08);
@@ -755,6 +871,9 @@ const Game = (() => {
             { desc: '极高难度，极寒冰原，高速移动平台，考验反应力。', boss: '霜冻巨兽' },
             { desc: '地狱难度，虚空幻境，全浮动平台，极速移动。', boss: '虚空领主·终结者' },
             { desc: '终极关卡，混沌融合，全浮动平台，终极考验。', boss: '混沌之源·创世者' },
+            { desc: '雨夜屋顶跑酷，新敌人「持盾兵」「狙击手」登场。', boss: '霓虹刺客·影刃' },
+            { desc: '风沙废墟，断层与石柱，巨石从天而降。', boss: '沙暴巨像·法老之怒' },
+            { desc: '终章：云海之上的浮空要塞，最强 Boss 等你挑战。', boss: '天穹审判者·终焉战舰' },
         ];
         
         const bestGrades = getBestGrades();
@@ -763,12 +882,18 @@ const Game = (() => {
             const card = document.createElement('div');
             card.className = 'level-card';
             card.setAttribute('data-level', index);
-            card.onclick = () => Game.selectLevel(index);
+            const unlocked = Progression.isUnlocked(currentPlayerName, index, bestGrades);
+            card.onclick = () => {
+                if (!unlocked) { card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake'); Audio.play('dry'); return; }
+                Game.selectLevel(index);
+            };
+            if (!unlocked) card.classList.add('locked');
             
             const desc = levelDescs[index] || { desc: '未知关卡', boss: '未知Boss' };
             
             card.innerHTML = `
                 <div class="level-card__number">${index + 1}</div>
+                ${!unlocked ? '<div class="level-card__lock">通关上一关解锁</div>' : ''}
                 ${bestGrades[index] ? `<div class="level-card__grade grade--${bestGrades[index]}">${bestGrades[index]}</div>` : ''}
                 <span class="level-card__name">${level.name}</span>
                 <span class="level-card__desc">${desc.desc}</span>
@@ -898,7 +1023,7 @@ const Game = (() => {
         // 怒气条
         if (ui.rageFill) {
             const od = player.overdriveTimer > 0;
-            const ragePct = od ? (player.overdriveTimer / OVERDRIVE_DURATION) * 100 : player.rage;
+            const ragePct = od ? (player.overdriveTimer / (player.overdriveMax || OVERDRIVE_DURATION)) * 100 : player.rage;
             ui.rageFill.style.width = ragePct + '%';
             const rageLabel = od ? `狂暴中 ${player.overdriveTimer.toFixed(1)}s` : player.rage >= 100 ? '按 V 释放狂暴！' : `怒气 ${Math.floor(player.rage)}%`;
             if (ui.rageText.textContent !== rageLabel) ui.rageText.textContent = rageLabel;
@@ -1070,6 +1195,8 @@ const Game = (() => {
         if (options.carryOverScore && player) {
             player.score = options.carryOverScore;
         }
+        applyProgression(player);
+        rewardGranted = false;
         enemies = levelData.enemies.map(enemy => new Enemy(enemy.x, enemy.y, { ...enemy }));
         boss = null;
         bossSpawned = false;
@@ -1088,7 +1215,7 @@ const Game = (() => {
         Audio.startAmbient(index);
 
         // BGM 映射表
-        const bgmMap = ['bgm_level1', 'bgm_level2', 'bgm_level3', 'bgm_level4', 'bgm_level5', 'bgm_level5'];
+        const bgmMap = ['bgm_level1', 'bgm_level2', 'bgm_level3', 'bgm_level4', 'bgm_level5', 'bgm_level5', 'bgm_level3', 'bgm_level2', 'bgm_level5'];
         if (bgmMap[index]) {
             Audio.playBgm(bgmMap[index]);
         } else {
@@ -1399,7 +1526,7 @@ const Game = (() => {
                 // Boss 击败音效映射表
                 const BOSS_SOUNDS = {
                     0: 'bossExplode', 1: 'bossLaugh', 2: 'bossLuck',
-                    3: 'bossRespect', 4: 'bossBad', 5: 'bossSurrender', 6: 'bossSurrender'
+                    3: 'bossRespect', 4: 'bossBad', 5: 'bossSurrender', 6: 'bossLaugh', 7: 'bossRespect', 8: 'bossSurrender'
                 };
                 const bossSound = BOSS_SOUNDS[currentLevel];
                 if (bossSound) {
@@ -1458,9 +1585,31 @@ const Game = (() => {
                 if (b.hitIds && b.hitIds.includes(e)) continue;
                 const er = e.getRect();
                 if (b.x > er.x && b.x < er.x + er.w && b.y > er.y && b.y < er.y + er.h) {
+                    // 持盾兵：正面护盾挡下子弹（爆炸 / 打头 / 绕背可破）
+                    const headZone = b.y < er.y + er.h * 0.28;
+                    if (e.type === 'shielder' && e.shieldHP > 0 && !b.explosion && !headZone && b.vx * e.facing < 0) {
+                        e.shieldHP -= b.damage;
+                        e.shieldFlash = 1;
+                        e.kbx += Math.sign(b.vx) * 40;
+                        Particles.spray(b.x, b.y, 6, '#9fe8ff', bAngle + Math.PI, 1.0, 160, 360, 0.2, 1.6);
+                        Audio.play('shieldBlock', panOf(b.x));
+                        if (e.shieldHP <= 0) {
+                            e.shieldHP = 0;
+                            Particles.spray(e.x + e.facing * 14, e.y - 24, 18, '#7ce7ff', -Math.PI / 2, Math.PI * 1.4, 120, 380, 0.5, 2.5, 'square');
+                            FX.shockwave(e.x + e.facing * 14, e.y - 24, 60, '124,231,255', 4, 0.3);
+                            Particles.spawnAmmoText(e.x, e.y - e.h - 10, '护盾破碎', '#7ce7ff');
+                            Audio.play('impact_armor', panOf(b.x));
+                            FX.hitStop(0.04);
+                        } else if (Math.random() < 0.15) {
+                            Particles.spawnAmmoText(e.x, e.y - e.h - 6, '格挡', '#9fe8ff');
+                        }
+                        if (b.pierce > 0) { b.pierce = 0; }
+                        consumed = true;
+                        break;
+                    }
                     // 爆头（上 28%）与随机暴击
-                    const headshot = b.y < er.y + er.h * 0.28 && !b.explosion;
-                    const crit = Math.random() < 0.1;
+                    const headshot = headZone && !b.explosion;
+                    const crit = Math.random() < 0.1 + (player.prog ? player.prog.critBonus : 0);
                     const dmg = b.damage * (headshot ? 1.6 : 1) * (crit ? 2 : 1);
                     const hpBefore = e.health;
                     const feel = player.weapon ? WEAPON_FEEL[player.weapon.type] : null;
@@ -1510,7 +1659,7 @@ const Game = (() => {
             if (!consumed && boss && !boss.dead) {
                 const br = boss.getRect();
                 if (b.x > br.x && b.x < br.x + br.w && b.y > br.y && b.y < br.y + br.h) {
-                    const crit = Math.random() < 0.1;
+                    const crit = Math.random() < 0.1 + (player.prog ? player.prog.critBonus : 0);
                     let bossDamage = b.damage * (crit ? 2 : 1);
                     const weak = boss.isVulnerable && boss.isVulnerable();
                     if (weak) bossDamage *= player.upgradeStats.bossWeakDamageMul;
@@ -1605,7 +1754,8 @@ const Game = (() => {
             recordScore(currentLevel, final);
             const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
             const diffText = final.diffBonus !== 0 ? ` | 难度加成: 基础×${final.baseScoreMul} 奖励×${final.bonusMul} ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
-            ui.deathInfo.innerHTML = `关卡: ${levelData.name}<br>特工: ${currentPlayerName} · ${diffLabel}<br>基础得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">总积分: ${final.total}</strong>`;
+            const deathReward = grantRewards({ grade: null, bossKilled: false, clearedLevel: null });
+            ui.deathInfo.innerHTML = rewardHTML(deathReward) + `关卡: ${levelData.name}<br>特工: ${currentPlayerName} · ${diffLabel}<br>基础得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">总积分: ${final.total}</strong>`;
         }
 
         // 暂停
@@ -1898,7 +2048,8 @@ const Game = (() => {
         const diffText = final.diffBonus !== 0 ? ` | 难度加成: 基础×${final.baseScoreMul} 奖励×${final.bonusMul} ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
         const grade = computeGrade();
         const isNewBest = saveBestGrade(currentLevel, grade.grade);
-        ui.levelCompleteInfo.innerHTML = gradeHTML(grade, isNewBest) + `特工: ${currentPlayerName} · ${diffLabel}<br>当前累计得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">当前总积分: ${final.total}</strong><br><span style="color:var(--muted);font-size:12px">进入下一关继续累计分数...</span>`;
+        const lcReward = grantRewards({ grade: grade.grade, bossKilled: true, clearedLevel: currentLevel });
+        ui.levelCompleteInfo.innerHTML = gradeHTML(grade, isNewBest) + rewardHTML(lcReward) + `特工: ${currentPlayerName} · ${diffLabel}<br>当前累计得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">当前总积分: ${final.total}</strong><br><span style="color:var(--muted);font-size:12px">进入下一关继续累计分数...</span>`;
         Audio.playMp3('levelComplete');
         if (currentLevel >= Levels.length - 1) {
             ui.nextLevelBtn.classList.add('hidden');
@@ -1922,7 +2073,8 @@ const Game = (() => {
         const diffText = final.diffBonus !== 0 ? ` | 难度加成: 基础×${final.baseScoreMul} 奖励×${final.bonusMul} ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
         const grade = computeGrade();
         const isNewBest = saveBestGrade(currentLevel, grade.grade);
-        ui.victoryInfo.innerHTML = gradeHTML(grade, isNewBest) + `特工: ${currentPlayerName} · ${diffLabel}<br>基础得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">总积分: ${final.total}</strong><br>恭喜你击败了所有 Boss!`;
+        const vReward = grantRewards({ grade: grade.grade, bossKilled: true, clearedLevel: currentLevel });
+        ui.victoryInfo.innerHTML = gradeHTML(grade, isNewBest) + rewardHTML(vReward) + `特工: ${currentPlayerName} · ${diffLabel}<br>基础得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">总积分: ${final.total}</strong><br>恭喜你击败了所有 Boss!`;
     }
 
     function backToTitle() {
@@ -2001,6 +2153,7 @@ const Game = (() => {
         showDifficultySelect, hideDifficultySelect, selectDifficulty,
         showPlayerMenu, hidePlayerMenu, addNewPlayer,
         showLeaderboard, hideLeaderboard, chooseUpgrade,
+        showGrowth, hideGrowth, buyUpgrade,
         // 调试用（控制台可查看当前状态）
         _debug: () => ({ player, enemies, boss, state, combo, maxCombo }),
     };
