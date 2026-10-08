@@ -1404,7 +1404,7 @@ const Game = (() => {
                 const bossSound = BOSS_SOUNDS[currentLevel];
                 if (bossSound) {
                     Audio.stopBgm();
-                    Audio.setMasterGainBoost(3);
+                    // 不再放大音效母线（之前会让击杀 Boss 时所有音效突然变成 3 倍响）
                     Audio.playMp3WithCallback(bossSound, 1, function() {
                         Audio.restoreMasterGain();
                         schedulePostBossTransition();

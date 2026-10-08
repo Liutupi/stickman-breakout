@@ -5,6 +5,59 @@ const Audio = (() => {
     let compressor = null;
     let reverbSend = null;
     let distCurveHeavy = null;
+    // 响度均衡：每个音效的增益系数（由离线测量自动校准，让各音效听感音量接近）
+    let levelGain = 1;
+    let SOUND_LEVELS = {
+        fire_pistol: 0.715,
+        fire_smg: 1.535,
+        fire_shotgun: 0.103,
+        fire_laser: 0.857,
+        fire_rocket: 0.181,
+        enemyShoot: 1.973,
+        impact_pistol: 1.004,
+        impact_smg: 1.319,
+        impact_shotgun: 0.817,
+        impact_laser: 0.956,
+        impact_armor: 1.011,
+        impact_headshot: 0.54,
+        impact_crit: 1.24,
+        kill: 0.219,
+        explode: 0.107,
+        bigExplode: 0.115,
+        switch: 2.892,
+        dry: 2.512,
+        jump: 2.445,
+        doubleJump: 0.886,
+        land: 2.011,
+        dash: 2.752,
+        slam: 0.529,
+        pickup: 1.038,
+        upgrade: 0.958,
+        orb: 1.374,
+        combo: 0.671,
+        overdrive: 0.802,
+        playerHit: 0.716,
+        hit: 2.586,
+        hitTick: 1.686,
+        shellTink: 2.385,
+        crit: 1.44,
+        death: 0.778,
+        boss: 1.107,
+        bossPhase: 0.771,
+        bossSpecial: 0.691,
+        bossDeath: 0.662,
+        levelup: 0.726,
+        victory: 0.47,
+        pause: 1.182,
+        unpause: 1.183,
+        kamikazeCharge: 0.954,
+        shoot: 1.417,
+        shotgun: 0.482,
+        laser: 2.133,
+        rocket: 0.946,
+        warning: 1.327,
+        lowHealth: 2.128,
+    };
     let muted = false;
     let volume = 0.3;
     let pageHidden = false;
@@ -53,8 +106,8 @@ const Audio = (() => {
         osc.type = type;
         osc.frequency.value = freq;
         if (detune) osc.detune.value = detune;
-        gain.gain.setValueAtTime(volStart, start);
-        gain.gain.exponentialRampToValueAtTime(Math.max(volEnd, 0.0001), end);
+        gain.gain.setValueAtTime(volStart * levelGain, start);
+        gain.gain.exponentialRampToValueAtTime(Math.max(volEnd * levelGain, 0.0001), end);
         osc.connect(gain);
         gain.connect(masterGain);
         osc.start(start);
@@ -82,7 +135,7 @@ const Audio = (() => {
         if (freqEnd) filter.frequency.exponentialRampToValueAtTime(Math.max(20, freqEnd), start + dur);
         filter.Q.value = q || 0.8;
         const gain = ctx.createGain();
-        gain.gain.setValueAtTime(vol, start);
+        gain.gain.setValueAtTime(vol * levelGain, start);
         gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
         src.connect(filter);
         filter.connect(gain);
@@ -97,7 +150,7 @@ const Audio = (() => {
         osc.type = type;
         osc.frequency.setValueAtTime(f0, start);
         osc.frequency.exponentialRampToValueAtTime(Math.max(20, f1), end);
-        gain.gain.setValueAtTime(vol, start);
+        gain.gain.setValueAtTime(vol * levelGain, start);
         gain.gain.exponentialRampToValueAtTime(0.0001, end);
         osc.connect(gain);
         gain.connect(masterGain);
@@ -119,10 +172,11 @@ const Audio = (() => {
 
     function getDistCurve() {
         if (distCurveHeavy) return distCurveHeavy;
-        const n = 2048, k = 40;
+        // 奇数长度：保证输入 0 精确映射到 0，否则失真节点会持续输出直流偏移
+        const n = 2049, k = 40;
         distCurveHeavy = new Float32Array(n);
         for (let i = 0; i < n; i++) {
-            const x = i * 2 / n - 1;
+            const x = i * 2 / (n - 1) - 1;
             distCurveHeavy[i] = (1 + k) * x / (1 + k * Math.abs(x));
         }
         return distCurveHeavy;
@@ -131,6 +185,7 @@ const Audio = (() => {
     // 输出节点：带声像 + 可选混响发送 + 可选失真
     function out(pan, wet, drive) {
         let node = ctx.createGain();
+        node.gain.value = levelGain;
         let head = node;
         if (drive) {
             const ws = ctx.createWaveShaper();
@@ -582,6 +637,7 @@ const Audio = (() => {
             if (lowHealthTimer <= 0) {
                 lowHealthTimer = 0.6;
                 ensureCtx();
+                levelGain = SOUND_LEVELS.lowHealth !== undefined ? SOUND_LEVELS.lowHealth : 1;
                 const now = ctx.currentTime;
                 makeOsc('sine', 80, now, now + 0.08, 0.12, 0.01);
                 makeOsc('sine', 60, now + 0.02, now + 0.06, 0.1, 0.01);
@@ -597,6 +653,7 @@ const Audio = (() => {
             if (warningTimer <= 0) {
                 warningTimer = 0.8;
                 ensureCtx();
+                levelGain = SOUND_LEVELS.warning !== undefined ? SOUND_LEVELS.warning : 1;
                 const now = ctx.currentTime;
                 makeOsc('square', 440, now, now + 0.05, 0.07, 0.01);
                 makeOsc('square', 330, now + 0.05, now + 0.1, 0.07, 0.01);
@@ -611,6 +668,7 @@ const Audio = (() => {
         if (pageHidden) return;
         ensureCtx();
         const now = ctx.currentTime;
+        levelGain = SOUND_LEVELS[type] !== undefined ? SOUND_LEVELS[type] : 1;
         const minGap = MIN_INTERVAL[type];
         if (minGap) {
             if (lastPlayed[type] && now - lastPlayed[type] < minGap) return;
@@ -883,6 +941,7 @@ const Audio = (() => {
         setBgmVolume, restoreBgmVolume,
         setVolume, toggleMute, getMuted, getVolume,
         startAmbient, stopAmbient, updateLowHealth, updateWarning,
-        setMasterGainBoost, restoreMasterGain, setBackgroundPaused
+        setMasterGainBoost, restoreMasterGain, setBackgroundPaused,
+        _setLevels: (t) => { SOUND_LEVELS = t; }
     };
 })();
