@@ -153,17 +153,15 @@ const Input = (() => {
             });
         }
 
-        // 切枪：循环切换 1-5
+        // 切枪：循环切换到下一把已拥有的武器（复用滚轮逻辑，跳过空槽位）
         const switchBtn = document.getElementById('m-btn-switch');
         if (switchBtn) {
-            let currentWeaponIndex = 0;
             switchBtn.addEventListener('touchstart', e => {
                 e.preventDefault();
-                currentWeaponIndex = (currentWeaponIndex + 1) % 5;
-                simulateKeyDown('Digit' + (currentWeaponIndex + 1));
-                setTimeout(() => simulateKeyUp('Digit' + (currentWeaponIndex + 1)), 100);
+                scrollDelta += 1;
             }, { passive: false });
         }
+        bindMobileButton('m-btn-rage', 'KeyV');
 
         // 全局阻止默认触摸滚动（仅游戏过程中）
         document.addEventListener('touchmove', e => {

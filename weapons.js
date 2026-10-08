@@ -11,7 +11,7 @@ const WeaponData = {
         bulletCount: 1,
         infinite: true,
         ammo: Infinity,
-        sound: 'shoot',
+        sound: 'fire_pistol',
         bulletColor: '#f1c40f',
         trailColor: '#ff9500',
         explosion: false,
@@ -27,7 +27,7 @@ const WeaponData = {
         bulletCount: 5,
         infinite: false,
         ammo: 30,
-        sound: 'shotgun',
+        sound: 'fire_shotgun',
         bulletColor: '#ff9500',
         trailColor: '#ff6600',
         explosion: false,
@@ -43,7 +43,7 @@ const WeaponData = {
         bulletCount: 1,
         infinite: false,
         ammo: 80,
-        sound: 'shoot',
+        sound: 'fire_smg',
         bulletColor: '#3498db',
         trailColor: '#2980b9',
         explosion: false,
@@ -59,7 +59,7 @@ const WeaponData = {
         bulletCount: 1,
         infinite: false,
         ammo: 50,
-        sound: 'laser',
+        sound: 'fire_laser',
         bulletColor: '#e056fd',
         trailColor: '#be2edd',
         explosion: false,
@@ -75,7 +75,7 @@ const WeaponData = {
         bulletCount: 1,
         infinite: false,
         ammo: 12,
-        sound: 'rocket',
+        sound: 'fire_rocket',
         bulletColor: '#e74c3c',
         trailColor: '#ff6600',
         explosion: true,
@@ -146,6 +146,15 @@ const WeaponData = {
     },
 };
 
+// 各武器手感参数：镜头踢动 / 屏震 / 角色后退 / 枪口火花 / 光照半径 / 弹壳
+const WEAPON_FEEL = {
+    pistol:  { kick: 0.05, shake: 0,   push: 0,   sparks: 4,  light: 90,  shell: true,  shellColor: '#e8b04a' },
+    shotgun: { kick: 0.22, shake: 5,   push: 3,   sparks: 12, light: 160, shell: true,  shellColor: '#d0473a' },
+    smg:     { kick: 0.035, shake: 0,  push: 0,   sparks: 3,  light: 70,  shell: true,  shellColor: '#e8b04a' },
+    laser:   { kick: 0.04, shake: 0,   push: 0,   sparks: 5,  light: 110, shell: false },
+    rocket:  { kick: 0.3,  shake: 6,   push: 5,   sparks: 14, light: 180, shell: false },
+};
+
 // 升级倍率
 const UPGRADE_MULTIPLIERS = {
     damage: 1.3,
@@ -195,6 +204,7 @@ class Weapon {
                 color: this.bulletColor,
                 trail: this.trailColor,
                 explosion: this.explosion,
+                wtype: this.type,
             });
         }
         return bullets;
@@ -238,14 +248,17 @@ class Bullet {
         this.dead = false;
         this.trailPoints = [];
         this.trailTimer = 0;
+        this.pierce = 0;
+        this.hitIds = null;
+        this.wtype = data.wtype || 'pistol';
     }
 
     update(dt) {
         this.trailTimer += dt;
         // 每隔一小段时间记录一个拖尾点
-        if (this.trailTimer > 0.02) {
+        if (this.trailTimer > 0.016) {
             this.trailPoints.push({ x: this.x, y: this.y });
-            if (this.trailPoints.length > 12) this.trailPoints.shift();
+            if (this.trailPoints.length > 7) this.trailPoints.shift();
             this.trailTimer = 0;
         }
 
@@ -256,50 +269,59 @@ class Bullet {
     }
 
     draw(ctx) {
-        const sx = this.x - Utils.camera.x;
-        const sy = this.y - Utils.camera.y;
+        const cx = Utils.camera.x, cy = Utils.camera.y;
+        const sx = this.x - cx;
+        const sy = this.y - cy;
+        const color = this.overdrive ? '#ffb347' : this.color;
+        const trail = this.overdrive ? '#ff6a2a' : this.trail;
 
-        // 拖尾（增强版：渐变+发光）
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.lineCap = 'round';
+        // 拖尾：一条渐细的光带
         if (this.trailPoints.length > 1) {
-            for (let i = 1; i < this.trailPoints.length; i++) {
-                const alpha = (i / this.trailPoints.length) * 0.5;
-                const width = (i / this.trailPoints.length) * this.size * 1.2;
+            const n = this.trailPoints.length;
+            for (let i = 1; i < n; i++) {
+                const t = i / n;
+                ctx.globalAlpha = t * 0.55;
+                ctx.strokeStyle = trail;
+                ctx.lineWidth = Math.max(1, this.size * 1.4 * t);
                 ctx.beginPath();
-                ctx.moveTo(this.trailPoints[i - 1].x - Utils.camera.x, this.trailPoints[i - 1].y - Utils.camera.y);
-                ctx.lineTo(this.trailPoints[i].x - Utils.camera.x, this.trailPoints[i].y - Utils.camera.y);
-                ctx.strokeStyle = this.trail;
-                ctx.lineWidth = width;
-                ctx.globalAlpha = alpha;
+                ctx.moveTo(this.trailPoints[i - 1].x - cx, this.trailPoints[i - 1].y - cy);
+                ctx.lineTo(this.trailPoints[i].x - cx, this.trailPoints[i].y - cy);
                 ctx.stroke();
             }
-            ctx.globalAlpha = 1;
+            const last = this.trailPoints[n - 1];
+            ctx.globalAlpha = 0.8;
+            ctx.lineWidth = this.size * 1.3;
+            ctx.beginPath();
+            ctx.moveTo(last.x - cx, last.y - cy);
+            ctx.lineTo(sx, sy);
+            ctx.stroke();
         }
-
-        // 子弹本体（增强发光）
-        // 外圈光晕
+        // 弹头：拉长的高亮核心（沿速度方向）
+        const sp = Math.hypot(this.vx, this.vy) || 1;
+        const ux = this.vx / sp, uy = this.vy / sp;
+        const len = this.size * (this.explosion ? 2.5 : 4);
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.arc(sx, sy, this.size * 3, 0, Math.PI * 2);
-        const gOuter = ctx.createRadialGradient(sx, sy, 0, sx, sy, this.size * 3);
-        gOuter.addColorStop(0, this.color + '40');
-        gOuter.addColorStop(1, 'transparent');
-        ctx.fillStyle = gOuter;
+        ctx.arc(sx, sy, this.size * 2.6, 0, Math.PI * 2);
         ctx.fill();
-
-        // 核心
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = this.size * 1.4;
         ctx.beginPath();
-        ctx.arc(sx, sy, this.size, 0, Math.PI * 2);
-        const gCore = ctx.createRadialGradient(sx, sy, 0, sx, sy, this.size);
-        gCore.addColorStop(0, '#fff');
-        gCore.addColorStop(0.4, this.color);
-        gCore.addColorStop(1, this.color + '80');
-        ctx.fillStyle = gCore;
-        ctx.fill();
-
-        // 高光点
+        ctx.moveTo(sx - ux * len, sy - uy * len);
+        ctx.lineTo(sx + ux * this.size * 0.5, sy + uy * this.size * 0.5);
+        ctx.stroke();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = Math.max(1, this.size * 0.6);
         ctx.beginPath();
-        ctx.arc(sx - this.size * 0.3, sy - this.size * 0.3, this.size * 0.3, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.fill();
+        ctx.moveTo(sx - ux * len * 0.6, sy - uy * len * 0.6);
+        ctx.lineTo(sx, sy);
+        ctx.stroke();
+        ctx.restore();
     }
 }
 

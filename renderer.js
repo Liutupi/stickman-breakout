@@ -4,10 +4,67 @@ const Renderer = (() => {
     let width, height;
     let initialized = false;
 
+    // 关卡氛围色与飘尘
+    let ambientColor = '#4db8e8';
+    let ambientKind = 'dust';
+    let bgTheme = 'city';
+    let motes = [];
+    const AMBIENT_THEMES = [
+        { color: '#d4953a', kind: 'ember', theme: 'city' },   // 废弃工厂：火星
+        { color: '#7ce7a8', kind: 'firefly', theme: 'forest' }, // 黑暗森林：萤火
+        { color: '#ff6a2a', kind: 'ember', theme: 'lava' },   // 熔岩地穴：火星
+        { color: '#cfefff', kind: 'snow', theme: 'ice' },    // 极寒冰原：雪
+        { color: '#b88cff', kind: 'firefly', theme: 'void' }, // 虚空幻境：虚空粒子
+        { color: '#ff5a7a', kind: 'ember', theme: 'chaos' },   // 终焉之境
+    ];
+
+    function setAmbient(index) {
+        const theme = AMBIENT_THEMES[index] || AMBIENT_THEMES[0];
+        ambientColor = theme.color;
+        ambientKind = theme.kind;
+        bgTheme = theme.theme;
+        motes = [];
+        for (let i = 0; i < 70; i++) {
+            motes.push({
+                x: Math.random(), y: Math.random(),
+                z: Utils.rand(0.3, 1.2),
+                size: Utils.rand(0.8, 2.6),
+                phase: Utils.rand(0, Math.PI * 2),
+                speed: Utils.rand(0.6, 1.4),
+            });
+        }
+    }
+
+    function drawMotes(time) {
+        if (!motes.length) return;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const rgb = hexToRgba(ambientColor, 1).replace('rgba(', '').replace(', 1)', '').replace(/ /g, '');
+        for (const m of motes) {
+            let vx = 0, vy = 0;
+            if (ambientKind === 'ember') { vy = -0.035 * m.speed; vx = Math.sin(time * 0.7 + m.phase) * 0.01; }
+            else if (ambientKind === 'snow') { vy = 0.03 * m.speed; vx = -0.02 + Math.sin(time + m.phase) * 0.01; }
+            else { vx = Math.sin(time * 0.5 + m.phase) * 0.012; vy = Math.cos(time * 0.4 + m.phase) * 0.01; }
+            m.x += vx * 0.016; m.y += vy * 0.016;
+            const px = (((m.x - Utils.camera.x * 0.0004 * m.z) % 1) + 1) % 1 * width;
+            const py = ((m.y % 1) + 1) % 1 * height;
+            const flick = ambientKind === 'firefly' ? (Math.sin(time * 3 * m.speed + m.phase) * 0.5 + 0.5) : 0.8;
+            const a = 0.5 * flick * m.z;
+            const r = m.size * m.z * 3;
+            Utils.drawGlow(ctx, rgb, px, py, r, a);
+        }
+        ctx.restore();
+    }
+
     // 背景装饰元素
     let bgStars = [];
     let bgDeco = [];
     let bgBeacons = [];
+
+    // 屏幕特效系统
+    let flash = { color: '#ffffff', intensity: 0, duration: 0 };
+    let transition = { active: false, type: 'scanline', progress: 0, duration: 0.8 };
+    let audioPulse = { intensity: 0, decay: 4 };
 
     function init(canvasEl) {
         canvas = canvasEl;
@@ -41,7 +98,7 @@ const Renderer = (() => {
 
         // 星星 - 增加密度和色彩多样性
         for (let i = 0; i < 130; i++) {
-            const starColors = ['#7ce7ff', '#ff6ef0', '#fff', '#ffd700', '#ffffff', '#a0d8ef'];
+            const starColors = ['#6dd0f5', '#a86890', '#fff', '#d4953a', '#ffffff', '#a0d8ef'];
             bgStars.push({
                 x: Utils.rand(0, level.levelWidth),
                 y: Utils.rand(0, 360),
@@ -60,7 +117,7 @@ const Renderer = (() => {
                 y: Utils.rand(120, 280),
                 height: Utils.rand(120, 260),
                 width: Utils.rand(18, 44),
-                color: ['#00e5ff', '#ff335f', '#f5c84b'][Utils.randInt(0, 2)],
+                color: ['#4db8e8', '#a83035', '#d4953a'][Utils.randInt(0, 2)],
                 phase: Utils.rand(0, Math.PI * 2),
             });
         }
@@ -86,7 +143,7 @@ const Renderer = (() => {
                 height: Utils.rand(70, 200),
                 width: Utils.rand(35, 100),
                 variant: Utils.randInt(0, 3),
-                neonColor: ['#00e5ff', '#ff2d78', '#7ce7ff', '#ff9100'][Utils.randInt(0, 3)],
+                neonColor: ['#4db8e8', '#a83035', '#6dd0f5', '#d4953a'][Utils.randInt(0, 3)],
             });
         }
 
@@ -113,10 +170,21 @@ const Renderer = (() => {
         // 天空渐变
         const grad = typeof level.bgGradient === 'function'
             ? level.bgGradient(ctx, width, height)
-            : '#1a1a2e';
+            : '#0f1428';
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, width, height);
         drawSkyPressure(time);
+
+        if (bgTheme !== 'city') {
+            drawThemedBackdrop(time);
+            drawMotes(time);
+            const shade = ctx.createLinearGradient(0, 0, 0, height);
+            shade.addColorStop(0, 'rgba(2, 5, 14, 0.12)');
+            shade.addColorStop(1, 'rgba(2, 8, 16, 0.2)');
+            ctx.fillStyle = shade;
+            ctx.fillRect(0, 0, width, height);
+            return;
+        }
 
         // ---- L0 远景天际线 (视差 0.15) ----
         const parFar = Utils.camera.x * 0.15;
@@ -166,6 +234,7 @@ const Renderer = (() => {
             drawLayer2(dx, d, baseY, time);
         }
         drawRunwayGuides(level, time);
+        drawMotes(time);
 
         const focusShade = ctx.createLinearGradient(0, 0, 0, height);
         focusShade.addColorStop(0, 'rgba(2, 5, 14, 0.16)');
@@ -175,15 +244,338 @@ const Renderer = (() => {
         ctx.fillRect(0, 0, width, height);
     }
 
+
+    // ==================== 主题背景（每关独立美术）====================
+    const THEMES = {
+        forest: {
+            ridges: [
+                { par: 0.06, amp: 150, lift: 150, color: '#16223a', seed: 1.3, deco: null },
+                { par: 0.18, amp: 90,  lift: 70,  color: '#0f1b2c', seed: 4.1, deco: 'pine' },
+                { par: 0.38, amp: 60,  lift: 20,  color: '#0a1420', seed: 7.7, deco: 'pine' },
+            ],
+            fog: 'rgba(120, 190, 170, 0.10)',
+        },
+        lava: {
+            ridges: [
+                { par: 0.06, amp: 130, lift: 140, color: '#2a0f12', seed: 2.2, deco: null },
+                { par: 0.2,  amp: 100, lift: 60,  color: '#1c0a0c', seed: 5.4, deco: 'rock' },
+                { par: 0.4,  amp: 70,  lift: 15,  color: '#120607', seed: 8.8, deco: 'rock' },
+            ],
+            fog: 'rgba(255, 90, 30, 0.10)',
+        },
+        ice: {
+            ridges: [
+                { par: 0.05, amp: 220, lift: 160, color: '#2a3f5e', seed: 3.3, deco: 'snowcap' },
+                { par: 0.16, amp: 120, lift: 80,  color: '#1d2e48', seed: 6.6, deco: 'snowcap' },
+                { par: 0.36, amp: 60,  lift: 20,  color: '#132036', seed: 9.9, deco: 'crystal' },
+            ],
+            fog: 'rgba(200, 235, 255, 0.10)',
+        },
+        void: {
+            ridges: [
+                { par: 0.08, amp: 0, lift: 0, color: '#1a1030', seed: 1.9, deco: 'islands' },
+                { par: 0.22, amp: 0, lift: 0, color: '#120a24', seed: 3.7, deco: 'islands' },
+            ],
+            fog: 'rgba(160, 110, 255, 0.10)',
+        },
+        chaos: {
+            ridges: [
+                { par: 0.06, amp: 180, lift: 150, color: '#2a0d18', seed: 2.9, deco: 'spire' },
+                { par: 0.2,  amp: 110, lift: 70,  color: '#1c0811', seed: 5.1, deco: 'spire' },
+                { par: 0.4,  amp: 60,  lift: 20,  color: '#12050b', seed: 7.3, deco: 'rock' },
+            ],
+            fog: 'rgba(255, 70, 110, 0.10)',
+        },
+    };
+
+    function ridgeH(x, seed) {
+        return 0.5 + 0.28 * Math.sin(x * 0.0037 + seed) + 0.14 * Math.sin(x * 0.0113 + seed * 2.3) + 0.08 * Math.sin(x * 0.031 + seed * 4.1);
+    }
+
+    function hash(n) {
+        const x = Math.sin(n * 127.1) * 43758.5453;
+        return x - Math.floor(x);
+    }
+
+    function drawThemedBackdrop(time) {
+        const th = THEMES[bgTheme];
+        if (!th) return;
+        const horizon = Math.min(height - 40, 500 - Utils.camera.y + 12);
+        drawCelestial(time, horizon);
+
+        // 星空
+        if (bgTheme !== 'lava') {
+            const parStar = Utils.camera.x * 0.03;
+            for (const st of bgStars) {
+                const sx = ((st.x - parStar) % (width + 100) + width + 100) % (width + 100);
+                const tw = Math.sin(time * st.twinkleSpeed + st.twinkle) * 0.35 + 0.65;
+                ctx.globalAlpha = st.alpha * tw * 0.8;
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(sx, st.y * 0.8, st.size, st.size);
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        th.ridges.forEach((r, li) => {
+            const off = Utils.camera.x * r.par;
+            if (r.deco === 'islands') {
+                drawIslands(off, r, li, time, horizon);
+            } else {
+                const base = horizon - r.lift;
+                ctx.fillStyle = r.color;
+                ctx.beginPath();
+                ctx.moveTo(0, height);
+                const step = 14;
+                for (let x = -step; x <= width + step; x += step) {
+                    const wx = x + off;
+                    const y = base - ridgeH(wx, r.seed) * r.amp;
+                    ctx.lineTo(x, y);
+                }
+                ctx.lineTo(width, height);
+                ctx.closePath();
+                ctx.fill();
+                drawRidgeDeco(r, off, base, time, li);
+            }
+            // 层间雾
+            const fogG = ctx.createLinearGradient(0, horizon - r.lift - r.amp * 0.6, 0, horizon + 20);
+            fogG.addColorStop(0, 'rgba(0,0,0,0)');
+            fogG.addColorStop(1, th.fog);
+            ctx.fillStyle = fogG;
+            ctx.fillRect(0, horizon - r.lift - r.amp, width, r.amp + r.lift + 60);
+        });
+
+        // 熔岩：底部炽热辉光 + 顶部钟乳石
+        if (bgTheme === 'lava') {
+            const glow = ctx.createLinearGradient(0, horizon - 120, 0, height);
+            glow.addColorStop(0, 'rgba(255, 80, 20, 0)');
+            glow.addColorStop(1, `rgba(255, 90, 20, ${0.28 + Math.sin(time * 1.5) * 0.06})`);
+            ctx.fillStyle = glow;
+            ctx.fillRect(0, horizon - 120, width, height);
+            ctx.fillStyle = '#100506';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            const off = Utils.camera.x * 0.25;
+            for (let x = 0; x <= width + 20; x += 20) {
+                const wx = x + off;
+                const k = Math.floor(wx / 20);
+                const len = 20 + hash(k) * 70 * (hash(k * 3.1) > 0.6 ? 1.6 : 0.6);
+                ctx.lineTo(x - 10, 18 + hash(k + 9) * 10);
+                ctx.lineTo(x, len);
+            }
+            ctx.lineTo(width, 0);
+            ctx.closePath();
+            ctx.fill();
+        }
+    }
+
+    function drawCelestial(time, horizon) {
+        const px = width * 0.74 - Utils.camera.x * 0.015;
+        ctx.save();
+        if (bgTheme === 'forest') {
+            Utils.drawGlow(ctx, '190,230,255', px, 120, 190, 0.35);
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = '#e9f4ff';
+            ctx.beginPath(); ctx.arc(px, 120, 46, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = 'rgba(160, 185, 210, 0.35)';
+            ctx.beginPath(); ctx.arc(px - 14, 110, 9, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(px + 12, 132, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(px + 16, 104, 4, 0, Math.PI * 2); ctx.fill();
+        } else if (bgTheme === 'ice') {
+            // 极光
+            ctx.globalCompositeOperation = 'lighter';
+            const bands = [['80,255,190', 0], ['90,200,255', 1.7], ['170,120,255', 3.1]];
+            for (const [col, ph] of bands) {
+                ctx.beginPath();
+                for (let x = 0; x <= width; x += 20) {
+                    const y = 90 + Math.sin(x * 0.006 + time * 0.4 + ph) * 34 + Math.sin(x * 0.013 - time * 0.25 + ph) * 16 + ph * 14;
+                    if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                for (let x = width; x >= 0; x -= 20) {
+                    const y = 90 + Math.sin(x * 0.006 + time * 0.4 + ph) * 34 + Math.sin(x * 0.013 - time * 0.25 + ph) * 16 + ph * 14 + 70;
+                    ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                const g = ctx.createLinearGradient(0, 60, 0, 220);
+                g.addColorStop(0, `rgba(${col},0.18)`);
+                g.addColorStop(1, `rgba(${col},0)`);
+                ctx.fillStyle = g;
+                ctx.fill();
+            }
+        } else if (bgTheme === 'void') {
+            // 带环巨行星 + 旋涡
+            const cx = px - 60, cy = 150;
+            const vg = ctx.createRadialGradient(cx, cy, 10, cx, cy, 300);
+            vg.addColorStop(0, 'rgba(180, 120, 255, 0.22)');
+            vg.addColorStop(1, 'rgba(80, 40, 160, 0)');
+            ctx.fillStyle = vg;
+            ctx.fillRect(cx - 300, cy - 300, 600, 600);
+            ctx.strokeStyle = 'rgba(200, 160, 255, 0.12)';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 4; i++) {
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, 120 + i * 40, 40 + i * 14, time * 0.05 + i * 0.4, 0, Math.PI * 1.3);
+                ctx.stroke();
+            }
+            const pg = ctx.createRadialGradient(cx - 20, cy - 20, 5, cx, cy, 70);
+            pg.addColorStop(0, '#8d6bd8');
+            pg.addColorStop(0.7, '#3b2370');
+            pg.addColorStop(1, '#1a0f38');
+            ctx.fillStyle = pg;
+            ctx.beginPath(); ctx.arc(cx, cy, 70, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = 'rgba(220, 190, 255, 0.55)';
+            ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.ellipse(cx, cy, 120, 22, -0.25, 0, Math.PI * 2); ctx.stroke();
+        } else if (bgTheme === 'chaos') {
+            // 日蚀：黑日 + 血色日冕
+            const cx = px, cy = 130;
+            Utils.drawGlow(ctx, '255,60,90', cx, cy, 230, 0.55 + Math.sin(time * 2) * 0.08);
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = 'rgba(255, 150, 160, 0.6)';
+            ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(cx, cy, 54, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = '#05010a';
+            ctx.beginPath(); ctx.arc(cx, cy, 52, 0, Math.PI * 2); ctx.fill();
+            // 偶发血色闪电
+            const flashT = (time * 0.37) % 1;
+            if (flashT < 0.03) {
+                ctx.strokeStyle = 'rgba(255, 140, 170, 0.8)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                let lx = width * (0.2 + hash(Math.floor(time * 0.37)) * 0.6), ly = 0;
+                ctx.moveTo(lx, ly);
+                while (ly < horizon - 100) { lx += (Math.random() - 0.5) * 40; ly += 20 + Math.random() * 20; ctx.lineTo(lx, ly); }
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(255, 120, 150, 0.06)';
+                ctx.fillRect(0, 0, width, height);
+            }
+        } else if (bgTheme === 'lava') {
+            Utils.drawGlow(ctx, '255,110,40', width * 0.5, horizon, 500, 0.25);
+        }
+        ctx.restore();
+        ctx.globalAlpha = 1;
+    }
+
+    function drawRidgeDeco(r, off, base, time, li) {
+        if (!r.deco) return;
+        const spacing = r.deco === 'pine' ? 26 + li * 6 : r.deco === 'spire' ? 140 : r.deco === 'crystal' ? 90 : r.deco === 'snowcap' ? 1 : 110;
+        if (r.deco === 'snowcap') {
+            // 山顶积雪：沿山脊上沿画一条亮线
+            ctx.strokeStyle = li === 0 ? 'rgba(230, 245, 255, 0.35)' : 'rgba(230, 245, 255, 0.22)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            for (let x = 0; x <= width; x += 14) {
+                const y = base - ridgeH(x + off, r.seed) * r.amp;
+                if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            return;
+        }
+        const start = Math.floor(off / spacing) - 1;
+        const end = Math.ceil((off + width) / spacing) + 1;
+        ctx.fillStyle = r.color;
+        for (let k = start; k <= end; k++) {
+            const rnd = hash(k * 1.7 + r.seed);
+            const wx = k * spacing + rnd * spacing * 0.6;
+            const x = wx - off;
+            const y = base - ridgeH(wx, r.seed) * r.amp + 2;
+            if (r.deco === 'pine') {
+                const h = 30 + rnd * 40 + li * 10;
+                const w = h * 0.36;
+                ctx.beginPath();
+                ctx.moveTo(x, y - h);
+                ctx.lineTo(x + w * 0.55, y - h * 0.55);
+                ctx.lineTo(x + w * 0.3, y - h * 0.55);
+                ctx.lineTo(x + w, y);
+                ctx.lineTo(x - w, y);
+                ctx.lineTo(x - w * 0.3, y - h * 0.55);
+                ctx.lineTo(x - w * 0.55, y - h * 0.55);
+                ctx.closePath();
+                ctx.fill();
+            } else if (r.deco === 'rock') {
+                const h = 20 + rnd * 60;
+                ctx.beginPath();
+                ctx.moveTo(x - 14, y);
+                ctx.lineTo(x - 6, y - h);
+                ctx.lineTo(x + 4, y - h * 0.8);
+                ctx.lineTo(x + 14, y);
+                ctx.closePath();
+                ctx.fill();
+                if (bgTheme === 'lava' && rnd > 0.55) {
+                    ctx.strokeStyle = `rgba(255, 110, 40, ${0.35 + Math.sin(time * 2 + k) * 0.15})`;
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(x - 4, y - h * 0.9); ctx.lineTo(x - 1, y - h * 0.5); ctx.lineTo(x - 5, y - h * 0.2);
+                    ctx.stroke();
+                }
+            } else if (r.deco === 'crystal') {
+                const h = 30 + rnd * 50;
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.fillStyle = `rgba(150, 220, 255, ${0.08 + rnd * 0.08})`;
+                ctx.beginPath();
+                ctx.moveTo(x, y - h); ctx.lineTo(x + 9, y - h * 0.3); ctx.lineTo(x, y); ctx.lineTo(x - 9, y - h * 0.3);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(200, 240, 255, 0.25)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.restore();
+                ctx.fillStyle = r.color;
+            } else if (r.deco === 'spire') {
+                const h = 80 + rnd * 120;
+                ctx.beginPath();
+                ctx.moveTo(x - 12, y);
+                ctx.lineTo(x - 2, y - h);
+                ctx.lineTo(x + 3, y - h * 0.9);
+                ctx.lineTo(x + 12, y);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = `rgba(255, 70, 110, ${0.5 + Math.sin(time * 3 + k) * 0.3})`;
+                ctx.fillRect(x - 1.5, y - h * 0.7, 3, 3);
+                ctx.fillStyle = r.color;
+            }
+        }
+    }
+
+    function drawIslands(off, r, li, time, horizon) {
+        const spacing = 260 + li * 120;
+        const start = Math.floor(off / spacing) - 1;
+        const end = Math.ceil((off + width) / spacing) + 1;
+        for (let k = start; k <= end; k++) {
+            const rnd = hash(k * 2.3 + r.seed);
+            const x = k * spacing + rnd * 120 - off;
+            const y = horizon - 160 - rnd * 160 + li * 60 + Math.sin(time * 0.6 + k) * 8;
+            const w = 50 + rnd * 70 + li * 20;
+            ctx.fillStyle = r.color;
+            ctx.beginPath();
+            ctx.moveTo(x - w, y);
+            ctx.lineTo(x + w, y);
+            ctx.lineTo(x + w * 0.4, y + w * 0.5);
+            ctx.lineTo(x, y + w * 0.9);
+            ctx.lineTo(x - w * 0.5, y + w * 0.45);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = `rgba(190, 140, 255, ${0.25 + rnd * 0.2})`;
+            ctx.fillRect(x - w, y - 2, w * 2, 2);
+            if (rnd > 0.4) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                Utils.drawGlow(ctx, '180,130,255', x, y + w * 0.9, 18, 0.5 + Math.sin(time * 2 + k) * 0.2);
+                ctx.restore();
+                ctx.globalAlpha = 1;
+            }
+        }
+    }
+
     function drawSkyPressure(time) {
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
 
         const sweep = (Math.sin(time * 0.18) * 0.5 + 0.5) * width;
         const leftBeam = ctx.createLinearGradient(sweep - width * 0.5, 0, sweep + width * 0.4, height);
-        leftBeam.addColorStop(0, 'rgba(0, 229, 255, 0)');
-        leftBeam.addColorStop(0.48, 'rgba(0, 229, 255, 0.08)');
-        leftBeam.addColorStop(1, 'rgba(0, 229, 255, 0)');
+        leftBeam.addColorStop(0, 'rgba(77, 184, 232, 0)');
+        leftBeam.addColorStop(0.48, 'rgba(77, 184, 232, 0.08)');
+        leftBeam.addColorStop(1, 'rgba(77, 184, 232, 0)');
         ctx.fillStyle = leftBeam;
         ctx.beginPath();
         ctx.moveTo(sweep - 260, 0);
@@ -194,9 +586,9 @@ const Renderer = (() => {
         ctx.fill();
 
         const dangerGlow = ctx.createLinearGradient(0, height * 0.12, width, height * 0.64);
-        dangerGlow.addColorStop(0, 'rgba(255, 40, 84, 0)');
-        dangerGlow.addColorStop(0.62, 'rgba(255, 40, 84, 0.045)');
-        dangerGlow.addColorStop(1, 'rgba(255, 40, 84, 0)');
+        dangerGlow.addColorStop(0, 'rgba(168, 48, 53, 0)');
+        dangerGlow.addColorStop(0.62, 'rgba(168, 48, 53, 0.045)');
+        dangerGlow.addColorStop(1, 'rgba(168, 48, 53, 0)');
         ctx.fillStyle = dangerGlow;
         ctx.fillRect(0, 0, width, height);
 
@@ -206,7 +598,7 @@ const Renderer = (() => {
     function drawAtmosphereStreaks(time) {
         ctx.save();
         ctx.globalAlpha = 0.32;
-        ctx.strokeStyle = 'rgba(166, 231, 255, 0.32)';
+        ctx.strokeStyle = 'rgba(125, 195, 230, 0.32)';
         ctx.lineWidth = 1;
         ctx.lineCap = 'round';
 
@@ -258,7 +650,7 @@ const Renderer = (() => {
             const sx = wx - Utils.camera.x;
             const pulse = 0.5 + Math.sin(time * 3 + wx * 0.04) * 0.28;
             const isDanger = ((wx / stride) | 0) % 4 === 0;
-            const color = isDanger ? `rgba(255, 60, 88, ${0.2 + pulse * 0.2})` : `rgba(0, 229, 255, ${0.16 + pulse * 0.14})`;
+            const color = isDanger ? `rgba(168, 48, 53, ${0.2 + pulse * 0.2})` : `rgba(77, 184, 232, ${0.16 + pulse * 0.14})`;
             ctx.fillStyle = color;
             ctx.beginPath();
             ctx.moveTo(sx, floorY);
@@ -270,8 +662,8 @@ const Renderer = (() => {
         }
 
         const horizon = ctx.createLinearGradient(0, floorY - 22, 0, floorY + 36);
-        horizon.addColorStop(0, 'rgba(0, 229, 255, 0)');
-        horizon.addColorStop(0.5, 'rgba(0, 229, 255, 0.08)');
+        horizon.addColorStop(0, 'rgba(77, 184, 232, 0)');
+        horizon.addColorStop(0.5, 'rgba(77, 184, 232, 0.08)');
         horizon.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = horizon;
         ctx.fillRect(0, floorY - 22, width, 58);
@@ -317,7 +709,7 @@ const Renderer = (() => {
                 for (let wx = dx + 8; wx < dx + w - 6; wx += 22) {
                     if (((wx * 7 + wy * 13 + d.variant) % 10) > 4) {
                         const f = Math.sin(time * 2 + wx) * 0.25 + 0.75;
-                        ctx.fillStyle = `rgba(160,200,255,${0.15 * f})`;
+                        ctx.fillStyle = `rgba(120,175,220,${0.15 * f})`;
                         ctx.fillRect(wx, wy, 3, 2);
                     }
                 }
@@ -365,7 +757,7 @@ const Renderer = (() => {
                         const lit = ((wx * 7 + wy * 13 + d.variant) % 10) > 2;
                         if (lit) {
                             const flicker = Math.sin(time * 2.5 + wx + wy) * 0.2 + 0.8;
-                            ctx.fillStyle = `rgba(180, 220, 255, ${0.35 * flicker})`;
+                            ctx.fillStyle = `rgba(135, 190, 230, ${0.35 * flicker})`;
                             ctx.fillRect(wx, wy, 4, 3);
                         }
                     }
@@ -454,7 +846,7 @@ const Renderer = (() => {
                     for (let wy = baseY - bh + 5; wy < baseY - 4; wy += 7) {
                         for (let wx = bx + 3; wx < bx + bw - 4; wx += 9) {
                             const lit = ((wx * 11 + wy * 7 + d.variant * 3) % 8) > 3;
-                            ctx.fillStyle = lit ? 'rgba(200, 220, 255, 0.28)' : 'rgba(15, 18, 35, 0.5)';
+                            ctx.fillStyle = lit ? 'rgba(150, 195, 230, 0.28)' : 'rgba(15, 18, 35, 0.5)';
                             ctx.fillRect(wx, wy, 3, 2);
                         }
                     }
@@ -517,10 +909,10 @@ const Renderer = (() => {
                 ctx.fillRect(cx - 0.5, topY - 22, 1, 22);
 
                 const blink2 = Math.sin(time * 2.5 + d.phase) > 0.15 ? 1 : 0;
-                ctx.fillStyle = `rgba(255, 30, 30, ${blink2 * 0.75})`;
+                ctx.fillStyle = `rgba(168, 48, 53, ${blink2 * 0.75})`;
                 ctx.beginPath(); ctx.arc(cx, topY - 24, 3.5, 0, Math.PI * 2); ctx.fill();
                 if (blink2) {
-                    ctx.fillStyle = 'rgba(255, 30, 30, 0.18)';
+                    ctx.fillStyle = 'rgba(168, 48, 53, 0.18)';
                     ctx.beginPath(); ctx.arc(cx, topY - 24, 9, 0, Math.PI * 2); ctx.fill();
                 }
                 break;
@@ -548,7 +940,7 @@ const Renderer = (() => {
                 const nFlick = Math.sin(time * 4 + d.phase) * 0.3 + Math.sin(time * 7 + dx) * 0.2;
                 if (nFlick > -0.1) {
                     const na = Math.max(0, nFlick * 0.5 + 0.12);
-                    ctx.fillStyle = `rgba(0, 230, 255, ${na})`;
+                    ctx.fillStyle = `rgba(77, 184, 232, ${na})`;
                     ctx.fillRect(dx, bdY2 + bdH2 - 3, w, 2);
                 }
                 break;
@@ -626,20 +1018,29 @@ const Renderer = (() => {
             if (sx + p.w < -50 || sx > width + 50) continue;
 
             if (p.h > 50) {
-                // 地面 - 增强材质感
+                // 地面 - 增强材质感（向下延伸填满屏幕，避免地面下方露出背景）
+                const fillH = Math.max(p.h, height - sy + 20);
                 ctx.fillStyle = level.groundColor;
-                ctx.fillRect(sx, sy, p.w, p.h);
+                ctx.fillRect(sx, sy, p.w, fillH);
+                const deep = ctx.createLinearGradient(0, sy + 30, 0, sy + fillH);
+                deep.addColorStop(0, 'rgba(0,0,0,0)');
+                deep.addColorStop(1, 'rgba(0,0,0,0.55)');
+                ctx.fillStyle = deep;
+                ctx.fillRect(sx, sy + 30, p.w, fillH - 30);
+                // 边缘霓虹描线
+                ctx.fillStyle = hexToRgba(ambientColor, 0.55);
+                ctx.fillRect(sx, sy - 1, p.w, 1.5);
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
-                ctx.fillRect(sx, sy + 10, p.w, p.h - 10);
+                ctx.fillRect(sx, sy + 10, p.w, fillH - 10);
                 // 顶部细节（金属边缘）
                 const topGrad = ctx.createLinearGradient(sx, sy, sx, sy + 8);
                 topGrad.addColorStop(0, level.groundDetail);
                 topGrad.addColorStop(1, level.groundColor);
                 ctx.fillStyle = topGrad;
                 ctx.fillRect(sx, sy, p.w, 8);
-                ctx.fillStyle = 'rgba(190, 238, 255, 0.28)';
+                ctx.fillStyle = 'rgba(145, 200, 235, 0.28)';
                 ctx.fillRect(sx, sy, p.w, 2);
-                ctx.fillStyle = 'rgba(0, 229, 255, 0.14)';
+                ctx.fillStyle = 'rgba(77, 184, 232, 0.14)';
                 for (let tx = sx + 16; tx < sx + p.w; tx += 96) {
                     ctx.beginPath();
                     ctx.moveTo(tx, sy + 3);
@@ -685,9 +1086,9 @@ const Renderer = (() => {
 
                     // 发光辉光（更强）
                     const glowAlpha = 0.35 + Math.sin(time) * 0.15;
-                    ctx.shadowColor = '#f1c40f';
+                    ctx.shadowColor = '#d4953a';
                     ctx.shadowBlur = 14 + Math.sin(time) * 5;
-                    ctx.fillStyle = '#4a5a3a';
+                    ctx.fillStyle = '#3a5a4a';
                 } else {
                     ctx.fillStyle = level.platformColor;
                 }
@@ -700,10 +1101,10 @@ const Renderer = (() => {
                 // 平台顶部细节（机械纹理）
                 if (isMoving) {
                     // 移动平台：能量条纹
-                    ctx.fillStyle = '#f1c40f';
+                    ctx.fillStyle = '#d4953a';
                     ctx.fillRect(sx + 4, sy, p.w - 8, 2);
                     for (let ax = sx + 12; ax < sx + p.w - 12; ax += 18) {
-                        ctx.strokeStyle = 'rgba(255, 230, 120, 0.48)';
+                        ctx.strokeStyle = 'rgba(212, 149, 58, 0.48)';
                         ctx.lineWidth = 1;
                         ctx.beginPath();
                         ctx.moveTo(ax, sy + p.h - 5);
@@ -728,7 +1129,7 @@ const Renderer = (() => {
                     const pulseAlpha = 0.3 + Math.sin(time * 0.5) * 0.1;
                     ctx.fillStyle = `rgba(255,255,255,${pulseAlpha})`;
                     ctx.fillRect(sx + 4, sy, p.w - 8, 2);
-                    ctx.strokeStyle = 'rgba(0, 229, 255, 0.18)';
+                    ctx.strokeStyle = 'rgba(77, 184, 232, 0.18)';
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     ctx.moveTo(sx + 6, sy + p.h - 3);
@@ -771,29 +1172,116 @@ const Renderer = (() => {
         ctx.closePath();
     }
 
-    // 屏幕震动
-    let shakeAmount = 0;
-    let shakeDuration = 0;
+    // 屏幕震动（创伤值模型：多次震动叠加而不是互相覆盖）+ 方向性镜头踢动
+    let trauma = 0;
+    let shakeTime = 0;
+    let kick = { x: 0, y: 0, vx: 0, vy: 0 };
+    let shakeEnabled = true;
 
     function shake(amount, duration) {
-        shakeAmount = amount;
-        shakeDuration = duration;
+        // amount 以像素为量级；duration 越长衰减越慢
+        const add = Math.min(1, amount / 14) * Math.min(1.5, 0.6 + (duration || 0.1) * 2);
+        trauma = Math.min(1, trauma + add * 0.6);
     }
 
+    function addKick(dx, dy) {
+        kick.vx += dx * 60;
+        kick.vy += dy * 60;
+    }
+
+    function setShakeEnabled(v) { shakeEnabled = v; }
+
     function applyShake(dt) {
-        if (shakeDuration > 0) {
-            shakeDuration -= dt;
-            const dx = (Math.random() - 0.5) * shakeAmount;
-            const dy = (Math.random() - 0.5) * shakeAmount;
-            ctx.save();
-            ctx.translate(dx, dy);
-            return true;
+        shakeTime += dt;
+        // 弹簧回中
+        kick.vx += (-kick.x * 520 - kick.vx * 26) * dt;
+        kick.vy += (-kick.y * 520 - kick.vy * 26) * dt;
+        kick.x += kick.vx * dt;
+        kick.y += kick.vy * dt;
+        trauma = Math.max(0, trauma - dt * 1.7);
+
+        const t2 = trauma * trauma;
+        let dx = kick.x, dy = kick.y, rot = 0;
+        if (t2 > 0.0005 && shakeEnabled) {
+            const maxOff = 26;
+            dx += maxOff * t2 * (Math.sin(shakeTime * 61.3) * 0.6 + Math.sin(shakeTime * 97.1 + 1.7) * 0.4);
+            dy += maxOff * t2 * (Math.sin(shakeTime * 71.9 + 3.1) * 0.6 + Math.sin(shakeTime * 113.3) * 0.4);
+            rot = 0.02 * t2 * Math.sin(shakeTime * 43.7);
         }
-        return false;
+        if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05 && rot === 0) return false;
+        ctx.save();
+        ctx.translate(width / 2 + dx, height / 2 + dy);
+        ctx.rotate(rot);
+        ctx.translate(-width / 2, -height / 2);
+        return true;
     }
 
     function endShake() {
         ctx.restore();
+    }
+
+    // 屏幕闪光系统
+    function addFlash(color, intensity, duration) {
+        flash.color = color;
+        flash.intensity = Math.max(flash.intensity, intensity);
+        flash.duration = Math.max(flash.duration, duration);
+    }
+
+    function updateFlash(dt) {
+        if (flash.duration > 0) {
+            flash.duration -= dt;
+            flash.intensity = Math.max(0, flash.intensity - dt * 3);
+        }
+    }
+
+    function drawFlash() {
+        if (flash.intensity <= 0) return;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, flash.intensity);
+        ctx.fillStyle = flash.color;
+        ctx.fillRect(0, 0, width, height);
+        ctx.restore();
+    }
+
+    // 关卡过渡系统
+    function startTransition(type, duration) {
+        transition.active = true;
+        transition.type = type || 'scanline';
+        transition.progress = 0;
+        transition.duration = duration || 0.8;
+    }
+
+    function updateTransition(dt) {
+        if (!transition.active) return;
+        transition.progress += dt / transition.duration;
+        if (transition.progress >= 1) {
+            transition.active = false;
+            transition.progress = 1;
+        }
+    }
+
+    function drawTransition() {
+        if (!transition.active) return;
+        const p = transition.progress;
+        if (transition.type === 'scanline') {
+            // 扫描线
+            const scanY = p * height;
+            ctx.fillStyle = 'rgba(77, 184, 232, 0.35)';
+            ctx.fillRect(0, scanY - 1, width, 3);
+            ctx.fillStyle = 'rgba(77, 184, 232, 0.12)';
+            ctx.fillRect(0, scanY - 6, width, 12);
+            // 整体遮罩：先暗下来，再亮起来
+            const overlay = p < 0.5 ? p * 2 : (1 - p) * 2;
+            ctx.fillStyle = `rgba(8, 14, 26, ${overlay * 0.9})`;
+            ctx.fillRect(0, 0, width, height);
+            // 噪点线条
+            ctx.fillStyle = `rgba(77, 184, 232, ${overlay * 0.08})`;
+            for (let i = 0; i < height; i += 4) {
+                if ((i + Math.floor(scanY)) % 8 < 4) {
+                    ctx.fillRect(0, i, width, 1);
+                }
+            }
+        }
     }
 
     // 受伤vignette效果
@@ -805,8 +1293,8 @@ const Renderer = (() => {
         // 暗角
         const g = ctx.createRadialGradient(width / 2, height / 2, r * 0.5, width / 2, height / 2, r);
         g.addColorStop(0, 'transparent');
-        g.addColorStop(0.7, `rgba(200, 0, 0, ${intensity * 0.2})`);
-        g.addColorStop(1, `rgba(150, 0, 0, ${intensity * 0.45})`);
+        g.addColorStop(0.7, `rgba(168, 48, 53, ${intensity * 0.22})`);
+        g.addColorStop(1, `rgba(130, 35, 40, ${intensity * 0.48})`);
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, width, height);
 
@@ -815,10 +1303,46 @@ const Renderer = (() => {
             const pulse = Math.sin(time * 8) * 0.5 + 0.5;
             const g2 = ctx.createRadialGradient(width / 2, height / 2, r * 0.6, width / 2, height / 2, r * 1.1);
             g2.addColorStop(0, 'transparent');
-            g2.addColorStop(1, `rgba(255, 0, 0, ${intensity * pulse * 0.3})`);
+            g2.addColorStop(1, `rgba(168, 48, 53, ${intensity * pulse * 0.3})`);
             ctx.fillStyle = g2;
             ctx.fillRect(0, 0, width, height);
         }
+    }
+
+    // 音频可视化脉冲
+    function addAudioPulse(intensity) {
+        audioPulse.intensity = Math.min(1, audioPulse.intensity + intensity);
+    }
+
+    function updateAudioPulse(dt) {
+        if (audioPulse.intensity > 0) {
+            audioPulse.intensity -= dt * audioPulse.decay;
+            if (audioPulse.intensity < 0) audioPulse.intensity = 0;
+        }
+    }
+
+    function drawAudioPulse() {
+        if (audioPulse.intensity <= 0) return;
+        const a = audioPulse.intensity;
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        // 上下边缘光带
+        const gradTop = ctx.createLinearGradient(0, 0, width, 0);
+        gradTop.addColorStop(0, `rgba(77, 184, 232, ${a * 0.3})`);
+        gradTop.addColorStop(0.5, `rgba(77, 184, 232, ${a * 0.1})`);
+        gradTop.addColorStop(1, `rgba(77, 184, 232, ${a * 0.3})`);
+        ctx.fillStyle = gradTop;
+        ctx.fillRect(0, 0, width, 3);
+        ctx.fillRect(0, height - 3, width, 3);
+        // 侧边微光
+        const gradSide = ctx.createLinearGradient(0, 0, 0, height);
+        gradSide.addColorStop(0, `rgba(77, 184, 232, ${a * 0.12})`);
+        gradSide.addColorStop(0.5, 'transparent');
+        gradSide.addColorStop(1, `rgba(77, 184, 232, ${a * 0.12})`);
+        ctx.fillStyle = gradSide;
+        ctx.fillRect(0, 0, 2, height);
+        ctx.fillRect(width - 2, 0, 2, height);
+        ctx.restore();
     }
 
     // 绘制暗角
@@ -833,8 +1357,11 @@ const Renderer = (() => {
 
     return {
         init, resize, generateBackground, drawBackground,
-        drawPlatforms, shake, applyShake, endShake,
+        drawPlatforms, shake, addKick, setShakeEnabled, applyShake, endShake, setAmbient,
         drawVignette, drawScreenVignette,
+        addFlash, updateFlash, drawFlash,
+        startTransition, updateTransition, drawTransition,
+        addAudioPulse, updateAudioPulse, drawAudioPulse,
         ctx: () => ctx,
         width: () => width,
         height: () => height,

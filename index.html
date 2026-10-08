@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0a101a">
     <title>火柴人：突围行动</title>
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -19,7 +23,7 @@
         <div class="screen-vignette"></div>
     </div>
 
-    <div id="watermark">果沐兄弟制作</div>
+    <div id="watermark"><img src="assets/logo.svg" alt="果沐兄弟" id="logo-img"></div>
 
     <div id="ui-layer">
         <div id="start-menu" class="menu menu--title">
@@ -39,7 +43,7 @@
                             <span>火柴人</span>
                             <strong>突围行动</strong>
                         </h1>
-                        <p class="subtitle">高压横版射击 · 武器收集升级 · 连续 Boss 决战</p>
+                        <p class="subtitle">高压横版射击 · 连击狂暴 · 武器收集升级 · 连续 Boss 决战</p>
                     </div>
 
                     <div class="hero-actions hero-actions--title">
@@ -55,7 +59,7 @@
                     </div>
 
                     <div class="hero-actions hero-actions--title" style="margin-top: 14px;">
-                        <button class="menu-btn secondary" onclick="Game.showLeaderboard()">🏆 作战排行榜</button>
+                        <button class="menu-btn secondary" onclick="Game.showLeaderboard()">作战排行榜</button>
                     </div>
 
                     <div class="title-footnote">建议佩戴耳机体验开机音乐与环境音</div>
@@ -72,6 +76,8 @@
                     <div class="control-item"><span class="key">W / Space</span><span>跳跃，支持二段跳</span></div>
                     <div class="control-item"><span class="key">S</span><span>下蹲，减小受击范围，移速降低</span></div>
                     <div class="control-item"><span class="key">C</span><span>冲刺，短暂无敌，带冷却</span></div>
+                    <div class="control-item control-item--hot"><span class="key">V</span><span>怒气满后释放「狂暴模式」</span></div>
+                    <div class="control-item"><span class="key">S（空中）</span><span>下砸冲击，落地震伤周围敌人</span></div>
                     <div class="control-item"><span class="key">Shift</span><span>释放护盾（需先拾取储存）</span></div>
                     <div class="control-item"><span class="key">鼠标</span><span>控制瞄准方向</span></div>
                     <div class="control-item"><span class="key">左键</span><span>持续开火</span></div>
@@ -85,7 +91,7 @@
                 </div>
 
                 <div class="controls-mobile-hint">
-                    <h3>📱 手机端操作</h3>
+                    <h3>手机端操作</h3>
                     <div class="controls-grid">
                         <div class="control-item"><span class="key">左下角摇杆</span><span>左右移动</span></div>
                         <div class="control-item"><span class="key">跳 / 蹲 / 冲</span><span>跳跃、下蹲、冲刺</span></div>
@@ -93,11 +99,15 @@
                         <div class="control-item"><span class="key">拾</span><span>拾取武器与补给</span></div>
                         <div class="control-item"><span class="key">投</span><span>按住瞄准，松手投掷</span></div>
                         <div class="control-item"><span class="key">切</span><span>循环切换武器</span></div>
+                        <div class="control-item"><span class="key">爆</span><span>怒气满后释放狂暴</span></div>
                         <div class="control-item"><span class="key">⏸</span><span>暂停游戏</span></div>
                     </div>
                 </div>
 
                 <div class="tips-stack">
+                    <p class="tip-line tip-red">连续击杀累积连击，连击越高分数倍率越高（最高 x3）；挨打会缩短连击时间。</p>
+                    <p class="tip-line tip-green">击败敌人掉落金色晶片会自动吸附；走过血包/弹药会自动拾取，新武器也会直接装备。</p>
+                    <p class="tip-line tip-purple">打中敌人头部造成「爆头」1.6 倍伤害；每关结算 S/A/B/C 评级，并记录最佳成绩。</p>
                     <p class="tip-line tip-blue">空中再次跳跃可完成二段位移，适合越平台与躲弹幕。</p>
                     <p class="tip-line tip-green">按住 Q 会显示投掷轨迹与爆炸范围，适合预判落点。</p>
                     <p class="tip-line tip-purple">长按数字键可丢弃对应武器，便于重新整理装备栏。</p>
@@ -167,7 +177,6 @@
                 <p class="menu-copy" id="difficulty-select-desc">为行动选择合适的难度等级。</p>
                 <div class="difficulty-grid">
                     <div class="difficulty-card difficulty-card--easy" onclick="Game.selectDifficulty('easy')">
-                        <div class="difficulty-card__icon">🌱</div>
                         <span class="difficulty-card__name">简单</span>
                         <span class="difficulty-card__desc">敌人血量与伤害降低，适合新手熟悉操作。</span>
                         <div class="difficulty-card__stats">
@@ -178,7 +187,6 @@
                         </div>
                     </div>
                     <div class="difficulty-card difficulty-card--normal" onclick="Game.selectDifficulty('normal')">
-                        <div class="difficulty-card__icon">⚔️</div>
                         <span class="difficulty-card__name">普通</span>
                         <span class="difficulty-card__desc">标准难度，原汁原味的战斗体验。</span>
                         <div class="difficulty-card__stats">
@@ -189,7 +197,6 @@
                         </div>
                     </div>
                     <div class="difficulty-card difficulty-card--hard" onclick="Game.selectDifficulty('hard')">
-                        <div class="difficulty-card__icon">🔥</div>
                         <span class="difficulty-card__name">困难</span>
                         <span class="difficulty-card__desc">敌人血量与伤害大幅提升，考验极限操作。</span>
                         <div class="difficulty-card__stats">
@@ -234,15 +241,22 @@
     <div id="hud" class="hidden">
         <div id="hud-top">
             <div id="health-bar-container" class="hud-card hud-card--health">
-                <div id="health-icon">✚</div>
-                <div id="health-bar-bg">
-                    <div id="health-bar-fill"></div>
-                    <span id="health-text">100 / 100</span>
+                <span class="icon-health"></span>
+                <div class="hud-bars">
+                    <div id="health-bar-bg">
+                        <div id="health-bar-chip"></div>
+                        <div id="health-bar-fill"></div>
+                        <span id="health-text">100 / 100</span>
+                    </div>
+                    <div id="rage-bar" title="怒气满后按 V 释放狂暴">
+                        <div id="rage-fill"></div>
+                        <span id="rage-text">怒气 0%</span>
+                    </div>
                 </div>
             </div>
 
             <div id="stagnation-warning" class="hidden">
-                <span>⚠ 停留过久，立即推进</span>
+                <span><span class="icon-warn"></span>停留过久，立即推进</span>
             </div>
 
             <div id="level-info" class="hud-card hud-card--center">
@@ -250,16 +264,23 @@
                 <span id="level-name">第一关</span>
                 <span id="difficulty-display">普通</span>
                 <span id="score-display">分数: 0</span>
-                <button id="mute-btn" onclick="Audio.toggleMute()" title="切换静音">🔊</button>
+                <button id="mute-btn" onclick="Audio.toggleMute()" title="切换静音"><span class="icon-sound"></span></button>
             </div>
 
             <div id="boss-health-container" class="hidden hud-card hud-card--boss">
                 <span class="hud-label">目标威胁</span>
                 <span id="boss-name">Boss</span>
                 <div id="boss-health-bar-bg">
+                    <div id="boss-health-bar-chip"></div>
                     <div id="boss-health-bar-fill"></div>
                 </div>
             </div>
+        </div>
+
+        <div id="combo-display" class="combo-display hidden">
+            <div class="combo-display__count"><span id="combo-num">0</span><small>连击</small></div>
+            <div class="combo-display__mult" id="combo-mult">分数 x1.00</div>
+            <div class="combo-display__timer"><div id="combo-timer-fill"></div></div>
         </div>
 
         <div id="hud-bottom">
@@ -331,6 +352,7 @@
             <button class="m-btn m-btn-pickup" id="m-btn-pickup">拾</button>
             <button class="m-btn m-btn-throw" id="m-btn-throw">投</button>
             <button class="m-btn m-btn-switch" id="m-btn-switch">切</button>
+            <button class="m-btn m-btn-rage" id="m-btn-rage">爆</button>
         </div>
         <button class="m-btn m-btn-pause" id="m-btn-pause">⏸</button>
     </div>
@@ -339,10 +361,45 @@
     <script src="audio.js"></script>
     <script src="input.js"></script>
     <script src="particles.js"></script>
+    <script src="fx.js"></script>
     <script src="weapons.js"></script>
     <script src="entities.js"></script>
     <script src="levels.js"></script>
     <script src="renderer.js"></script>
-    <script src="game.js?v=2"></script>
+    <script src="game.js?v=3"></script>
+    <script>
+    (function() {
+        const scene = document.querySelector('.title-scene');
+        if (!scene) return;
+        let rafId = null;
+        let targetX = 0, targetY = 0;
+        let currentX = 0, currentY = 0;
+
+        scene.addEventListener('mousemove', function(e) {
+            const rect = scene.getBoundingClientRect();
+            targetX = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
+            targetY = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
+            if (!rafId) loop();
+        });
+
+        scene.addEventListener('mouseleave', function() {
+            targetX = 0;
+            targetY = 0;
+            if (!rafId) loop();
+        });
+
+        function loop() {
+            currentX += (targetX - currentX) * 0.10;
+            currentY += (targetY - currentY) * 0.10;
+            scene.style.setProperty('--px', currentX.toFixed(4));
+            scene.style.setProperty('--py', currentY.toFixed(4));
+            if (Math.abs(targetX - currentX) > 0.0005 || Math.abs(targetY - currentY) > 0.0005) {
+                rafId = requestAnimationFrame(loop);
+            } else {
+                rafId = null;
+            }
+        }
+    })();
+    </script>
 </body>
 </html>

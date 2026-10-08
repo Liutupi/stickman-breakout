@@ -30,6 +30,22 @@ const Game = (() => {
     let pendingUpgradeChoices = [];
     let selectedUpgradeThisReward = false;
 
+    // ---- 连击 / 狂暴 / 评级 ----
+    const COMBO_WINDOW = 3.2;
+    const OVERDRIVE_DURATION = 7;
+    let combo = 0;
+    let comboTimer = 0;
+    let maxCombo = 0;
+    let levelKills = 0;
+    let levelTime = 0;          // 本关纯战斗时间（暂停不计）
+    let orbPitch = 0;
+    let orbPitchTimer = 0;
+    let lastBossPhase = 0;
+    let lastBossHealthPct = 100;
+    let bossChipPct = 100;
+    let rageReadyAnnounced = false;
+    const COMBO_CALLS = { 2: '双杀', 3: '三杀', 4: '四杀', 5: '暴走', 8: '无人能挡', 12: '主宰战场', 16: '无双', 20: '超神' };
+
     const DIFFICULTY_CONFIG = {
         easy: {
             label: '简单',
@@ -113,6 +129,15 @@ const Game = (() => {
             deathInfo: $('death-info'),
             weaponSlots,
             mobileControls: $('mobile-controls'),
+            healthChip: $('health-bar-chip'),
+            bossChip: $('boss-health-bar-chip'),
+            rageBar: $('rage-bar'),
+            rageFill: $('rage-fill'),
+            rageText: $('rage-text'),
+            comboDisplay: $('combo-display'),
+            comboNum: $('combo-num'),
+            comboMult: $('combo-mult'),
+            comboTimerFill: $('combo-timer-fill'),
         };
 
         return ui;
@@ -441,6 +466,7 @@ const Game = (() => {
                 player.takeDamage(bullet.damage);
                 bullet.life = 0;
                 Renderer.shake(4, 0.1);
+                Renderer.addFlash('rgba(168, 48, 53, 0.25)', 0.8, 0.2);
             }
         }
     }
@@ -465,16 +491,243 @@ const Game = (() => {
         }
     }
 
+    // ==================== 战斗核心：击杀 / 连击 / 狂暴 / 爆炸 ====================
+    // 声像：根据世界坐标在屏幕上的左右位置
+    function panOf(x) {
+        return Utils.clamp(((x - Utils.camera.x) / Renderer.width()) * 2 - 1, -1, 1) * 0.7;
+    }
+
+    function comboMultiplier() {
+        return 1 + Math.min(combo, 40) * 0.05;
+    }
+
+    function addRage(amount) {
+        if (!player || player.overdriveTimer > 0) return;
+        const before = player.rage;
+        player.rage = Math.min(100, player.rage + amount);
+        if (before < 100 && player.rage >= 100 && !rageReadyAnnounced) {
+            rageReadyAnnounced = true;
+            FX.banner('怒气已满', { sub: '按 V 释放狂暴模式', color: '#ffb347', glow: '#ff5a1f', size: 40, y: 0.36, life: 1.6, channel: 'rage' });
+            Audio.play('upgrade');
+        }
+    }
+
+    function registerKill(enemy) {
+        combo++;
+        comboTimer = COMBO_WINDOW + (player.overdriveTimer > 0 ? 1 : 0);
+        maxCombo = Math.max(maxCombo, combo);
+        levelKills++;
+        const call = COMBO_CALLS[combo] || (combo > 20 && combo % 10 === 0 ? `超神 ×${combo / 10}` : null);
+        if (call) {
+            const hot = combo >= 8;
+            FX.banner(call, {
+                sub: `${combo} 连击 · 分数 x${comboMultiplier().toFixed(2)}`,
+                color: hot ? '#ffe14a' : '#ffffff',
+                glow: hot ? '#ff4a1f' : '#4db8e8',
+                size: hot ? 62 : 50,
+                life: 1.3,
+                channel: 'combo',
+            });
+            Audio.play('combo', Math.min(8, Math.floor(combo / 2)));
+            if (combo >= 5) FX.slowMo(0.45, 0.18);
+        }
+    }
+
+    function handleEnemyKilled(enemy) {
+        enemy._killHandled = true;
+        if (enemy.fellToAbyss) return;
+        const cx = enemy.x, cy = enemy.y - enemy.h / 2;
+        const dirX = enemy.deathAngle !== undefined ? Math.sign(Math.cos(enemy.deathAngle)) || 1 : (enemy.x > player.x ? 1 : -1);
+
+        // 自爆兵：死亡瞬间引爆，可连锁炸死周围敌人
+        if (enemy.type === 'kamikaze' && !enemy.exploded) {
+            enemy.exploded = true;
+            explodeAt(cx, cy, 120, enemy.damage, { hurtPlayer: true, source: 'kamikaze', scale: 1.1 });
+        }
+        if (enemy.selfDetonated) return; // 自爆兵冲脸自爆不算击杀
+
+        // 视觉：肢体飞散 + 能量喷射 + 冲击环 + 光
+        const isFlyer = ['flyer', 'drone', 'bomber', 'swooper'].includes(enemy.type);
+        if (enemy.type !== 'turret' && !isFlyer) {
+            FX.stickGibs(enemy.x, enemy.y, enemy.h, enemy.color, dirX, enemy._overkill ? 1.4 : 1);
+        } else {
+            Particles.spawnExplosion(cx, cy, 0.6);
+        }
+        Particles.spray(cx, cy, 16, enemy.color, enemy.deathAngle !== undefined ? enemy.deathAngle : -Math.PI / 2, 1.4, 150, 480, 0.4, 2.4);
+        Particles.spray(cx, cy, 8, '#ffffff', enemy.deathAngle !== undefined ? enemy.deathAngle : -Math.PI / 2, 0.8, 300, 700, 0.18, 1.6);
+        FX.shockwave(cx, cy, 70, '255,120,90', 4, 0.28);
+        FX.light(cx, cy, 160, '255,120,70', 0.18, 0.5);
+        FX.hitStop(0.045);
+        Renderer.shake(4, 0.12);
+        Audio.play('kill', panOf(enemy.x));
+
+        registerKill(enemy);
+        const mult = comboMultiplier();
+        const value = Math.round(enemy.score * mult);
+        const orbCount = Utils.clamp(Math.round(enemy.score / 25), 3, 7);
+        FX.spawnOrbs(cx, cy, orbCount, Math.max(1, Math.round(value / orbCount)), 'score');
+        if (Math.random() < 0.18 || (player.health < player.maxHealth * 0.35 && Math.random() < 0.35)) {
+            FX.spawnOrbs(cx, cy, 1, 6, 'heal');
+        }
+        addRage(enemy.type === 'turret' ? 10 : 7);
+        player.tryRecycleAmmo();
+
+        // 掉落（略收敛，避免满屏装备）
+        if (Math.random() < 0.22) {
+            const types = Object.keys(WeaponData).filter(t => !['pistol', 'grenade', 'molotov', 'health', 'shield'].includes(t));
+            drops.push(new WeaponDrop(enemy.x, enemy.y - 20, types[Utils.randInt(0, types.length - 1)]));
+        }
+        if (Math.random() < 0.13) {
+            drops.push(new WeaponDrop(enemy.x, enemy.y - 20, Math.random() < 0.5 ? 'grenade' : 'molotov'));
+        }
+        if (Math.random() < 0.10) {
+            drops.push(new WeaponDrop(enemy.x, enemy.y - 20, 'health'));
+        }
+        if (currentLevel >= 3 && Math.random() < 0.10) {
+            drops.push(new WeaponDrop(enemy.x, enemy.y - 20, 'shield'));
+        }
+    }
+
+    // 范围爆炸：伤害 + 击退 + 冲击波 + 焦痕
+    function explodeAt(x, y, radius, damage, opts = {}) {
+        const scale = opts.scale || radius / 110;
+        Particles.spawnExplosion(x, y, Math.min(1.6, scale));
+        FX.shockwave(x, y, radius * 1.3, '255,200,120', 10, 0.4);
+        FX.scorch(x, y + 10, radius * 0.7);
+        FX.hitStop(0.06);
+        Renderer.shake(9 * Math.min(1.5, scale), 0.3);
+        Renderer.addFlash('rgba(255, 190, 110, 0.22)', 0.6, 0.15);
+        Audio.play(scale > 1.3 ? 'bigExplode' : 'explode', panOf(x));
+        for (const e of enemies) {
+            if (e.dead || e === opts.exclude) continue;
+            const d = Utils.dist(x, y, e.x, e.y - e.h / 2);
+            if (d < radius) {
+                const dmg = Math.round(damage * (d < radius * 0.5 ? 1 : 0.6));
+                const ang = Math.atan2(e.y - e.h / 2 - y, e.x - x);
+                e.takeDamage(dmg, ang, 3.5 * (1 - d / radius) + 1);
+                if (e.onGround) e.vy = -280;
+                Particles.spawnDamageNum(e.x, e.y - e.h, dmg);
+                addRage(dmg * 0.04);
+            }
+        }
+        if (boss && !boss.dead && opts.source !== 'boss') {
+            const d = Utils.dist(x, y, boss.x, boss.y - boss.h / 2);
+            if (d < radius + boss.w * 0.5) {
+                let dmg = damage * (d < radius * 0.5 ? 1 : 0.6) * (opts.bossMul || 1);
+                if (boss.isVulnerable && boss.isVulnerable()) dmg *= player.upgradeStats.bossWeakDamageMul;
+                boss.takeDamage(dmg);
+                Particles.spawnDamageNum(boss.x, boss.y - boss.h, dmg);
+            }
+        }
+        if (opts.hurtPlayer && player && !player.dead) {
+            const d = Utils.dist(x, y, player.x, player.y - 25);
+            if (d < radius) player.takeDamage(d < radius * 0.5 ? damage : damage * 0.6);
+        }
+    }
+
+    function activateOverdrive() {
+        if (!player || player.dead || player.rage < 100 || player.overdriveTimer > 0) return;
+        player.rage = 0;
+        rageReadyAnnounced = false;
+        player.overdriveTimer = OVERDRIVE_DURATION;
+        player.invincibleTimer = Math.max(player.invincibleTimer, 0.6);
+        FX.slowMo(0.3, 0.55);
+        FX.hitStop(0.08);
+        FX.shockwave(player.x, player.y - 26, 300, '255,170,70', 14, 0.55);
+        FX.shockwave(player.x, player.y - 26, 180, '255,255,220', 6, 0.35);
+        FX.light(player.x, player.y - 26, 420, '255,140,40', 0.6, 0.9);
+        Renderer.shake(12, 0.4);
+        Renderer.addFlash('rgba(255, 170, 60, 0.45)', 0.9, 0.25);
+        Audio.play('overdrive');
+        FX.banner('狂暴模式', { sub: '伤害 ×1.5 · 攻速翻倍 · 子弹穿透 · 无限弹药', color: '#ffe14a', glow: '#ff3b1f', size: 64, life: 1.8, channel: 'rage' });
+        Particles.spray(player.x, player.y - 26, 40, '#ffb347', 0, Math.PI * 2, 300, 800, 0.5, 2.6);
+        // 释放瞬间震退并伤害周围敌人
+        for (const e of enemies) {
+            if (e.dead) continue;
+            const d = Utils.dist(player.x, player.y, e.x, e.y);
+            if (d < 260) {
+                const ang = Math.atan2(e.y - e.h / 2 - (player.y - 26), e.x - player.x);
+                e.takeDamage(40, ang, 4);
+                if (e.onGround) e.vy = -320;
+                Particles.spawnDamageNum(e.x, e.y - e.h, 40);
+            }
+        }
+        if (boss && !boss.dead && Utils.dist(player.x, player.y, boss.x, boss.y) < 300) {
+            boss.takeDamage(60);
+            Particles.spawnDamageNum(boss.x, boss.y - boss.h, 60);
+        }
+    }
+
+    function onOrbCollect(o) {
+        if (!player) return;
+        if (o.kind === 'heal') {
+            player.health = Math.min(player.maxHealth, player.health + o.value);
+            Particles.spawnAmmoText(player.x, player.y - 46, `+${o.value}`, '#5dff9e');
+            Audio.play('orb', 12);
+        } else {
+            player.addScore(o.value);
+            orbPitch = Math.min(orbPitch + 1, 14);
+            orbPitchTimer = 0.5;
+            Audio.play('orb', orbPitch);
+        }
+        Particles.spray(player.x, player.y - 26, 3, o.kind === 'heal' ? '#7dffb5' : '#ffd36b', -Math.PI / 2, 1.6, 60, 160, 0.25, 1.6);
+    }
+
+    function onPlayerHurt(amount) {
+        FX.hitStop(0.06);
+        Renderer.shake(7, 0.2);
+        Renderer.addKick(0, 0.15);
+        Renderer.addFlash('rgba(168, 48, 53, 0.3)', 0.8, 0.2);
+        Particles.spawnDamageNum(player.x, player.y - 60, amount, {});
+        comboTimer = Math.min(comboTimer, Math.max(0.6, comboTimer - 1.2));
+        addRage(amount * 0.35);
+    }
+
+    // ==================== 评级 ====================
+    const GRADE_ORDER = ['C', 'B', 'A', 'S'];
+    function computeGrade() {
+        const par = (levelData.levelWidth || 5000) / 70 + 45;
+        const timeScore = Utils.clamp(1.35 - levelTime / par, 0, 1) * 35;
+        const hpScore = Utils.clamp(1 - player.damageTaken / (player.maxHealth * 1.6), 0, 1) * 35;
+        const comboScore = Utils.clamp(maxCombo / 14, 0, 1) * 30;
+        const total = timeScore + hpScore + comboScore;
+        const grade = total >= 82 ? 'S' : total >= 66 ? 'A' : total >= 48 ? 'B' : 'C';
+        return { grade, total: Math.round(total) };
+    }
+
+    function getBestGrades() {
+        try { return JSON.parse(localStorage.getItem('stickman_grades')) || {}; } catch { return {}; }
+    }
+
+    function saveBestGrade(levelIndex, grade) {
+        try {
+            const data = getBestGrades();
+            const prev = data[levelIndex];
+            if (!prev || GRADE_ORDER.indexOf(grade) > GRADE_ORDER.indexOf(prev)) {
+                data[levelIndex] = grade;
+                localStorage.setItem('stickman_grades', JSON.stringify(data));
+                return true;
+            }
+        } catch { /* 存储不可用时忽略 */ }
+        return false;
+    }
+
+    function gradeHTML(g, isNewBest) {
+        return `<div class="grade-stamp grade-stamp--${g.grade}"><span class="grade-stamp__letter">${g.grade}</span><span class="grade-stamp__meta">评级 · 最高连击 ${maxCombo} · 击杀 ${levelKills} · 用时 ${Math.round(levelTime)}s${isNewBest ? ' · <b>新纪录</b>' : ''}</span></div>`;
+    }
+
     function showMenu(id) {
         const menuList = menus || document.querySelectorAll('.menu');
         menuList.forEach(menu => menu.classList.add('hidden'));
         if (id) $(id).classList.remove('hidden');
+        document.body.classList.toggle('menu-open', !!id);
         if (ui && ui.mobileControls) ui.mobileControls.classList.add('hidden');
     }
 
     function hideAllMenus() {
         const menuList = menus || document.querySelectorAll('.menu');
         menuList.forEach(menu => menu.classList.add('hidden'));
+        document.body.classList.remove('menu-open');
         if (ui && ui.mobileControls) ui.mobileControls.classList.remove('hidden');
     }
 
@@ -504,6 +757,7 @@ const Game = (() => {
             { desc: '终极关卡，混沌融合，全浮动平台，终极考验。', boss: '混沌之源·创世者' },
         ];
         
+        const bestGrades = getBestGrades();
         // 生成关卡卡片
         Levels.forEach((level, index) => {
             const card = document.createElement('div');
@@ -515,6 +769,7 @@ const Game = (() => {
             
             card.innerHTML = `
                 <div class="level-card__number">${index + 1}</div>
+                ${bestGrades[index] ? `<div class="level-card__grade grade--${bestGrades[index]}">${bestGrades[index]}</div>` : ''}
                 <span class="level-card__name">${level.name}</span>
                 <span class="level-card__desc">${desc.desc}</span>
                 <div class="level-card__boss">
@@ -560,6 +815,11 @@ const Game = (() => {
             level.boss.speed = Math.round(level.boss.speed * config.bossSpeedMul);
         }
         level.bgGradient = rawLevel.bgGradient;
+        // 出生点保护：若出生点下方没有平台（第五关原本会开局直接坠亡），补一个出生平台
+        const sp = rawLevel.playerStart;
+        const hasFloor = level.platforms.some(p => sp.x >= p.x && sp.x <= p.x + p.w && p.y >= sp.y - 10 && p.y < 600);
+        if (!hasFloor) level.platforms.unshift({ x: Math.max(0, sp.x - 90), y: sp.y + 40, w: 200, h: 18 });
+        level._rightEdge = Math.max(...level.platforms.map(p => p.x + p.w), rawLevel.levelWidth || 0);
 
         return level;
     }
@@ -614,23 +874,79 @@ const Game = (() => {
         showDifficultySelect(index);
     }
 
+    let lastHudScore = -1;
+    let lastHudHealth = -1;
+    let lastHudWeaponLevel = -1;
+    let lastHudActiveSlot = -1;
+
+    function triggerPop(el) {
+        if (!el) return;
+        el.classList.remove('pop');
+        void el.offsetWidth; // force reflow
+        el.classList.add('pop');
+        setTimeout(() => el.classList.remove('pop'), 450);
+    }
+
     function updateHUD() {
         if (!player) return;
         ensureUIRefs();
 
-        const hpPct = (player.health / player.maxHealth) * 100;
+        const hpPct = Math.max(0, (player.health / player.maxHealth) * 100);
         ui.healthBarFill.style.width = hpPct + '%';
-        ui.healthText.textContent = `${Math.ceil(player.health)} / ${player.maxHealth}`;
+        if (ui.healthChip) ui.healthChip.style.width = hpPct + '%';
 
-        if (hpPct < 25) {
-            ui.healthBarFill.style.background = 'linear-gradient(90deg, #c0392b, #e74c3c)';
-        } else if (hpPct < 50) {
-            ui.healthBarFill.style.background = 'linear-gradient(90deg, #e67e22, #f39c12)';
-        } else {
-            ui.healthBarFill.style.background = 'linear-gradient(90deg, #e74c3c, #ff6b6b)';
+        // 怒气条
+        if (ui.rageFill) {
+            const od = player.overdriveTimer > 0;
+            const ragePct = od ? (player.overdriveTimer / OVERDRIVE_DURATION) * 100 : player.rage;
+            ui.rageFill.style.width = ragePct + '%';
+            const rageLabel = od ? `狂暴中 ${player.overdriveTimer.toFixed(1)}s` : player.rage >= 100 ? '按 V 释放狂暴！' : `怒气 ${Math.floor(player.rage)}%`;
+            if (ui.rageText.textContent !== rageLabel) ui.rageText.textContent = rageLabel;
+            ui.rageBar.classList.toggle('ready', !od && player.rage >= 100);
+            ui.rageBar.classList.toggle('active', od);
+            document.body.classList.toggle('rage-ready', !od && player.rage >= 100);
         }
 
-        ui.scoreDisplay.textContent = `分数: ${player.score}`;
+        // 连击面板
+        if (ui.comboDisplay) {
+            const show = combo >= 2;
+            ui.comboDisplay.classList.toggle('hidden', !show);
+            if (show) {
+                if (ui.comboNum.textContent !== String(combo)) {
+                    ui.comboNum.textContent = combo;
+                    ui.comboNum.classList.remove('bump');
+                    void ui.comboNum.offsetWidth;
+                    ui.comboNum.classList.add('bump');
+                }
+                ui.comboMult.textContent = `分数 x${comboMultiplier().toFixed(2)}`;
+                ui.comboTimerFill.style.width = Utils.clamp(comboTimer / COMBO_WINDOW, 0, 1) * 100 + '%';
+                ui.comboDisplay.classList.toggle('tier-2', combo >= 5 && combo < 12);
+                ui.comboDisplay.classList.toggle('tier-3', combo >= 12);
+            }
+        }
+        const healthText = `${Math.ceil(player.health)} / ${player.maxHealth}`;
+        if (ui.healthText.textContent !== healthText) {
+            ui.healthText.textContent = healthText;
+            if (Math.ceil(player.health) !== lastHudHealth) {
+                triggerPop(ui.healthText);
+                triggerPop(ui.healthBarFill.parentElement);
+                lastHudHealth = Math.ceil(player.health);
+            }
+        }
+
+        if (hpPct < 25) {
+            ui.healthBarFill.style.background = 'linear-gradient(90deg, #a83035, #c05050)';
+        } else if (hpPct < 50) {
+            ui.healthBarFill.style.background = 'linear-gradient(90deg, #c07830, #d4953a)';
+        } else {
+            ui.healthBarFill.style.background = 'linear-gradient(90deg, #c05050, #d85050)';
+        }
+
+        if (player.score !== lastHudScore) {
+            ui.scoreDisplay.textContent = `分数: ${player.score}`;
+            triggerPop(ui.scoreDisplay);
+            lastHudScore = player.score;
+        }
 
         if (ui.difficultyDisplay) {
             const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
@@ -643,7 +959,12 @@ const Game = (() => {
             if (!slot) continue;
 
             const weapon = player.weapons[i];
-            slot.root.classList.toggle('active', i === player.currentWeapon);
+            const isActive = i === player.currentWeapon;
+            slot.root.classList.toggle('active', isActive);
+            if (isActive && i !== lastHudActiveSlot) {
+                triggerPop(slot.root);
+                lastHudActiveSlot = i;
+            }
             if (weapon) {
                 slot.name.textContent = weapon.name;
                 slot.ammo.textContent = weapon.infinite ? '∞' : weapon.ammo;
@@ -654,7 +975,14 @@ const Game = (() => {
         }
 
         if (player.weapon) {
-            ui.currentWeaponLevel.textContent = `Lv.${player.weapon.level}`;
+            const wlv = `Lv.${player.weapon.level}`;
+            if (ui.currentWeaponLevel.textContent !== wlv) {
+                ui.currentWeaponLevel.textContent = wlv;
+                if (player.weapon.level !== lastHudWeaponLevel) {
+                    triggerPop(ui.currentWeaponLevel);
+                    lastHudWeaponLevel = player.weapon.level;
+                }
+            }
             if (player.weapon.level < player.weapon.maxLevel) {
                 ui.upgradeHint.classList.remove('hidden');
                 ui.upgradeCost.textContent = player.weapon.getUpgradeCost();
@@ -671,6 +999,7 @@ const Game = (() => {
             ui.bossName.textContent = boss.name;
             const bossPct = (boss.health / boss.maxHealth) * 100;
             ui.bossHealthBarFill.style.width = bossPct + '%';
+            if (ui.bossChip) ui.bossChip.style.width = bossPct + '%';
         } else {
             ui.bossHealthContainer.classList.add('hidden');
         }
@@ -712,6 +1041,22 @@ const Game = (() => {
         ui.stagnationWarning.classList.toggle('hidden', player.stagnationTimer <= 1.5);
     }
 
+    function typewriterLevelName(text) {
+        if (!ui || !ui.levelName) return;
+        ui.levelName.textContent = '';
+        let i = 0;
+        const speed = 45;
+        function tick() {
+            if (!ui.levelName) return;
+            ui.levelName.textContent += text[i];
+            i++;
+            if (i < text.length) {
+                setTimeout(tick, speed);
+            }
+        }
+        tick();
+    }
+
     function loadLevel(index, options = {}) {
         clearPendingTransition();
         ensureUIRefs();
@@ -733,7 +1078,13 @@ const Game = (() => {
         drops = levelData.weaponDrops.map(drop => new WeaponDrop(drop.x, drop.y, drop.type));
 
         Particles.clear();
+        FX.clear();
         Renderer.generateBackground(levelData);
+        Renderer.setAmbient(index);
+        combo = 0; comboTimer = 0; maxCombo = 0; levelKills = 0; levelTime = 0;
+        orbPitch = 0; lastBossPhase = 0; bossChipPct = 100; rageReadyAnnounced = false;
+        player.onHurt = onPlayerHurt;
+        if (options.carryRage) player.rage = options.carryRage;
         Audio.startAmbient(index);
 
         // BGM 映射表
@@ -744,7 +1095,7 @@ const Game = (() => {
             Audio.stopBgm();
         }
 
-        ui.levelName.textContent = levelData.name;
+        typewriterLevelName(levelData.name);
         ui.bossHealthContainer.classList.add('hidden');
 
         Utils.camera.x = 0;
@@ -754,27 +1105,63 @@ const Game = (() => {
     function gameLoop(timestamp) {
         animFrame = requestAnimationFrame(gameLoop);
 
-        const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+        const realDt = Math.min((timestamp - lastTime) / 1000, 0.05);
         lastTime = timestamp;
-        frameDt = dt;
-        gameTime += dt;
+        frameDt = realDt;
 
+        let frozen = false;
         if (state === 'playing') {
-            update(dt);
-        } else if (state === 'paused') {
-            // 暂停状态下按 Escape 恢复游戏
-            if (Input.wasPressed('Escape')) {
+            const dt = FX.stepTime(realDt);   // 顿帧时为 0，慢动作时缩放
+            frozen = dt === 0;
+            gameTime += dt;                   // 仅战斗中计时（修复：暂停/菜单不再计入）
+            levelTime += dt;
+            update(dt, realDt);
+        } else {
+            if (state === 'paused' && Input.wasPressed('Escape')) {
                 resume();
             }
+            FX.update(0, realDt, null, null, null);
         }
 
         render();
-        Input.endFrame();
+        // 顿帧期间保留按键输入，避免吞掉玩家操作
+        if (!frozen) Input.endFrame();
     }
 
-    function update(dt) {
-        // 鏇存柊杈撳叆绯荤粺锛堟寜閿寜浣忔椂闂达級
+    function update(dt, realDt) {
+        if (dt <= 0) {
+            // 顿帧：世界冻结，仅屏幕层特效推进
+            FX.update(0, realDt, null, null, null);
+            return;
+        }
         Input.update(dt);
+
+        // ---- 狂暴 / 连击计时 ----
+        if ((Input.wasPressed('KeyV') || Input.wasPressed('KeyX')) && player && !player.dead) {
+            if (player.rage >= 100) activateOverdrive();
+            else if (player.overdriveTimer <= 0) Particles.spawnAmmoText(player.x, player.y - 50, `怒气 ${Math.floor(player.rage)}%`, '#ffb347');
+        }
+        if (player.overdriveTimer > 0) {
+            player.overdriveTimer -= dt;
+            FX.setTint('255,120,30', 0.28);
+            if (Math.random() < 0.5) Particles.spray(player.x + Utils.rand(-10, 10), player.y - Utils.rand(0, 50), 1, '#ffb347', -Math.PI / 2, 0.6, 60, 160, 0.4, 2);
+            if (player.overdriveTimer <= 0) {
+                player.overdriveTimer = 0;
+                FX.setTint('255,120,30', 0);
+                Particles.spawnAmmoText(player.x, player.y - 50, '狂暴结束', '#ffb347');
+            }
+        }
+        if (comboTimer > 0) {
+            comboTimer -= dt;
+            if (comboTimer <= 0) {
+                if (combo >= 5) Particles.spawnAmmoText(player.x, player.y - 60, `连击结束 ×${combo}`, '#8fd8ff');
+                combo = 0;
+            }
+        }
+        if (orbPitchTimer > 0) {
+            orbPitchTimer -= dt;
+            if (orbPitchTimer <= 0) orbPitch = 0;
+        }
 
         // 移动平台更新
         for (const p of levelData.platforms) {
@@ -801,13 +1188,22 @@ const Game = (() => {
 
         // 玩家更新
         player.update(dt, levelData.platforms);
+        // 关卡左右边界（修复：冲刺/走出关卡尽头会掉出地图直接死亡）
+        const rightEdge = levelData._rightEdge - 16;
+        if (player.x < 16) { player.x = 16; if (player.vx < 0) player.vx = 0; }
+        if (player.x > rightEdge) { player.x = rightEdge; if (player.vx > 0) player.vx = 0; }
 
         // 下砸冲击落地伤害
         if (player.groundPoundJustLanded) {
             player.groundPoundJustLanded = false;
-            Renderer.shake(6, 0.2);
-            Audio.play('explode');
-            Particles.spawnExplosion(player.x, player.y);
+            Renderer.shake(9, 0.25);
+            Renderer.addKick(0, 0.35);
+            Renderer.addFlash('rgba(212, 149, 58, 0.2)', 0.7, 0.25);
+            Audio.play('slam');
+            FX.hitStop(0.05);
+            FX.shockwave(player.x, player.y, player.groundPoundRadius * 1.1, '255,180,90', 10, 0.35);
+            FX.scorch(player.x, player.y + 4, 70);
+            Particles.spray(player.x, player.y, 18, '#ffcc66', -Math.PI / 2, Math.PI, 200, 520, 0.35, 2);
             Particles.spawn(player.x, player.y, 20, '#ff9500', 350, 0.6, 5);
             const radius = player.groundPoundRadius;
             const damage = player.groundPoundDamage;
@@ -816,7 +1212,7 @@ const Game = (() => {
                 const dist = Utils.dist(player.x, player.y, enemy.x, enemy.y);
                 if (dist < radius) {
                     const dmg = Math.round(damage * (1 - dist / radius));
-                    enemy.takeDamage(dmg);
+                    enemy.takeDamage(dmg, enemy.x > player.x ? -0.6 : Math.PI + 0.6, 2.5);
                     enemy.vy = -350;
                     enemy.vx = (enemy.x - player.x) > 0 ? 250 : -250;
                     Particles.spawnDamageNum(enemy.x, enemy.y - enemy.h / 2, dmg);
@@ -871,7 +1267,8 @@ const Game = (() => {
         const targetX = player.x - Renderer.width() * 0.35;
         const smoothX = 1 - Math.pow(0.02, dt);
         Utils.camera.x = Utils.lerp(Utils.camera.x, targetX, smoothX);
-        Utils.camera.x = Utils.clamp(Utils.camera.x, levelData.cameraBounds.minX, levelData.cameraBounds.maxX);
+        const camMax = Math.max(levelData.cameraBounds.minX, Math.min(levelData.cameraBounds.maxX, levelData._rightEdge - Renderer.width() + 60));
+        Utils.camera.x = Utils.clamp(Utils.camera.x, levelData.cameraBounds.minX, camMax);
         const targetY = player.y - Renderer.height() * 0.55;
         const smoothY = 1 - Math.pow(0.03, dt);
         Utils.camera.y = Utils.lerp(Utils.camera.y, Utils.clamp(targetY, -200, 200), smoothY);
@@ -880,44 +1277,6 @@ const Game = (() => {
         for (let i = enemies.length - 1; i >= 0; i--) {
             const alive = enemies[i].update(dt, levelData.platforms, player.x, player.y);
             if (!alive) {
-                if (!enemies[i].fellToAbyss) {
-                    if (enemies[i].type === 'kamikaze' && !enemies[i].exploded) {
-                        enemies[i].exploded = true;
-                        Particles.spawnExplosion(enemies[i].x, enemies[i].y - enemies[i].h / 2);
-                        Audio.play('explode');
-                        if (!player.dead) {
-                            const dist = Utils.dist(enemies[i].x, enemies[i].y, player.x, player.y);
-                            if (dist < 120) {
-                                const dmg = dist < 60 ? enemies[i].damage : enemies[i].damage * 0.6;
-                                player.takeDamage(dmg);
-                            }
-                        }
-                    } else {
-                        Particles.spawn(
-                            enemies[i].x, enemies[i].y - enemies[i].h / 2,
-                            6, enemies[i].color, 120, 0.4, 3
-                        );
-                    }
-                    player.addScore(enemies[i].score);
-                    player.tryRecycleAmmo();
-                    if (Math.random() < 0.30) {
-                        const types = Object.keys(WeaponData).filter(t => !['pistol', 'grenade', 'molotov', 'health'].includes(t));
-                        drops.push(new WeaponDrop(
-                            enemies[i].x, enemies[i].y - 20,
-                            types[Utils.randInt(0, types.length - 1)]
-                        ));
-                    }
-                    if (Math.random() < 0.15) {
-                        const thrownType = Math.random() < 0.5 ? 'grenade' : 'molotov';
-                        drops.push(new WeaponDrop(enemies[i].x, enemies[i].y - 20, thrownType));
-                    }
-                    if (Math.random() < 0.15) {
-                        drops.push(new WeaponDrop(enemies[i].x, enemies[i].y - 20, 'health'));
-                    }
-                    if (currentLevel >= 3 && Math.random() < 0.12) {
-                        drops.push(new WeaponDrop(enemies[i].x, enemies[i].y - 20, 'shield'));
-                    }
-                }
                 const last = enemies.pop();
                 if (i < enemies.length) enemies[i] = last;
             }
@@ -925,23 +1284,7 @@ const Game = (() => {
 
         for (const t of player.thrown) {
             if (t.type === 'grenade' && t.exploded && !t.dead) {
-                for (const e of enemies) {
-                    if (e.dead) continue;
-                    const dist = Utils.dist(t.x, t.y, e.x, e.y - e.h / 2);
-                    if (dist < t.radius) {
-                        const dmg = t.damage * (dist < t.radius * 0.5 ? 1 : 0.6);
-                        e.takeDamage(dmg);
-                        Particles.spawnDamageNum(e.x, e.y - e.h / 2, dmg);
-                    }
-                }
-                if (boss && !boss.dead) {
-                    const dist = Utils.dist(t.x, t.y, boss.x, boss.y - boss.h / 2);
-                    if (dist < t.radius) {
-                        let dmg = t.damage * (dist < t.radius * 0.5 ? 1 : 0.6);
-                        if (boss.isVulnerable && boss.isVulnerable()) dmg *= player.upgradeStats.bossWeakDamageMul;
-                        boss.takeDamage(dmg);
-                    }
-                }
+                explodeAt(t.x, t.y, t.radius, t.damage, { scale: t.radius / 110 });
                 t.dead = true;
             }
             if (t.type === 'molotov' && t.exploded && !t.dead) {
@@ -990,6 +1333,10 @@ const Game = (() => {
 
         // Boss 鐢熸垚閫昏緫锛氬綋鎵€鏈夊皬鎬娑堢伃鍚庯紝鏄剧ず璀﹀憡骞剁敓鎴?Boss
         if (!bossSpawned && enemies.length === 0 && !player.dead) {
+            if (bossWarningTimer === 0) {
+                FX.setLetterbox(true);
+                FX.banner('区域清空', { sub: '强敌正在逼近…', color: '#ffffff', glow: '#a83035', size: 40, y: 0.2, life: 1.6 });
+            }
             bossWarningTimer += dt;
 
             // 璀﹀憡闃舵锛?绉掞級
@@ -997,6 +1344,7 @@ const Game = (() => {
                 // 灞忓箷闂儊璀﹀憡鏁堟灉
                 if (Math.sin(bossWarningTimer * 10) > 0) {
                     Renderer.shake(3, 0.05);
+                    Renderer.addFlash('rgba(168, 48, 53, 0.08)', 0.5, 0.08);
                 }
             }
 
@@ -1005,18 +1353,48 @@ const Game = (() => {
                 boss = new Boss(levelData.boss.x, levelData.boss.y, { ...levelData.boss });
                 bossSpawned = true;
                 bossAnnounceTimer = 3; // 显示3秒Boss出现提示
+                lastBossPhase = 0;
+                bossChipPct = 100;
                 Audio.play('boss');
-                Particles.spawnExplosion(levelData.boss.x, levelData.boss.y - 40);
-                Renderer.shake(8, 0.3);
+                Audio.play('bigExplode');
+                Particles.spawnExplosion(levelData.boss.x, levelData.boss.y - 40, 1.5);
+                FX.shockwave(levelData.boss.x, levelData.boss.y - 40, 420, '255,80,80', 12, 0.7);
+                Renderer.shake(12, 0.5);
+                Renderer.addFlash('rgba(168, 48, 53, 0.35)', 1.0, 0.35);
             }
         }
 
         // Boss
         if (boss) {
             const bossAlive = boss.update(dt, levelData.platforms, player.x, player.y);
+            if (boss.phase > lastBossPhase && !boss.dead) {
+                lastBossPhase = boss.phase;
+                FX.hitStop(0.15);
+                FX.slowMo(0.4, 0.5);
+                FX.shockwave(boss.x, boss.y - boss.h / 2, 320, '255,60,60', 12, 0.5);
+                Renderer.shake(12, 0.4);
+                Renderer.addFlash('rgba(200, 40, 40, 0.3)', 0.8, 0.25);
+                FX.banner(boss.phase >= 2 ? '狂怒形态' : '第二阶段', { sub: boss.name + (boss.phase >= 2 ? ' 进入最终阶段！' : ' 改变了攻势'), color: '#ff6b6b', glow: '#ff1f1f', size: 52, life: 1.6, channel: 'boss' });
+            }
+            if (boss.dead && !boss._killFxDone) {
+                boss._killFxDone = true;
+                FX.hitStop(0.22);
+                FX.slowMo(0.22, 1.8);
+                FX.shockwave(boss.x, boss.y - boss.h / 2, 600, '255,230,180', 18, 1.0);
+                FX.shockwave(boss.x, boss.y - boss.h / 2, 360, '255,120,60', 10, 0.7);
+                FX.light(boss.x, boss.y - boss.h / 2, 700, '255,200,120', 1.0, 1.0);
+                Renderer.shake(18, 0.8);
+                Renderer.addFlash('rgba(255, 245, 220, 0.8)', 1.0, 0.35);
+                Audio.play('bigExplode');
+                FX.banner('BOSS 击破', { sub: boss.name + ' 已被消灭', color: '#ffe14a', glow: '#ff7a1f', size: 70, life: 2.4, y: 0.32, channel: 'boss' });
+                FX.spawnOrbs(boss.x, boss.y - boss.h / 2, 30, 10, 'score');
+                FX.stickGibs(boss.x, boss.y, boss.h * 1.3, boss.color, 1, 1.6);
+                FX.stickGibs(boss.x, boss.y, boss.h * 1.3, boss.accentColor || boss.color, -1, 1.6);
+                registerKill(boss);
+            }
             if (!bossAlive && boss.dead) {
                 boss = null;
-                player.addScore(levelData.boss.score);
+                player.addScore(Math.round(levelData.boss.score * comboMultiplier()));
                 Audio.play('levelup');
                 // Boss 击败音效映射表
                 const BOSS_SOUNDS = {
@@ -1046,6 +1424,10 @@ const Game = (() => {
                 ? { x: player.x - drops[i].x, y: player.y - drops[i].y }
                 : { x: 0, y: 0 };
             drops[i].update(dt);
+            if (!drops[i].dead && distToPlayer < 38 && !player.dead && player.canAutoPickup(drops[i])) {
+                player.pickupDrop(drops[i]);
+                drops[i].dead = true;
+            }
             if (drops[i].dead) {
                 const last = drops.pop();
                 if (i < drops.length) drops[i] = last;
@@ -1064,61 +1446,89 @@ const Game = (() => {
             }
         }
 
-        // 纰版挒妫€娴? 鐜╁瀛愬脊 vs 鏁屼汉/Boss
+        // 碰撞检测：玩家子弹 vs 敌人 / 冰墙 / Boss
         for (let i = player.bullets.length - 1; i >= 0; i--) {
             const b = player.bullets[i];
-            let hit = false;
+            let consumed = false;
+            const bAngle = Math.atan2(b.vy, b.vx);
 
             // vs 敌人
             for (const e of enemies) {
                 if (e.dead) continue;
+                if (b.hitIds && b.hitIds.includes(e)) continue;
                 const er = e.getRect();
                 if (b.x > er.x && b.x < er.x + er.w && b.y > er.y && b.y < er.y + er.h) {
-                    e.takeDamage(b.damage);
-                    Particles.spawnHitImpact(b.x, b.y, Math.atan2(b.vy, b.vx));
-                    Particles.spawnDamageNum(b.x, b.y - er.h / 2, b.damage);
+                    // 爆头（上 28%）与随机暴击
+                    const headshot = b.y < er.y + er.h * 0.28 && !b.explosion;
+                    const crit = Math.random() < 0.1;
+                    const dmg = b.damage * (headshot ? 1.6 : 1) * (crit ? 2 : 1);
+                    const hpBefore = e.health;
+                    const feel = player.weapon ? WEAPON_FEEL[player.weapon.type] : null;
+                    const knock = b.explosion ? 3 : (feel ? feel.kick : 0.05) * 10 + 0.6;
+                    e.takeDamage(dmg, bAngle, knock);
+                    if (e.dead && dmg > hpBefore * 2) e._overkill = true;
+                    Particles.spawnHitImpact(b.x, b.y, bAngle + Math.PI);
+                    Particles.spawnDamageNum(b.x, b.y - er.h / 2, dmg, { crit, headshot });
+                    Audio.play(headshot ? 'impact_headshot' : crit ? 'impact_crit' : 'impact_' + (b.wtype || 'pistol'), panOf(b.x));
+                    if (crit || headshot) {
+                        FX.hitStop(0.025);
+                        FX.light(b.x, b.y, 90, '255,230,120', 0.1, 0.6);
+                    }
+                    addRage(dmg * 0.045);
                     if (b.explosion) {
-                        Particles.spawnExplosion(b.x, b.y);
-                        Renderer.shake(5, 0.15);
+                        explodeAt(b.x, b.y, 95, b.damage * 0.6, { exclude: e, scale: 1 });
                     }
                     player.addScore(5);
-                    hit = true;
+                    if (b.pierce > 0 && !b.explosion) {
+                        b.pierce--;
+                        b.hitIds = b.hitIds || [];
+                        b.hitIds.push(e);
+                        b.damage *= 0.85;
+                        continue;
+                    }
+                    consumed = true;
                     break;
                 }
             }
 
-            if (!hit && boss && boss.hazards) {
+            if (!consumed && boss && boss.hazards) {
                 for (const h of boss.hazards) {
                     if (h.type !== 'ice_wall') continue;
                     const hr = { x: h.x - h.w / 2, y: h.y - h.h, w: h.w, h: h.h };
                     if (b.x > hr.x && b.x < hr.x + hr.w && b.y > hr.y && b.y < hr.y + hr.h) {
                         h.health -= b.damage * (b.explosion ? 2.5 : 1);
+                        Audio.play('impact_armor', panOf(b.x));
                         Particles.spawnSparks(b.x, b.y, 6);
-                        hit = true;
+                        Particles.spray(b.x, b.y, 5, '#cfefff', bAngle + Math.PI, 1.2, 100, 260, 0.3, 2, 'square');
+                        consumed = true;
                         break;
                     }
                 }
             }
 
             // vs Boss
-            if (!hit && boss && !boss.dead) {
+            if (!consumed && boss && !boss.dead) {
                 const br = boss.getRect();
                 if (b.x > br.x && b.x < br.x + br.w && b.y > br.y && b.y < br.y + br.h) {
-                    let bossDamage = b.damage;
-                    if (boss.isVulnerable && boss.isVulnerable()) bossDamage *= player.upgradeStats.bossWeakDamageMul;
+                    const crit = Math.random() < 0.1;
+                    let bossDamage = b.damage * (crit ? 2 : 1);
+                    const weak = boss.isVulnerable && boss.isVulnerable();
+                    if (weak) bossDamage *= player.upgradeStats.bossWeakDamageMul;
                     boss.takeDamage(bossDamage);
-                    Particles.spawnHitImpact(b.x, b.y, Math.atan2(b.vy, b.vx));
-                    Particles.spawnDamageNum(b.x, b.y - 15, bossDamage);
+                    Particles.spawnHitImpact(b.x, b.y, bAngle + Math.PI);
+                    Particles.spawnDamageNum(b.x, b.y - 15, bossDamage, { crit, weak });
+                    Audio.play(crit ? 'impact_crit' : 'impact_armor', panOf(b.x));
+                    if (crit) FX.hitStop(0.02);
+                    addRage(bossDamage * 0.03);
                     if (b.explosion) {
-                        Particles.spawnExplosion(b.x, b.y);
-                        Renderer.shake(6, 0.2);
+                        explodeAt(b.x, b.y, 95, b.damage * 0.4, { scale: 1 });
                     }
-                    hit = true;
+                    consumed = true;
                 }
             }
 
-            if (hit) {
-                Particles.spawnSparks(b.x, b.y, 4);
+            if (consumed) {
+                Particles.spawnSparks(b.x, b.y, 3);
                 const last = player.bullets.pop();
                 if (i < player.bullets.length) player.bullets[i] = last;
             }
@@ -1180,7 +1590,15 @@ const Game = (() => {
         }
 
         // 鐜╁姝讳骸
+        if (player.dead && !player._deathFx) {
+            player._deathFx = true;
+            FX.slowMo(0.3, 1.2);
+            FX.setTint('255,120,30', 0);
+            Renderer.shake(10, 0.4);
+            FX.stickGibs(player.x, player.y, 52, '#9fe8ff', player.facing, 1.1);
+        }
         if (player.dead && player.deathTimer > 1.5) {
+            FX.setLetterbox(false);
             state = 'dead';
             showMenu('death-menu');
             const final = calculateFinalScore(player, gameTime, currentLevel);
@@ -1199,12 +1617,21 @@ const Game = (() => {
             }
         }
 
-        // 粒子更新
+        // 击杀结算（每个敌人只结算一次）
+        if (player && !player.dead) {
+            for (const e of enemies) {
+                if (e.dead && !e._killHandled) handleEnemyKilled(e);
+            }
+        }
+
+        // 粒子 / 特效更新
         Particles.update(dt);
+        FX.update(dt, realDt, levelData.platforms, player, onOrbCollect);
 
         // Boss 鍑虹幇鍏憡璁℃椂
         if (bossAnnounceTimer > 0) {
             bossAnnounceTimer = Math.max(0, bossAnnounceTimer - dt);
+            if (bossAnnounceTimer <= 0.6) FX.setLetterbox(false);
         }
 
         // HUD
@@ -1217,10 +1644,14 @@ const Game = (() => {
         if (!ctx) return;
 
         const shakeApplied = Renderer.applyShake(frameDt);
+        Renderer.updateFlash(frameDt);
+        Renderer.updateTransition(frameDt);
+        Renderer.updateAudioPulse(frameDt);
 
         if (levelData) {
             Renderer.drawBackground(levelData, gameTime);
             Renderer.drawPlatforms(levelData);
+            FX.drawUnder(ctx);
         }
 
         if (state === 'playing' || state === 'paused' || state === 'dead') {
@@ -1235,6 +1666,8 @@ const Game = (() => {
             }
 
             Particles.draw(ctx);
+            FX.drawOver(ctx);
+            Particles.drawTexts(ctx);
             drawCrosshair();
 
             if (!bossSpawned && enemies.length === 0 && player && !player.dead && bossWarningTimer > 0) {
@@ -1250,15 +1683,20 @@ const Game = (() => {
             }
         }
 
+        if (levelData) FX.drawScreen(ctx, Renderer.width(), Renderer.height());
+        Renderer.drawFlash();
+        Renderer.drawAudioPulse();
+        Renderer.drawTransition();
         if (shakeApplied) Renderer.endShake();
     }
 
     function drawCrosshair() {
         const mouse = Input.getMouse();
         const mx = mouse.x, my = mouse.y;
-        const size = 8;
-        const gap = 4;
-        const pulse = 1 + Math.sin(gameTime * 8) * 0.2;
+        const recoil = player ? player.recoil : 0;
+        const size = 8 + recoil * 6;
+        const gap = 4 + recoil * 6;
+        const pulse = 1 + Math.sin(gameTime * 8) * 0.12;
 
         ctx.save();
         ctx.strokeStyle = '#fff';
@@ -1280,8 +1718,9 @@ const Game = (() => {
         ctx.lineTo(mx, my + lineSize);
         ctx.stroke();
 
-        ctx.fillStyle = '#e74c3c';
-        ctx.shadowColor = '#e74c3c';
+        const dotColor = player && player.overdriveTimer > 0 ? '#ffb347' : '#e74c3c';
+        ctx.fillStyle = dotColor;
+        ctx.shadowColor = dotColor;
         ctx.shadowBlur = 6;
         ctx.beginPath();
         ctx.arc(mx, my, 2, 0, Math.PI * 2);
@@ -1300,22 +1739,39 @@ const Game = (() => {
 
         const alpha = 0.5 + Math.sin(bossWarningTimer * 8) * 0.5;
         ctx.globalAlpha = alpha;
-        ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
+        ctx.fillStyle = 'rgba(200, 48, 48, 0.15)';
         ctx.fillRect(0, centerY - 80, Renderer.width(), 160);
 
-        ctx.font = 'bold 56px sans-serif';
-        ctx.fillStyle = '#ff0000';
-        ctx.fillText('⚠', centerX, centerY - 60);
+        // Warning triangle icon
+        ctx.save();
+        ctx.translate(centerX, centerY - 60);
+        ctx.beginPath();
+        ctx.moveTo(0, -28);
+        ctx.lineTo(24, 16);
+        ctx.lineTo(-24, 16);
+        ctx.closePath();
+        ctx.fillStyle = '#d85050';
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        // Exclamation mark
+        ctx.fillStyle = '#000';
+        ctx.fillRect(-2, -14, 4, 12);
+        ctx.beginPath();
+        ctx.arc(0, 10, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
 
         ctx.font = 'bold 42px "Microsoft YaHei", sans-serif';
-        ctx.fillStyle = '#ff4444';
+        ctx.fillStyle = '#d85050';
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 4;
         ctx.strokeText('BOSS 即将出现!', centerX, centerY);
         ctx.fillText('BOSS 即将出现!', centerX, centerY);
 
         ctx.font = 'bold 24px "Microsoft YaHei", sans-serif';
-        ctx.fillStyle = '#ffaaaa';
+        ctx.fillStyle = '#d0a0a0';
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 2;
         ctx.strokeText('准备战斗!', centerX, centerY + 45);
@@ -1325,48 +1781,54 @@ const Game = (() => {
     }
 
     function drawBossAnnounce() {
-        const centerX = Renderer.width() / 2;
-        const centerY = Renderer.height() / 2;
+        const W = Renderer.width(), H = Renderer.height();
+        const t = 3 - bossAnnounceTimer;               // 0 → 3
+        const slideIn = Math.min(1, t / 0.35);
+        const ease = 1 - Math.pow(1 - slideIn, 3);
+        const fade = bossAnnounceTimer < 0.5 ? bossAnnounceTimer / 0.5 : 1;
+        const cy = H * 0.5;
 
         ctx.save();
-
-        if (bossAnnounceTimer > 2.5) {
-            const flashAlpha = (bossAnnounceTimer - 2.5) * 0.8;
-            ctx.fillStyle = `rgba(255, 0, 0, ${flashAlpha})`;
-            ctx.fillRect(0, 0, Renderer.width(), Renderer.height());
+        if (t < 0.25) {
+            ctx.fillStyle = `rgba(200, 40, 40, ${(0.25 - t) * 1.6})`;
+            ctx.fillRect(0, 0, W, H);
         }
+        ctx.globalAlpha = fade;
+        // 斜切名牌
+        const bandH = 120;
+        const offset = (1 - ease) * W;
+        ctx.fillStyle = 'rgba(6, 8, 14, 0.82)';
+        ctx.beginPath();
+        ctx.moveTo(offset + 0, cy - bandH / 2);
+        ctx.lineTo(offset + W, cy - bandH / 2 - 26);
+        ctx.lineTo(offset + W, cy + bandH / 2 - 26);
+        ctx.lineTo(offset + 0, cy + bandH / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = boss.color || '#e03030';
+        ctx.fillRect(0, cy + bandH / 2 - 4 - (1 - ease) * 30, W * ease, 4);
 
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-
-        let alpha = 1;
-        if (bossAnnounceTimer > 2.5) {
-            alpha = (3 - bossAnnounceTimer) * 2;
-        } else if (bossAnnounceTimer < 0.5) {
-            alpha = bossAnnounceTimer * 2;
-        }
-        ctx.globalAlpha = Math.min(1, Math.max(0, alpha));
-
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-        ctx.fillRect(0, centerY - 70, Renderer.width(), 140);
-
-        ctx.shadowColor = '#ff0000';
-        ctx.shadowBlur = 20;
-        ctx.font = 'bold 60px "Microsoft YaHei", sans-serif';
-        ctx.fillStyle = '#ff0000';
+        ctx.font = '700 16px "Orbitron", "Noto Sans SC", sans-serif';
+        ctx.fillStyle = '#ff8080';
+        ctx.fillText('— WARNING · 目标威胁 —', W / 2 - offset * 0.3, cy - 40);
+        const nameScale = 1 + Math.max(0, 0.3 - t) * 1.5;
+        ctx.save();
+        ctx.translate(W / 2 + offset * 0.6, cy + 4);
+        ctx.scale(nameScale, nameScale);
+        ctx.font = '900 58px "Noto Sans SC", "Microsoft YaHei", sans-serif';
+        ctx.lineWidth = 6;
         ctx.strokeStyle = '#000';
-        ctx.lineWidth = 5;
-        ctx.strokeText(boss.name, centerX, centerY - 25);
-        ctx.fillText(boss.name, centerX, centerY - 25);
-        ctx.shadowBlur = 0;
-
-        ctx.font = 'bold 36px "Microsoft YaHei", sans-serif';
-        ctx.fillStyle = '#ff6666';
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 3;
-        ctx.strokeText('出现了!', centerX, centerY + 30);
-        ctx.fillText('出现了!', centerX, centerY + 30);
-
+        ctx.strokeText(boss.name, 0, 0);
+        ctx.shadowColor = boss.color || '#e03030';
+        ctx.shadowBlur = 26;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(boss.name, 0, 0);
+        ctx.restore();
+        ctx.font = '700 14px "Noto Sans SC", sans-serif';
+        ctx.fillStyle = 'rgba(230, 236, 255, 0.8)';
+        ctx.fillText(`HP ${Math.round(boss.maxHealth)} · 击破它即可突围`, W / 2 + offset, cy + 44);
         ctx.restore();
     }
 
@@ -1383,10 +1845,18 @@ const Game = (() => {
 
     function restart() {
         hideAllMenus();
-        carryOverScore = 0;
-        gameTime = 0;
-        loadLevel(currentLevel);
-        state = 'playing';
+        clearPendingTransition();
+        state = 'transition';
+        Renderer.startTransition('scanline', 0.7);
+        const token = transitionToken;
+        pendingTransitionTimeout = setTimeout(() => {
+            pendingTransitionTimeout = null;
+            if (token !== transitionToken) return;
+            carryOverScore = 0;
+            gameTime = 0;
+            loadLevel(currentLevel);
+            state = 'playing';
+        }, 350);
     }
 
     // restartLevel 与 restart 逻辑完全一致，作为别名保留兼容
@@ -1396,11 +1866,22 @@ const Game = (() => {
         if (currentLevel < Levels.length - 1 && !selectedUpgradeThisReward) return;
         hideAllMenus();
         if (currentLevel < Levels.length - 1) {
-            healthBonus += 20;
+            Renderer.startTransition('scanline', 0.9);
             const prevScore = player ? player.score : 0;
-            carryOverScore = prevScore;
-            loadLevel(currentLevel + 1, { carryOverScore });
-            state = 'playing';
+            const prevRage = player ? player.rage : 0;
+            const nextIdx = currentLevel + 1;
+            clearPendingTransition();
+            state = 'transition';
+            const token = transitionToken;
+            pendingTransitionTimeout = setTimeout(() => {
+                pendingTransitionTimeout = null;
+                if (token !== transitionToken) return;
+                healthBonus += 20;
+                carryOverScore = prevScore;
+                currentLevel = nextIdx;
+                loadLevel(currentLevel, { carryOverScore, carryRage: prevRage });
+                state = 'playing';
+            }, 450);
         } else {
             showVictory();
         }
@@ -1408,12 +1889,16 @@ const Game = (() => {
 
     function showLevelComplete() {
         state = 'levelComplete';
+        FX.setTint('255,120,30', 0);
+        FX.setLetterbox(false);
         showMenu('level-complete-menu');
         ui.levelCompleteTitle.textContent = `${levelData.name} 通过!`;
         const final = calculateFinalScore(player, gameTime, currentLevel);
         const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
         const diffText = final.diffBonus !== 0 ? ` | 难度加成: 基础×${final.baseScoreMul} 奖励×${final.bonusMul} ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
-        ui.levelCompleteInfo.innerHTML = `特工: ${currentPlayerName} · ${diffLabel}<br>当前累计得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">当前总积分: ${final.total}</strong><br><span style="color:var(--muted);font-size:12px">进入下一关继续累计分数...</span>`;
+        const grade = computeGrade();
+        const isNewBest = saveBestGrade(currentLevel, grade.grade);
+        ui.levelCompleteInfo.innerHTML = gradeHTML(grade, isNewBest) + `特工: ${currentPlayerName} · ${diffLabel}<br>当前累计得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">当前总积分: ${final.total}</strong><br><span style="color:var(--muted);font-size:12px">进入下一关继续累计分数...</span>`;
         Audio.playMp3('levelComplete');
         if (currentLevel >= Levels.length - 1) {
             ui.nextLevelBtn.classList.add('hidden');
@@ -1425,6 +1910,8 @@ const Game = (() => {
     }
 
     function showVictory() {
+        FX.setTint('255,120,30', 0);
+        FX.setLetterbox(false);
         Audio.stopAmbient();
         Audio.play('victory');
         state = 'victory';
@@ -1433,7 +1920,9 @@ const Game = (() => {
         recordScore(currentLevel, final);
         const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
         const diffText = final.diffBonus !== 0 ? ` | 难度加成: 基础×${final.baseScoreMul} 奖励×${final.bonusMul} ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
-        ui.victoryInfo.innerHTML = `特工: ${currentPlayerName} · ${diffLabel}<br>基础得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">总积分: ${final.total}</strong><br>恭喜你击败了所有 Boss!`;
+        const grade = computeGrade();
+        const isNewBest = saveBestGrade(currentLevel, grade.grade);
+        ui.victoryInfo.innerHTML = gradeHTML(grade, isNewBest) + `特工: ${currentPlayerName} · ${diffLabel}<br>基础得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">总积分: ${final.total}</strong><br>恭喜你击败了所有 Boss!`;
     }
 
     function backToTitle() {
@@ -1441,6 +1930,7 @@ const Game = (() => {
         Audio.stopAmbient();
         Audio.stopBgm();
         state = 'menu';
+        FX.clear();
         levelData = null; // 清理渲染状态，避免菜单状态下无谓渲染
         player = null;
         enemies = [];
@@ -1511,6 +2001,8 @@ const Game = (() => {
         showDifficultySelect, hideDifficultySelect, selectDifficulty,
         showPlayerMenu, hidePlayerMenu, addNewPlayer,
         showLeaderboard, hideLeaderboard, chooseUpgrade,
+        // 调试用（控制台可查看当前状态）
+        _debug: () => ({ player, enemies, boss, state, combo, maxCombo }),
     };
 })();
 
