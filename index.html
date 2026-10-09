@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=8">
+    <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
     <div id="boot-screen" class="boot-screen hidden" aria-hidden="true" onclick="Game.bootStart()">
@@ -102,7 +102,7 @@
                     <div class="controls-grid">
                         <div class="control-item"><span class="key">左下角摇杆</span><span>左右移动</span></div>
                         <div class="control-item"><span class="key">跳 / 蹲 / 冲</span><span>跳跃、下蹲、冲刺</span></div>
-                        <div class="control-item"><span class="key">右侧区域</span><span>拖动瞄准，按住射击</span></div>
+                        <div class="control-item"><span class="key">右下圆圈</span><span>按住射击（自动瞄准最近敌人），拖动可指定方向</span></div>
                         <div class="control-item"><span class="key">拾</span><span>拾取武器与补给</span></div>
                         <div class="control-item"><span class="key">投</span><span>按住瞄准，松手投掷</span></div>
                         <div class="control-item"><span class="key">切</span><span>循环切换武器</span></div>
@@ -121,7 +121,7 @@
                     <p class="tip-line tip-blue">空中再次跳跃可完成二段位移，适合越平台与躲弹幕。</p>
                     <p class="tip-line tip-green">按住 Q 会显示投掷轨迹与爆炸范围，适合预判落点。</p>
                     <p class="tip-line tip-purple">长按数字键可丢弃对应武器，便于重新整理装备栏。</p>
-                    <p class="tip-line tip-red">长时间原地停留会被惩罚掉血，持续推进才是最优策略。</p>
+                    <p class="tip-line tip-red">长时间原地发呆会被惩罚掉血（原地交火打中敌人不算），持续推进才是最优策略。</p>
                 </div>
 
                 <button class="menu-btn" onclick="Game.hideControls()">返回主菜单</button>
@@ -405,23 +405,23 @@
         <button class="m-btn m-btn-pause" id="m-btn-pause">⏸</button>
     </div>
 
-    <script src="utils.js?v=8"></script>
-    <script src="audio.js?v=8"></script>
-    <script src="input.js?v=8"></script>
-    <script src="particles.js?v=8"></script>
-    <script src="fx.js?v=8"></script>
-    <script src="weapons.js?v=8"></script>
-    <script src="boss-motion.js?v=8"></script>
-    <script src="art.js?v=8"></script>
-    <script src="enemy-types.js?v=8"></script>
-    <script src="hero-appearance.js?v=8"></script>
-    <script src="entities.js?v=8"></script>
-    <script src="levels.js?v=8"></script>
-    <script src="campaign.js?v=8"></script>
-    <script src="progression.js?v=8"></script>
-    <script src="renderer.js?v=8"></script>
-    <script src="settings.js?v=8"></script>
-    <script src="game.js?v=8"></script>
+    <script src="utils.js?v=9"></script>
+    <script src="audio.js?v=9"></script>
+    <script src="input.js?v=9"></script>
+    <script src="particles.js?v=9"></script>
+    <script src="fx.js?v=9"></script>
+    <script src="weapons.js?v=9"></script>
+    <script src="boss-motion.js?v=9"></script>
+    <script src="art.js?v=9"></script>
+    <script src="enemy-types.js?v=9"></script>
+    <script src="hero-appearance.js?v=9"></script>
+    <script src="entities.js?v=9"></script>
+    <script src="levels.js?v=9"></script>
+    <script src="campaign.js?v=9"></script>
+    <script src="progression.js?v=9"></script>
+    <script src="renderer.js?v=9"></script>
+    <script src="settings.js?v=9"></script>
+    <script src="game.js?v=9"></script>
     <script>
     (function() {
         const scene = document.querySelector('.title-scene');

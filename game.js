@@ -1751,6 +1751,7 @@ const Game = (() => {
                     const feel = player.weapon ? WEAPON_FEEL[player.weapon.type] : null;
                     const knock = b.explosion ? 3 : (feel ? feel.kick : 0.05) * 10 + 0.6;
                     e.takeDamage(dmg, bAngle, knock);
+                    player.stagnationTimer = Math.min(player.stagnationTimer, 0.5);   // 原地交火打中目标不算“停滞”
                     if (e.dead && dmg > hpBefore * 2) e._overkill = true;
                     Particles.spawnHitImpact(b.x, b.y, bAngle + Math.PI);
                     Particles.spawnDamageNum(b.x, b.y - er.h / 2, dmg, { crit, headshot });
@@ -1800,6 +1801,7 @@ const Game = (() => {
                     const weak = boss.isVulnerable && boss.isVulnerable();
                     if (weak) bossDamage *= player.upgradeStats.bossWeakDamageMul;
                     boss.takeDamage(bossDamage);
+                    player.stagnationTimer = Math.min(player.stagnationTimer, 0.5);   // 原地交火打中目标不算“停滞”
                     Particles.spawnHitImpact(b.x, b.y, bAngle + Math.PI);
                     Particles.spawnDamageNum(b.x, b.y - 15, bossDamage, { crit, weak });
                     Audio.play(crit ? 'impact_crit' : 'impact_armor', panOf(b.x));
@@ -1893,7 +1895,7 @@ const Game = (() => {
             const deathReward = grantRewards({ grade: null, bossKilled: false, clearedLevel: null });
             const cpBtn = $('checkpoint-btn');
             if (cpBtn) cpBtn.textContent = `从检查点继续 · ${checkpointName()}`;
-            ui.deathInfo.innerHTML = rewardHTML(deathReward) + `关卡: ${levelData.name}<br>特工: ${currentPlayerName} · ${diffLabel}<br>基础得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">总积分: ${final.total}</strong>`;
+            ui.deathInfo.innerHTML = rewardHTML(deathReward) + `<span class="result-stats">关卡: ${levelData.name}<br>特工: ${currentPlayerName} · ${diffLabel}<br>基础得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br></span><strong style="color:var(--gold)">总积分: ${final.total}</strong>`;
         }
 
         // 暂停
@@ -2244,7 +2246,7 @@ const Game = (() => {
         const grade = computeGrade();
         const isNewBest = saveBestGrade(currentLevel, grade.grade);
         const lcReward = grantRewards({ grade: grade.grade, bossKilled: true, clearedLevel: currentLevel });
-        ui.levelCompleteInfo.innerHTML = gradeHTML(grade, isNewBest) + rewardHTML(lcReward) + `特工: ${currentPlayerName} · ${diffLabel}<br>当前累计得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">当前总积分: ${final.total}</strong><br><span style="color:var(--muted);font-size:12px">进入下一关继续累计分数...</span>`;
+        ui.levelCompleteInfo.innerHTML = gradeHTML(grade, isNewBest) + rewardHTML(lcReward) + `<span class="result-stats">特工: ${currentPlayerName} · ${diffLabel}<br>当前累计得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br></span><strong style="color:var(--gold)">当前总积分: ${final.total}</strong><span class="result-stats"><br><span style="color:var(--muted);font-size:12px">进入下一关继续累计分数...</span></span>`;
         Audio.playMp3('levelComplete');
         if (currentLevel >= Levels.length - 1) {
             ui.nextLevelBtn.classList.add('hidden');

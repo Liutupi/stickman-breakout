@@ -295,5 +295,10 @@ const Input = (() => {
     function setAimOverride(p) { aimOverride = p; }
     function isTouch() { return document.body.classList.contains('touch-device'); }
 
+    // 页面一加载就标记触屏设备（之前要等开局才加，导致菜单里的手机样式不生效）
+    try {
+        if (('ontouchstart' in window || navigator.maxTouchPoints > 0) && document.body) document.body.classList.add('touch-device');
+    } catch (e) { /* ignore */ }
+
     return { getTouchAim, setAimOverride, isTouch, init, isDown, wasPressed, getMouse, isMouseDown, wasMousePressed, getScrollDelta, getHoldTime, update, endFrame, _getJustPressed: () => justPressed };
 })();
