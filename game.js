@@ -41,6 +41,7 @@ const Game = (() => {
     let orbPitch = 0;
     let orbPitchTimer = 0;
     let lastBossPhase = 0;
+    let highestSector = 0;
     let lastBossHealthPct = 100;
     let bossChipPct = 100;
     let rageReadyAnnounced = false;
@@ -134,6 +135,10 @@ const Game = (() => {
             rageBar: $('rage-bar'),
             rageFill: $('rage-fill'),
             rageText: $('rage-text'),
+            sectorLabel: $('sector-label'),
+            routePercent: $('route-percent'),
+            routeFill: $('route-fill'),
+            enemyObjective: $('enemy-objective'),
             comboDisplay: $('combo-display'),
             comboNum: $('combo-num'),
             comboMult: $('combo-mult'),
@@ -184,7 +189,9 @@ const Game = (() => {
         const rawBaseScore = player ? player.score : 0;
         const healthRatio = player ? Math.max(0, player.health / player.maxHealth) : 0;
         const rawHealthBonus = Math.round(healthRatio * 2000);
-        const rawTimeBonus = Math.max(0, Math.round(3000 - time * 15));
+        const route = Levels[levelIndex];
+        const durationScale = route && route.originalWidth ? route.levelWidth / route.originalWidth : 1;
+        const rawTimeBonus = Math.max(0, Math.round(3000 - time / durationScale * 15));
         const baseScore = Math.round(rawBaseScore * config.baseScoreMul);
         const healthBonus = Math.round(rawHealthBonus * config.bonusMul);
         const timeBonus = Math.round(rawTimeBonus * config.bonusMul);
@@ -488,6 +495,8 @@ const Game = (() => {
                     player.takeDamage(h.damage);
                     Renderer.shake(3, 0.08);
                 }
+            } else if (h.type === 'melee_swing') {
+                if (Utils.rectCollide({ x:h.x-h.w/2, y:h.y-h.h, w:h.w, h:h.h }, playerRect)) player.takeDamage(h.damage);
             } else if (h.type === 'ice_wall') {
                 const wallRect = { x: h.x - h.w / 2, y: h.y - h.h, w: h.w, h: h.h };
                 if (Utils.rectCollide(wallRect, playerRect)) {
@@ -509,6 +518,7 @@ const Game = (() => {
     function applyProgression(p) {
         const st = Progression.stats(Progression.get(currentPlayerName));
         p.prog = st;
+        p.appearance = st.appearance;
         if (st.hp) { p.maxHealth += st.hp; p.health = p.maxHealth; }
         p.upgradeStats.dashCooldownMul *= st.dashMul;
         p.grenadeCount += st.grenades;
@@ -539,6 +549,7 @@ const Game = (() => {
             <div class="reward-box__row"><span class="reward-coin">+${res.coins} 金币</span><span class="reward-xp">+${res.xp} 经验</span></div>
             <div class="reward-box__level">特工 Lv.${res.after.level} · ${res.after.rank}<div class="reward-xpbar"><div style="width:${pct}%"></div></div><span>${res.after.cur} / ${res.after.need}</span></div>`;
         if (res.leveledUp) html += `<div class="reward-box__up">特工升级！Lv.${res.before.level} → Lv.${res.after.level}</div>`;
+        for (const a of res.appearanceUnlocks || []) html += `<div class="reward-box__unlock">外观进化：${a.name} · ${a.detail}</div>`;
         for (const u of res.unlocks) html += `<div class="reward-box__unlock">解锁开局装备：${u.name}</div>`;
         html += `<div class="reward-box__hint">金币可在「成长中心」永久强化特工</div></div>`;
         return html;
@@ -587,9 +598,29 @@ const Game = (() => {
                 </div>
                 <div class="g-coins"><span>金币</span><strong>${prog.coins}</strong></div>
             </div>
+            <div class="g-appearance">
+                <div class="g-sub">特工形态 · ${HeroAppearance.forLevel(lv.level).name}</div>
+                <p class="g-appearance__hint">${HeroAppearance.next(lv.level) ? `特工 Lv.${HeroAppearance.next(lv.level).level} 解锁「${HeroAppearance.next(lv.level).name}」` : '已觉醒最终形态'} · 外观随经验等级自动进化</p>
+                <div class="g-skins">${HeroAppearance.TIERS.map(t => `<div class="g-skin ${t.index === HeroAppearance.forLevel(lv.level).index ? 'current' : ''} ${lv.level < t.level ? 'locked' : ''}">
+                    <div class="g-skin__art" style="background-position:${t.index % 3 * 50}% ${Math.floor(t.index / 3) * 100}%"></div>
+                    <b>${t.name}</b><span>${lv.level < t.level ? `Lv.${t.level} 解锁` : t.index === HeroAppearance.forLevel(lv.level).index ? '当前形态' : '已解锁'}</span>
+                </div>`).join('')}</div>
+                <div class="g-battle-preview"><canvas id="hero-battle-preview" width="200" height="190" aria-label="当前战斗外观"></canvas><div><b>当前战斗外观</b><p>${HeroAppearance.forLevel(lv.level).detail}</p><span>保留火柴人关节动作 · 装甲随角色运动</span></div></div>
+            </div>
             <div class="g-grid">${cards}</div>
             <div class="g-sub">开局装备（随特工等级解锁）</div>
             <div class="g-loadouts">${loadout}</div>`;
+        const preview = $('hero-battle-preview');
+        if (preview) {
+            const c = preview.getContext('2d');
+            const model = new Player(0, 0);
+            model.appearance = HeroAppearance.forLevel(lv.level);
+            model.onGround = true; model.animTime = 1; model.armAngle = -0.1;
+            c.translate(88, 169); c.scale(2.4, 2.4);
+            model.updateScarf(1 / 60);
+            c.save(); c.translate(Utils.camera.x, Utils.camera.y); model.drawScarf(c); c.restore();
+            model.drawBody(c);
+        }
     }
 
     function buyUpgrade(id) {
@@ -892,11 +923,13 @@ const Game = (() => {
             const desc = levelDescs[index] || { desc: '未知关卡', boss: '未知Boss' };
             
             card.innerHTML = `
+                <div class="level-card__scene" style="background-position: ${index % 3 * 50}% ${Math.floor(index / 3) * 50}%"></div>
                 <div class="level-card__number">${index + 1}</div>
                 ${!unlocked ? '<div class="level-card__lock">通关上一关解锁</div>' : ''}
                 ${bestGrades[index] ? `<div class="level-card__grade grade--${bestGrades[index]}">${bestGrades[index]}</div>` : ''}
                 <span class="level-card__name">${level.name}</span>
                 <span class="level-card__desc">${desc.desc}</span>
+                <div class="level-card__route">${level.sectors.length} 个区域 · ${level.enemies.length} 名敌人 · 扩展路线</div>
                 <div class="level-card__boss">
                     <span class="level-card__boss-icon"></span>
                     Boss: ${desc.boss}
@@ -1016,6 +1049,20 @@ const Game = (() => {
         if (!player) return;
         ensureUIRefs();
 
+        if (levelData && ui.routeFill) {
+            const progress = Utils.clamp(player.x / (levelData.levelWidth - 100), 0, 1);
+            ui.routeFill.style.width = `${progress * 100}%`;
+            ui.routePercent.textContent = `${Math.floor(progress * 100)}%`;
+            const sectors = levelData.sectors || [{ x: 0, name: '外围突破' }];
+            let sector = 0;
+            sectors.forEach((item, i) => { if (player.x >= item.x) sector = i; });
+            ui.sectorLabel.textContent = `${sector + 1} / ${sectors.length} · ${sectors[sector].name}`;
+            const remaining = enemies.filter(e => !e.dead);
+            const nearest = remaining.reduce((best, e) => !best || Math.abs(e.x - player.x) < Math.abs(best.x - player.x) ? e : best, null);
+            ui.enemyObjective.textContent = boss && !boss.dead ? '首领交战中 · 留意地面攻击预警'
+                : nearest ? `剩余 ${remaining.length} 名敌人 · 最近目标 ${nearest.x < player.x ? '←' : '→'} ${Math.round(Math.abs(nearest.x - player.x) / 10)}m`
+                : bossSpawned ? '区域威胁已清除' : '敌军已清除 · 前往首领决战区 →';
+        }
         const hpPct = Math.max(0, (player.health / player.maxHealth) * 100);
         ui.healthBarFill.style.width = hpPct + '%';
         if (ui.healthChip) ui.healthChip.style.width = hpPct + '%';
@@ -1202,6 +1249,7 @@ const Game = (() => {
         bossSpawned = false;
         bossWarningTimer = 0;
         bossAnnounceTimer = 0;
+        highestSector = 0;
         drops = levelData.weaponDrops.map(drop => new WeaponDrop(drop.x, drop.y, drop.type));
 
         Particles.clear();
@@ -1320,6 +1368,15 @@ const Game = (() => {
         if (player.x < 16) { player.x = 16; if (player.vx < 0) player.vx = 0; }
         if (player.x > rightEdge) { player.x = rightEdge; if (player.vx > 0) player.vx = 0; }
 
+        const sectors = levelData.sectors || [];
+        sectors.forEach((sector, i) => {
+            if (i > highestSector && player.x >= sector.x) {
+                highestSector = i;
+                FX.banner(sector.name, { sub: i === sectors.length - 1 ? '清除剩余敌人，准备首领战' : `${sector.rhythm || '深入区域'} · 前方设有补给`,
+                    color: '#d9e9ee', glow: '#5f9aa7', size: 36, life: 1.8, channel: 'sector' });
+            }
+        });
+
         // 下砸冲击落地伤害
         if (player.groundPoundJustLanded) {
             player.groundPoundJustLanded = false;
@@ -1402,7 +1459,12 @@ const Game = (() => {
 
         // 敌人
         for (let i = enemies.length - 1; i >= 0; i--) {
-            const alive = enemies[i].update(dt, levelData.platforms, player.x, player.y);
+            const enemy = enemies[i];
+            if (!enemy.dead && !enemy.activated) {
+                if (Math.abs(enemy.x - player.x) > Math.max(900, enemy.aggroRange + 100)) continue;
+                enemy.activated = true;
+            }
+            const alive = enemy.update(dt, levelData.platforms, player.x, player.y, enemies);
             if (!alive) {
                 const last = enemies.pop();
                 if (i < enemies.length) enemies[i] = last;
@@ -1459,7 +1521,7 @@ const Game = (() => {
         }
 
         // Boss 鐢熸垚閫昏緫锛氬綋鎵€鏈夊皬鎬娑堢伃鍚庯紝鏄剧ず璀﹀憡骞剁敓鎴?Boss
-        if (!bossSpawned && enemies.length === 0 && !player.dead) {
+        if (!bossSpawned && enemies.length === 0 && !player.dead && player.x >= (levelData.arenaStart || 0) - 180) {
             if (bossWarningTimer === 0) {
                 FX.setLetterbox(true);
                 FX.banner('区域清空', { sub: '强敌正在逼近…', color: '#ffffff', glow: '#a83035', size: 40, y: 0.2, life: 1.6 });
@@ -1750,7 +1812,7 @@ const Game = (() => {
             FX.setLetterbox(false);
             state = 'dead';
             showMenu('death-menu');
-            const final = calculateFinalScore(player, gameTime, currentLevel);
+            const final = calculateFinalScore(player, levelTime, currentLevel);
             recordScore(currentLevel, final);
             const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
             const diffText = final.diffBonus !== 0 ? ` | 难度加成: 基础×${final.baseScoreMul} 奖励×${final.bonusMul} ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
@@ -1801,6 +1863,7 @@ const Game = (() => {
         if (levelData) {
             Renderer.drawBackground(levelData, gameTime);
             Renderer.drawPlatforms(levelData);
+            GameArt.drawWorldDetails(ctx, levelData, enemies, boss, player, gameTime);
             FX.drawUnder(ctx);
         }
 
@@ -1815,6 +1878,7 @@ const Game = (() => {
                 player.thrown.forEach(thrown => thrown.draw(ctx));
             }
 
+            GameArt.drawForeground(ctx, levelData, gameTime);
             Particles.draw(ctx);
             FX.drawOver(ctx);
             Particles.drawTexts(ctx);
@@ -2043,7 +2107,7 @@ const Game = (() => {
         FX.setLetterbox(false);
         showMenu('level-complete-menu');
         ui.levelCompleteTitle.textContent = `${levelData.name} 通过!`;
-        const final = calculateFinalScore(player, gameTime, currentLevel);
+        const final = calculateFinalScore(player, levelTime, currentLevel);
         const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
         const diffText = final.diffBonus !== 0 ? ` | 难度加成: 基础×${final.baseScoreMul} 奖励×${final.bonusMul} ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
         const grade = computeGrade();
@@ -2067,7 +2131,7 @@ const Game = (() => {
         Audio.play('victory');
         state = 'victory';
         showMenu('victory-menu');
-        const final = calculateFinalScore(player, gameTime, currentLevel);
+        const final = calculateFinalScore(player, levelTime, currentLevel);
         recordScore(currentLevel, final);
         const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
         const diffText = final.diffBonus !== 0 ? ` | 难度加成: 基础×${final.baseScoreMul} 奖励×${final.bonusMul} ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
@@ -2155,7 +2219,7 @@ const Game = (() => {
         showLeaderboard, hideLeaderboard, chooseUpgrade,
         showGrowth, hideGrowth, buyUpgrade,
         // 调试用（控制台可查看当前状态）
-        _debug: () => ({ player, enemies, boss, state, combo, maxCombo }),
+        _debug: () => ({ player, enemies, boss, state, combo, maxCombo, levelData, currentLevel, levelTime }),
     };
 })();
 

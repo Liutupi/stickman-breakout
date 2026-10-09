@@ -193,6 +193,10 @@ const Renderer = (() => {
             : '#0f1428';
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, width, height);
+        if (GameArt.drawEnvironment(ctx, level, time, width, height)) {
+            drawMotes(time);
+            return;
+        }
         drawSkyPressure(time);
 
         if (bgTheme !== 'city') {
@@ -1217,6 +1221,7 @@ const Renderer = (() => {
             const sy = p.y - Utils.camera.y;
             if (sx + p.w < -50 || sx > width + 50) continue;
 
+            GameArt.drawPlatformDepth(ctx, level, p);
             if (p.h > 50) {
                 // 地面 - 增强材质感（向下延伸填满屏幕，避免地面下方露出背景）
                 const fillH = Math.max(p.h, height - sy + 20);
@@ -1355,6 +1360,7 @@ const Renderer = (() => {
                     ctx.fill();
                 }
             }
+            GameArt.drawPlatformFace(ctx, level, p);
         }
     }
 

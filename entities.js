@@ -1004,9 +1004,10 @@ class Player {
     updateScarf(dt) {
         const neckX = this.x - this.facing * 2;
         const neckY = this.y - (this.crouching ? 30 : 44);
-        if (!this.scarf) {
+        const scarfLength = 8 + (this.appearance ? this.appearance.index * 2 : 0);
+        if (!this.scarf || this.scarf.length !== scarfLength) {
             this.scarf = [];
-            for (let i = 0; i < 8; i++) this.scarf.push({ x: neckX - this.facing * i * 5, y: neckY + i, px: neckX - this.facing * i * 5, py: neckY + i });
+            for (let i = 0; i < scarfLength; i++) this.scarf.push({ x: neckX - this.facing * i * 5, y: neckY + i, px: neckX - this.facing * i * 5, py: neckY + i });
         }
         const pts = this.scarf;
         pts[0].x = neckX; pts[0].y = neckY; pts[0].px = neckX; pts[0].py = neckY;
@@ -1041,8 +1042,8 @@ class Player {
         for (let i = 1; i < n; i++) {
             const a = this.scarf[i - 1], b = this.scarf[i];
             const t = i / n;
-            ctx.strokeStyle = od ? `rgba(255,${200 - t * 120},60,${1 - t * 0.5})` : `rgba(${232 + t * 23},${70 + t * 80},${58},${1 - t * 0.35})`;
-            ctx.lineWidth = 5 - t * 2.6;
+            ctx.strokeStyle = od ? `rgba(255,${200 - t * 120},60,${1 - t * 0.5})` : `rgba(${112 + t * 55},${212 + t * 25},255,${1 - t * 0.35})`;
+            ctx.lineWidth = 5 + (this.appearance ? this.appearance.index * 0.3 : 0) - t * 2.6;
             ctx.beginPath();
             ctx.moveTo(a.x - cx, a.y - cy);
             ctx.lineTo(b.x - cx, b.y - cy);
@@ -1058,8 +1059,9 @@ class Player {
         const od = this.overdriveTimer > 0;
         const bodyColor = isFlashing ? '#ff6b6b' : '#f4f8ff';
         const rimColor = od ? 'rgba(255,170,60,0.55)' : 'rgba(110,210,255,0.35)';
-        const armor = '#1b2638';
-        const armorLine = od ? '#ffb347' : '#4db8e8';
+        const appearance = this.appearance || HeroAppearance.TIERS[0];
+        const armor = appearance.armor;
+        const armorLine = od ? '#ffb347' : appearance.accent;
 
         // 姿态参数
         const moveRatio = Utils.clamp(Math.abs(this.vx) / this.speed, 0, 1.6);
@@ -1107,6 +1109,9 @@ class Player {
         const armFront = Utils.ik(shX, shY + 1, gripX, gripY, 9, 9, 1);
         const armBack = Utils.ik(shX - 1, shY + 1, foreX, foreY, 10, 11, 1);
 
+        ctx.save();
+        ctx.scale(this.facing, 1);
+        HeroAppearance.back(ctx, this, shX, shY, headY);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
@@ -1190,13 +1195,16 @@ class Player {
         ctx.fillStyle = '#2a3446';
         ctx.beginPath(); ctx.arc(armFront.ex, armFront.ey, 2.2, 0, Math.PI * 2); ctx.fill();
 
+        HeroAppearance.armor(ctx, this, shX, shY, legA, legB, armFront);
+
         // —— 头部：战术头盔 + 发光面罩 ——
         ctx.save();
         ctx.translate(headX, headY);
         ctx.rotate(tilt * 0.6 + (ay * 0.15));
         ctx.fillStyle = bodyColor;
         ctx.beginPath(); ctx.arc(0, 0, 8.5, 0, Math.PI * 2); ctx.fill();
-        // 头盔壳
+        // 初始形态保留圆头；更高等级逐步增加护甲。
+        if (appearance.index >= 1) {
         ctx.fillStyle = '#223047';
         ctx.beginPath();
         ctx.arc(0, 0, 9.4, Math.PI * 0.92, Math.PI * 2.08);
@@ -1207,6 +1215,7 @@ class Player {
         ctx.strokeStyle = armorLine;
         ctx.lineWidth = 1;
         ctx.beginPath(); ctx.arc(0, 0, 9.4, Math.PI * 1.05, Math.PI * 1.75); ctx.stroke();
+        }
         // 面罩
         const vg = 0.75 + Math.sin(this.animTime * 4) * 0.2;
         ctx.save();
@@ -1219,12 +1228,16 @@ class Player {
         Utils.drawGlow(ctx, od ? '255,170,60' : '80,220,255', 6, 0, 10, 0.5 * vg);
         ctx.restore();
         ctx.globalAlpha = 1;
+        HeroAppearance.head(ctx, this);
         // 天线
+        if (appearance.index >= 1) {
         ctx.strokeStyle = '#8aa0bc';
         ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(-5, -7); ctx.lineTo(-9, -15); ctx.stroke();
         ctx.fillStyle = od ? '#ffb347' : '#ff5a4a';
         ctx.beginPath(); ctx.arc(-9, -15, 1.4, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
         ctx.restore();
     }
 
@@ -1812,8 +1825,8 @@ class ThrownProjectile {
 class Enemy {
     constructor(x, y, config) {
         this.x = x; this.y = y;
-        this.w = config.w || 24;
-        this.h = config.h || 46;
+        this.w = config.w || 30;
+        this.h = config.h || (['flyer', 'bomber', 'swooper', 'drone'].includes(config.type) ? 46 : 62);
         this.vx = 0; this.vy = 0;
         this.speed = config.speed || 100;
         this.gravity = 1200;
@@ -1827,6 +1840,9 @@ class Enemy {
         this.deathTimer = 0;
         this.color = config.color || '#e74c3c';
         this.type = config.type || 'walker';
+        this.spawnId = config.spawnId;
+        this.activated = false;
+        this.flying = ['flyer', 'bomber', 'swooper', 'drone', 'sentinel'].includes(this.type);
         this.aggroRange = config.aggroRange || 300;
         this.attackCooldown = 0;
         this.attackRate = config.attackRate || 1;
@@ -1858,7 +1874,7 @@ class Enemy {
         return { x: this.x - this.w / 2, y: this.y - this.h, w: this.w, h: this.h };
     }
 
-    update(dt, platforms, playerX, playerY) {
+    update(dt, platforms, playerX, playerY, allies = []) {
         if (this.dead) {
             this.deathTimer += dt;
             return this.deathTimer < 0.5;
@@ -1891,6 +1907,8 @@ class Enemy {
         this.animTime += dt;
         this.attackCooldown = Math.max(0, this.attackCooldown - dt);
 
+        const specialAI = EnemyVariants.update(this, dt, platforms, playerX, playerY, allies);
+        if (!specialAI) {
         // 飞行器：悬浮运动
         if (this.type === 'flyer') {
             const hoverTarget = this.baseY + Math.sin(this.animTime * 2) * 30;
@@ -2076,8 +2094,9 @@ class Enemy {
             }
         }
 
-        // 物理（叠加击退速度）
-        if (this.type !== 'turret') this.vy += this.gravity * dt;
+        }
+        // 飞行单位不施加重力，也不与单向平台碰撞。
+        if (!this.flying && this.type !== 'turret') this.vy += this.gravity * dt;
         this.x += (this.vx + this.kbx) * dt;
         this.y += this.vy * dt;
         this.kbx *= Math.pow(0.0008, dt);
@@ -2085,7 +2104,7 @@ class Enemy {
         this.shieldFlash = Math.max(0, this.shieldFlash - dt * 6);
 
         // 平台碰撞（飞行器跳过）
-        if (this.type !== 'flyer') {
+        if (!this.flying) {
             this.onGround = false;
             const halfW = this.w / 2;
             const prevFeetY = this.y - this.vy * dt;
@@ -2248,6 +2267,8 @@ class Enemy {
         ctx.translate(sx, sy);
         if (this.squash > 0) ctx.scale(1 + this.squash * 0.18, 1 - this.squash * 0.14);
 
+        const spriteDrawn = GameArt.drawEnemy(ctx, this);
+        if (!spriteDrawn && !EnemyVariants.draw(ctx, this)) {
         const hostilePulse = 0.58 + Math.sin(this.animTime * 6) * 0.12;
         const hostileGlow = ctx.createRadialGradient(0, -this.h / 2, 2, 0, -this.h / 2, 34);
         hostileGlow.addColorStop(0, `rgba(255, 70, 45, ${hostilePulse * 0.16})`);
@@ -2831,6 +2852,8 @@ class Enemy {
             }
         }
 
+        }
+        if (spriteDrawn) EnemyVariants.drawSignals(ctx, this);
         ctx.restore();
 
         // 血条
@@ -2946,6 +2969,7 @@ class Boss {
         this.archetype = config.archetype || 'steel_guardian';
         this.accentColor = config.accentColor || this.color;
         this.level = config.level || 1;
+        this.artIndex = config.artIndex || 0;
         this.phase = 0; // 战斗阶段
         this.animTime = 0;
         this.attackPattern = 0;
@@ -2964,6 +2988,7 @@ class Boss {
         this.chargeTimer = 0;
         this.chargeDir = 0;
         this.hazards = [];
+        BossMotion.init(this, config);
     }
 
     getRect() {
@@ -2971,205 +2996,7 @@ class Boss {
     }
 
     update(dt, platforms, playerX, playerY) {
-        this.animTime += dt;
-        this.flashTimer = Math.max(0, this.flashTimer - dt);
-
-        if (this.dead) {
-            this.deathTimer += dt;
-            if (this.deathTimer > 2) return false;
-            // 死亡爆炸
-            if (Math.random() < 0.3) {
-                Particles.spawnExplosion(
-                    this.x + Utils.rand(-30, 30),
-                    this.y - Utils.rand(0, this.h)
-                );
-            }
-            return true;
-        }
-
-        this.vulnerableTimer = Math.max(0, this.vulnerableTimer - dt);
-        this.updateHazards(dt);
-
-        // 入场动画
-        if (!this.entranceDone) {
-            this.entranceTimer += dt;
-            if (this.entranceTimer > 1.5) this.entranceDone = true;
-            return true;
-        }
-
-        const distToPlayer = Utils.dist(this.x, this.y, playerX, playerY);
-        this.facing = playerX > this.x ? 1 : -1;
-
-        if (this.stunTimer > 0) {
-            this.stunTimer -= dt;
-            this.vx *= 0.82;
-            this.updateBossBullets(dt, playerX, playerY);
-            return true;
-        }
-
-        // 阶段转换
-        const healthRatio = this.health / this.maxHealth;
-        if (healthRatio < 0.3 && this.phase < 2) {
-            this.phase = 2;
-            this.speed *= 1.3;
-            Particles.spawnExplosion(this.x, this.y - this.h / 2);
-            Audio.play('bossPhase');
-        } else if (healthRatio < 0.6 && this.phase < 1) {
-            this.phase = 1;
-            Particles.spawnSparks(this.x, this.y - this.h / 2, 15);
-            Audio.play('bossPhase');
-        }
-
-        // 攻击逻辑
-        this.attackCooldown = Math.max(0, this.attackCooldown - dt);
-        this.attackTimer += dt;
-
-        if (this.windup) {
-            this.windup.timer -= dt;
-            if (this.windup.timer <= 0) {
-                const attack = this.windup;
-                this.windup = null;
-                this.performAttack(attack, playerX, playerY);
-            }
-        } else if (this.attackCooldown <= 0) {
-            this.executeAttack(playerX, playerY, distToPlayer);
-        }
-
-        // 移动（追踪玩家）
-        if (this.chargeTimer > 0) {
-            this.chargeTimer -= dt;
-            this.vx = this.chargeDir * this.speed * (3.8 + this.phase * 0.35);
-            if (this.chargeTimer <= 0) {
-                this.stunTimer = 1.1;
-                this.vulnerableTimer = 1.6;
-                Renderer.shake(7, 0.18);
-                Particles.spawnExplosion(this.x, this.y - this.h / 2);
-            }
-        } else if (distToPlayer > 80) {
-            const dir = playerX > this.x ? 1 : -1;
-            this.vx = dir * this.speed * (1 + this.phase * 0.2);
-        } else {
-            this.vx *= 0.8;
-        }
-
-        // 断层检测：前瞻250px寻找立足平台
-        let hasGroundAhead = false;
-        let gapJumpTarget = null;
-        let closestForwardDist = Infinity;
-        const lookStart = this.x + this.facing * (this.w / 2 + 5);
-
-        for (const p of platforms) {
-            // 正下方是否有立足点
-            if (lookStart >= p.x && lookStart <= p.x + p.w && Math.abs(this.y - p.y) < 20) {
-                hasGroundAhead = true;
-            }
-            // 前方是否有平台（跳跃可达高度内）
-            if (this.facing === 1 ? p.x > this.x : p.x + p.w < this.x) {
-                const pCenter = p.x + p.w / 2;
-                const d = Math.abs(pCenter - this.x);
-                if (d < 350 && d < closestForwardDist && Math.abs(p.y - this.y) < 200) {
-                    // 判断这个平台能不能跳上去：dy ≥ 0 更好（在下方），dy < 0 需要足够的vy
-                    const dy = p.y - this.y;
-                    const jumpTime = d / (this.speed * 1.2); // 预估飞行时间
-                    const needVy = (dy - 0.5 * this.gravity * jumpTime * jumpTime) / jumpTime;
-                    if (needVy > -700) { // 在 Boss 跳跃能力内
-                        closestForwardDist = d;
-                        gapJumpTarget = p;
-                    }
-                }
-            }
-        }
-
-        // 前方有断层：智能跳跃
-        if (this.chargeTimer <= 0 && !hasGroundAhead && this.onGround && gapJumpTarget) {
-            const targetX = gapJumpTarget.x + gapJumpTarget.w / 2;
-            const dx = targetX - this.x;
-            const dy = gapJumpTarget.y - this.y;
-            const jumpSpeed = this.speed * 1.4;
-            const flightTime = Math.abs(dx) / jumpSpeed;
-            const clampedTime = Math.min(flightTime, 1.3);
-            const targetVy = (dy - 0.5 * this.gravity * clampedTime * clampedTime) / clampedTime;
-            this.vy = Math.min(targetVy, -350); // 至少跳350像素/秒
-            this.vx = Math.sign(dx) * jumpSpeed;
-            this.onGround = false;
-            this.facing = Math.sign(dx) || this.facing;
-        } else if (this.chargeTimer <= 0 && !hasGroundAhead && this.onGround && !gapJumpTarget) {
-            // 前方无任何平台可达：急刹车转向
-            this.vx *= -0.5;
-            this.facing *= -1;
-        }
-
-        // 物理（Boss 有更强的空中控制）
-        this.vy += this.gravity * dt;
-        this.x += this.vx * dt;
-        this.y += this.vy * dt;
-
-        // 平台碰撞
-        this.onGround = false;
-        const halfW = this.w / 2;
-        const prevFeetY = this.y - this.vy * dt;
-        for (const p of platforms) {
-            if (this.x + halfW > p.x && this.x - halfW < p.x + p.w) {
-                if (this.vy >= 0 && prevFeetY <= p.y + 6 && this.y >= p.y - 2) {
-                    this.y = p.y;
-                    this.vy = 0;
-                    this.onGround = true;
-                    this.x += p._dx || 0;
-                    break;
-                }
-                if (this.vy >= 0 && Math.abs(this.y - p.y) <= 6) {
-                    this.y = p.y;
-                    this.vy = 0;
-                    this.onGround = true;
-                    this.x += p._dx || 0;
-                    break;
-                }
-            }
-        }
-
-        // Boss 跌落恢复：寻找最近可达平台（不限于地面）
-        if (this.y > 600) {
-            let bestPlatform = null;
-            let bestScore = Infinity;
-            for (const p of platforms) {
-                const d = Math.abs(this.x - (p.x + p.w / 2));
-                const heightDiff = Math.abs(p.y - this.y);
-                // 优先距离近 + 高度差小的，且平台在 Boss 前方
-                const score = d * 0.7 + heightDiff * 0.3
-                    + (this.facing === 1 && p.x + p.w / 2 < this.x ? 200 : 0)
-                    + (this.facing === -1 && p.x + p.w / 2 > this.x ? 200 : 0);
-                if (d < 500 && score < bestScore) {
-                    bestScore = score;
-                    bestPlatform = p;
-                }
-            }
-            if (bestPlatform) {
-                this.x = Utils.clamp(this.x, bestPlatform.x + 20, bestPlatform.x + bestPlatform.w - 20);
-                this.y = bestPlatform.y - 5;
-                this.vy = 0;
-                this.vx = 0;
-                this.facing = playerX > this.x ? 1 : -1;
-            } else {
-                this.x = playerX + (this.facing * -150);
-                this.y = 400;
-                this.vy = 0;
-                this.vx = 0;
-            }
-            Particles.spawnExplosion(this.x, this.y - this.h / 2);
-            Audio.play('bossSpecial');
-            Renderer.shake(5, 0.2);
-        }
-
-        // 更新子弹
-        this.updateBossBullets(dt, playerX, playerY);
-
-        // 护盾
-        if (this.shieldTimer > 0) {
-            this.shieldTimer -= dt;
-            this.shieldActive = this.shieldTimer > 0;
-        }
-
-        return true;
+        return BossMotion.update(this, dt, platforms, playerX, playerY);
     }
 
     updateHazards(dt) {
@@ -3222,13 +3049,13 @@ class Boss {
 
     getAttackPool() {
         const pools = {
-            steel_guardian: ['charge', 'shockwave', 'shield'],
-            shadow_king: ['teleport', 'shadow_burst', 'shoot'],
+            steel_guardian: ['charge', 'shockwave', 'shield', 'leap_slam'],
+            shadow_king: ['teleport', 'melee', 'shadow_burst', 'shoot'],
             inferno_demon: ['fire_pillar', 'leap_slam', 'spread'],
-            frost_beast: ['ice_wall', 'ice_spikes', 'shoot'],
+            frost_beast: ['leap_slam', 'ice_wall', 'ice_spikes', 'melee'],
             void_lord: ['portal_barrage', 'homing_orb', 'special'],
             chaos_creator: ['charge', 'fire_pillar', 'ice_spikes', 'portal_barrage', 'special'],
-            neon_assassin: ['teleport', 'charge', 'laser_sweep', 'shadow_burst'],
+            neon_assassin: ['teleport', 'melee', 'charge', 'laser_sweep', 'shadow_burst'],
             sand_colossus: ['leap_slam', 'boulder_rain', 'shockwave', 'charge'],
             sky_judicator: ['laser_sweep', 'boulder_rain', 'portal_barrage', 'homing_orb', 'special'],
         };
@@ -3239,6 +3066,10 @@ class Boss {
     }
 
     startWindup(type, px, py, duration) {
+        this.vx = 0;
+        this.facing = px > this.x ? 1 : -1;
+        px = Utils.clamp(px, this.arenaMin + this.w/2, this.arenaMax - this.w/2);
+        if (type === 'leap_slam') { px = Utils.clamp(px, this.x-520, this.x+520); py = this.y; }
         this.windup = {
             type,
             x: px,
@@ -3254,98 +3085,40 @@ class Boss {
 
     executeAttack(px, py, dist) {
         const pool = this.getAttackPool();
-        const pattern = pool[Utils.randInt(0, pool.length - 1)];
-
-        switch (pattern) {
-            case 'melee':
-                if (dist < 120) {
-                    this.attackCooldown = 0.8 - this.phase * 0.15;
-                } else {
-                this.attackCooldown = 0.3;
-                }
-                break;
-            case 'charge':
-                this.startWindup('charge', px, py, 0.65);
-                break;
-            case 'shockwave':
-                this.startWindup('shockwave', px, py, 0.45);
-                break;
-            case 'shield':
-                this.shieldActive = true;
-                this.shieldTimer = 1.8 + this.phase * 0.5;
-                this.attackCooldown = 2.0;
-                break;
-            case 'teleport':
-                this.startWindup('teleport', px, py, 0.35);
-                break;
-            case 'shadow_burst':
-                this.startWindup('shadow_burst', px, py, 0.55);
-                break;
-            case 'fire_pillar':
-                this.startWindup('fire_pillar', px, py, 0.8);
-                break;
-            case 'leap_slam':
-                this.startWindup('leap_slam', px, py, 0.7);
-                break;
-            case 'ice_wall':
-                this.startWindup('ice_wall', px, py, 0.45);
-                break;
-            case 'ice_spikes':
-                this.startWindup('ice_spikes', px, py, 0.65);
-                break;
-            case 'portal_barrage':
-                this.startWindup('portal_barrage', px, py, 0.65);
-                break;
-            case 'laser_sweep':
-                this.startWindup('laser_sweep', px, py, 0.9 - this.phase * 0.08);
-                Audio.play('laserCharge');
-                break;
-            case 'boulder_rain':
-                this.startWindup('boulder_rain', px, py, 0.6);
-                break;
-            case 'homing_orb':
-                this.homingOrb(px, py);
-                this.attackCooldown = 1.7 - this.phase * 0.15;
-                break;
-            case 'shoot':
-                this.shootAt(px, py);
-                this.attackCooldown = 1.0 - this.phase * 0.2;
-                break;
-            case 'spread':
-                this.spreadShoot(px, py);
-                this.attackCooldown = 1.5 - this.phase * 0.2;
-                break;
-            case 'special':
-                this.specialAttack(px, py);
-                Audio.play('bossSpecial');
-                this.attackCooldown = 2.0;
-                break;
-        }
+        const pattern = pool[this.attackPattern++ % pool.length];
+        const durations = { melee:.5, charge:.75, shockwave:.65, shield:.45, teleport:.5,
+            shadow_burst:.65, fire_pillar:.85, leap_slam:.8, ice_wall:.55, ice_spikes:.75,
+            portal_barrage:.75, laser_sweep:1, boulder_rain:.75, homing_orb:.65, shoot:.45, spread:.6, special:.8 };
+        this.startWindup(pattern, px, py, Math.max(.35, (durations[pattern] || .65) - this.phase*.06));
+        if (pattern === 'laser_sweep') Audio.play('laserCharge');
     }
 
-    performAttack(attack, px, py) {
+    performAttack(attack) {
+        BossMotion.attack(this, attack);
+    }
+
+    releaseAttack(attack, px, py) {
         switch (attack.type) {
-            case 'charge':
-                this.chargeDir = attack.x > this.x ? 1 : -1;
-                this.facing = this.chargeDir;
-                this.chargeTimer = 0.55 + this.phase * 0.08;
-                Audio.play('bossSpecial');
+            case 'melee':
+                this.hazards.push({ type:'melee_swing', x:this.x+this.facing*this.h*.48,
+                    y:this.y-this.h*.25, w:this.h*.9, h:this.h*.8, timer:0, life:.16,
+                    damage:this.damage*.6, health:1 });
+                Audio.play('slam');
                 break;
+            case 'shield':
+                this.shieldActive = true; this.shieldTimer = 1.8 + this.phase*.5;
+                Audio.play('shieldBlock');
+                break;
+            case 'homing_orb': this.homingOrb(px, py); break;
+            case 'shoot': this.shootAt(px, py); break;
+            case 'spread': this.spreadShoot(px, py); break;
+            case 'special': this.specialAttack(px, py); Audio.play('bossSpecial'); break;
             case 'shockwave':
                 this.spawnShockwave(-1);
                 this.spawnShockwave(1);
                 this.vulnerableTimer = 0.65;
                 Audio.play('explode');
                 break;
-            case 'teleport': {
-                const side = attack.x > this.x ? -1 : 1;
-                this.x = attack.x + side * 150;
-                this.y = Math.min(this.y, attack.y + 40);
-                this.vulnerableTimer = 0.45;
-                Particles.spawn(this.x, this.y - this.h / 2, 18, this.accentColor, 220, 0.6);
-                Audio.play('dash');
-                break;
-            }
             case 'shadow_burst':
                 this.spreadShoot(attack.x, attack.y);
                 this.telegraphCloneBurst(attack.x, attack.y);
@@ -3363,14 +3136,6 @@ class Boss {
                     health: 1,
                 });
                 Audio.play('explode');
-                break;
-            case 'leap_slam':
-                this.x = attack.x + (this.x < attack.x ? -90 : 90);
-                this.spawnShockwave(-1);
-                this.spawnShockwave(1);
-                this.vulnerableTimer = 1.0;
-                Renderer.shake(8, 0.2);
-                Audio.play('bossSpecial');
                 break;
             case 'ice_wall':
                 this.hazards.push({
@@ -3921,6 +3686,7 @@ class Boss {
             }
         }
 
+        if (!GameArt.drawBoss(ctx, this)) {
         ctx.scale(this.facing, 1);
 
         // 受伤闪烁
@@ -4070,6 +3836,7 @@ class Boss {
         ctx.fill();
 
         this.drawArchetypeDetails(ctx, bodyColor);
+        }
 
         // 护盾（增强版）
         if (this.shieldActive) {

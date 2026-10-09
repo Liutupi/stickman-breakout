@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="icon" href="data:,">
+    <title>Boss 动作演示 · 火柴人突围</title>
+    <style>
+        *{box-sizing:border-box}body{margin:0;background:#080f18;color:#e1ecf3;font:15px/1.6 system-ui,sans-serif}
+        main{max-width:1280px;margin:36px auto;padding:0 24px}header{display:flex;justify-content:space-between;align-items:center;gap:20px}
+        h1{font-size:28px;margin:0}p{color:#9ab1c3;margin:6px 0 22px}a{color:#8ee6ff;text-decoration:none}
+        .bosses,.controls{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}button,select{font:inherit;color:#dcebf4;background:#132334;border:1px solid #294257;border-radius:8px;padding:9px 14px;cursor:pointer}
+        button[aria-pressed=true]{background:#22526a;border-color:#77d6ef;color:white}button:hover,select:hover{border-color:#77d6ef}
+        label{display:flex;align-items:center;gap:10px;color:#9ab1c3}.stage{position:relative;overflow:hidden;border:1px solid #294257;border-radius:14px;background:#101d28}
+        canvas{display:block;width:100%;aspect-ratio:1280/620}.status{position:absolute;left:22px;top:18px;padding:8px 16px;border-left:3px solid #80dcf5;background:#0a1425b8;font-weight:600}
+        .hint{margin-top:12px;font-size:13px}.controls{align-items:center}.controls label:last-child{margin-left:auto}input{accent-color:#81e0fc}
+        @media(max-width:600px){main{margin:20px auto;padding:0 12px}header{align-items:start}h1{font-size:22px}button,select{padding:7px 10px;font-size:13px}.controls label:last-child{margin-left:0}.status{left:10px;top:10px;font-size:12px;padding:4px 8px}}
+    </style>
+</head>
+<body><main>
+    <header><div><h1>Boss 动作演示</h1><p>九位首领的奔跑、蓄力、出招、腾跃与收招。</p></div><a href="/">进入游戏 →</a></header>
+    <nav class="bosses" aria-label="选择 Boss" id="bosses"></nav>
+    <div class="stage"><canvas id="stage" width="1280" height="620"></canvas><div class="status" id="status">动作素材加载中…</div></div>
+    <div class="controls">
+        <label>动作<select id="attack"><option value="auto">循环招式</option><option value="run">奔跑追击</option><option value="leap_slam">腾跃重砸</option><option value="charge">蓄力冲锋</option><option value="melee">挥击</option><option value="portal_barrage">施法</option><option value="teleport">闪现</option></select></label>
+        <button id="pause" aria-pressed="false">暂停</button><button id="restart">重新演示</button>
+        <label>速度<select id="speed"><option value=".5">0.5 ×</option><option value="1" selected>1 ×</option><option value="1.5">1.5 ×</option></select></label>
+    </div>
+    <p class="hint">点击场景可改变模拟目标的位置。攻击标记确定后，冲锋方向与跃击落点保持固定；收招期间可以反击。</p>
+</main>
+<script src="utils.js"></script><script src="boss-motion.js"></script><script src="art.js"></script><script src="entities.js"></script><script src="levels.js"></script><script src="campaign.js"></script>
+<script>
+    const silent = new Proxy({}, {get:()=>()=>{}});
+    const Audio=silent, Particles=silent, FX=silent;
+    const Renderer={width:()=>1280,height:()=>620,shake:()=>{}};
+    const canvas=document.getElementById('stage'),ctx=canvas.getContext('2d'),status=document.getElementById('status');
+    const attackSelect=document.getElementById('attack');
+    const stages={strike:'挥击',cast:'释放技能',charge:'冲锋',leap:'腾跃',land:'落地重砸',recover:'收招 · 可反击',blink:'闪现'};
+    const attacks={melee:'挥击',charge:'冲锋',shockwave:'震地',shield:'护盾',teleport:'闪现',shadow_burst:'暗影爆发',fire_pillar:'火柱',leap_slam:'跃击',ice_wall:'冰墙',ice_spikes:'冰刺',portal_barrage:'传送门弹幕',laser_sweep:'激光扫射',boulder_rain:'落石',homing_orb:'追踪法球',shoot:'射击',spread:'散射',special:'特殊技能'};
+    let index=0,boss,target=400,time=0,paused=false,last=performance.now();
+    const floors=[{x:0,y:500,w:1280,h:120}];
+    function reset(i=index) {
+        index=i;time=0;
+        boss=new Boss(940,500,{...Levels[i].boss,arenaMin:80,arenaMax:1200,h:190});
+        boss.entranceDone=true;boss.onGround=true;boss.attackCooldown=.8;
+        const execute=boss.executeAttack.bind(boss);
+        boss.executeAttack=(px,py,dist)=>attackSelect.value==='auto'?execute(px,py,dist):boss.startWindup(attackSelect.value,px,py,.8);
+        document.querySelectorAll('#bosses button').forEach((b,n)=>b.setAttribute('aria-pressed',String(n===i)));
+    }
+    Levels.forEach((level,i)=>{
+        const button=document.createElement('button');button.textContent=level.boss.name;button.setAttribute('aria-pressed',String(i===0));
+        button.onclick=()=>reset(i);document.getElementById('bosses').append(button);
+    });
+    attackSelect.onchange=()=>reset();document.getElementById('restart').onclick=()=>reset();
+    document.getElementById('pause').onclick=e=>{paused=!paused;e.target.textContent=paused?'继续':'暂停';e.target.setAttribute('aria-pressed',String(paused));};
+    canvas.onclick=e=>{const rect=canvas.getBoundingClientRect();target=Utils.clamp((e.clientX-rect.left)/rect.width*1280,120,1160);};
+    reset();
+    function draw(now) {
+        const dt=Math.min((now-last)/1000,.04)*Number(document.getElementById('speed').value);last=now;
+        if(!paused){time+=dt;
+            if(attackSelect.value==='run'){boss.attackCooldown=10;if(Math.abs(boss.x-target)<150)target=target<640?1050:230;}
+            boss.update(dt,floors,target,500);
+        }
+        Utils.camera.x=0;Utils.camera.y=0;
+        ctx.clearRect(0,0,1280,620);GameArt.drawEnvironment(ctx,Levels[index],time,1280,620);
+        GameArt.drawPlatformDepth(ctx,Levels[index],floors[0]);
+        ctx.fillStyle='#142537';ctx.fillRect(0,500,1280,120);GameArt.drawPlatformFace(ctx,Levels[index],floors[0]);
+        ctx.save();ctx.translate(target,500);ctx.strokeStyle='#e8f7ff';ctx.lineWidth=5;ctx.lineCap='round';
+        ctx.beginPath();ctx.arc(0,-56,9,0,Math.PI*2);ctx.stroke();ctx.beginPath();
+        ctx.moveTo(0,-46);ctx.lineTo(0,-22);ctx.lineTo(-12,0);ctx.moveTo(0,-22);ctx.lineTo(12,0);
+        ctx.moveTo(-15,-30);ctx.lineTo(0,-42);ctx.lineTo(15,-30);ctx.stroke();ctx.restore();
+        ctx.fillStyle='#bdd7e5';ctx.font='14px system-ui';ctx.textAlign='center';ctx.fillText('模拟目标',target,532);
+        boss.draw(ctx);
+        status.textContent=!GameArt.ready().bossMotion?'动作素材加载中…':`${boss.name} · ${boss.windup?'蓄力 · '+(attacks[boss.windup.type]||'攻击'):stages[boss.action?.kind] || (Math.abs(boss.vx)>12?'奔跑追击':'战斗待机')}`;
+        requestAnimationFrame(draw);
+    }
+    window.BossPreview={get boss(){return boss;},select:reset};
+    requestAnimationFrame(draw);
+</script></body></html>

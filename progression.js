@@ -66,6 +66,8 @@ const Progression = (() => {
         const l = id => prog.up[id] || 0;
         const lv = levelInfo(prog.xp).level;
         return {
+            level: lv,
+            appearance: HeroAppearance.forLevel(lv),
             hp: l('hp') * 15,
             dmgMul: 1 + l('dmg') * 0.06,
             critBonus: l('crit') * 0.02,
@@ -108,7 +110,8 @@ const Progression = (() => {
         save(name, prog);
         const after = levelInfo(prog.xp);
         const unlocks = LOADOUT.filter(o => o.level > before.level && o.level <= after.level);
-        return { coins, xp, before, after, leveledUp: after.level > before.level, unlocks, prog };
+        const appearanceUnlocks = HeroAppearance.TIERS.filter(t => t.level > before.level && t.level <= after.level);
+        return { coins, xp, before, after, leveledUp: after.level > before.level, unlocks, appearanceUnlocks, prog };
     }
 
     // 原有 6 关保持开放；新增关卡需通关上一关解锁

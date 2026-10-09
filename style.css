@@ -16,6 +16,61 @@
     --shadow: 0 26px 90px rgba(0, 0, 0, 0.62);
 }
 
+#expedition-hud {
+    position: fixed;
+    bottom: 164px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(310px, 42vw);
+    padding: 12px 16px;
+    background: linear-gradient(110deg, rgba(7, 17, 29, .9), rgba(10, 21, 35, .65));
+    border: 1px solid rgba(160, 204, 223, .2);
+    border-radius: 4px;
+    pointer-events: none;
+}
+.expedition-meta { display: flex; justify-content: space-between; color: #cbe1eb; font-size: 11px; letter-spacing: 1px; }
+.expedition-track { position: relative; height: 3px; margin: 8px 0; background: rgba(170, 210, 229, .16); }
+.expedition-track::after { content: ''; position: absolute; inset: -2px 0; background: repeating-linear-gradient(90deg, transparent 0 calc(20% - 1px), #dceaf080 calc(20% - 1px) 20%); pointer-events: none; }
+#route-fill { height: 100%; width: 0; background: linear-gradient(90deg, #629aac, #eac386); transition: width .3s linear; }
+#enemy-objective { color: #95adb9; font-size: 10px; white-space: nowrap; }
+.level-card__scene { height: 90px; margin: -16px -16px 12px; border-radius: 6px 6px 0 0; background-image: url('assets/generated/environments-v2.png'); background-size: 300% 300%; opacity: .82; }
+.level-card__route { color: var(--gold); font-size: 11px; margin: 8px 0; }
+.g-appearance { margin: 20px 0 25px; padding: 18px; border: 1px solid #91b8ce30; background: #0b1522; border-radius: 8px; }
+.g-appearance .g-sub { margin: 0; }
+.g-appearance__hint { font-size: 12px; color: #91a8b7; margin: 8px 0 16px; }
+.g-skins { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.g-skin { overflow: hidden; border: 1px solid #6d899d38; border-radius: 4px; padding-bottom: 10px; text-align: center; }
+.g-skin.current { border-color: #e5c586; box-shadow: 0 0 16px #e5c58615; }
+.g-skin.locked { opacity: .5; }
+.g-skin__art { clip-path: inset(0 0 7% 0); aspect-ratio: 1; background-image: url('assets/generated/hero-evolution-concepts.png'); background-size: 300% 200%; margin-bottom: 8px; }
+.g-skin b, .g-skin span { display: block; font-size: 11px; }
+.g-skin span { font-size: 10px; color: #92b1c0; margin-top: 5px; }
+.g-battle-preview { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 12px; background: radial-gradient(ellipse at 35% 50%, #172e41, #0b1522 70%); }
+.g-battle-preview canvas { position: static; width: 160px; height: 152px; }
+.g-battle-preview b { font-size: 13px; color: #e7dbbc; }
+.g-battle-preview p { font-size: 12px; color: #afc5d1; }
+.g-battle-preview span { font-size: 10px; color: #718d9d; }
+@media (max-width: 760px), (max-height: 560px) {
+    #expedition-hud { bottom: 174px; width: 220px; padding: 7px 10px; }
+    #enemy-objective { font-size: 9px; }
+    .expedition-meta { font-size: 10px; }
+    .g-skins { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 720px) {
+    #expedition-hud { top: 86px; bottom: auto; left: 12px; transform: none; width: calc(50vw - 24px); }
+    #enemy-objective { white-space: normal; line-height: 1.5; }
+    body.touch-device #hud-bottom { display: block; left: 12px; right: 82px; bottom: 182px; }
+    body.touch-device #weapon-slots { width: 100%; gap: 4px; padding: 6px; }
+    body.touch-device .weapon-slot { flex: 1; min-width: 42px; min-height: 44px; padding: 4px 2px; }
+    body.touch-device .slot-name { font-size: 10px; }
+    body.touch-device .slot-key { font-size: 8px; }
+    body.touch-device #weapon-level-display { display: none; }
+    body.touch-device #thrown-weapons { position: absolute; bottom: 64px; padding: 5px; width: auto; flex-wrap: nowrap; gap: 5px; }
+    body.touch-device .thrown-item { font-size: 10px; padding: 5px; gap: 5px; }
+    body.touch-device #pickup-hint { position: fixed; bottom: 318px; font-size: 10px; }
+}
+
 * {
     box-sizing: border-box;
 }

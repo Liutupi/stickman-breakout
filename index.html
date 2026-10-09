@@ -108,6 +108,7 @@
 
                 <div class="tips-stack">
                     <p class="tip-line tip-green">每局结束都能拿到金币和经验（失败也有），在「成长中心」永久强化生命、火力、暴击等属性。</p>
+                    <p class="tip-line tip-green">新区域入口有补给；突击枪兵会蓄力冲锋，散弹兵有扇形预警，优先消灭能治疗同伴的战地医师。</p>
                     <p class="tip-line tip-red">持盾兵正面免疫子弹：打头、绕背或用爆炸武器破盾；狙击手红色激光锁定后会开枪，看到激光闪烁就跳或冲刺。</p>
                     <p class="tip-line tip-red">连续击杀累积连击，连击越高分数倍率越高（最高 x3）；挨打会缩短连击时间。</p>
                     <p class="tip-line tip-green">击败敌人掉落金色晶片会自动吸附；走过血包/弹药会自动拾取，新武器也会直接装备。</p>
@@ -256,6 +257,11 @@
     </div>
 
     <div id="hud" class="hidden">
+        <div id="expedition-hud" aria-label="关卡推进">
+            <div class="expedition-meta"><span id="sector-label">外围突破</span><span id="route-percent">0%</span></div>
+            <div class="expedition-track"><div id="route-fill"></div></div>
+            <div id="enemy-objective">清除敌人，向深处推进</div>
+        </div>
         <div id="hud-top">
             <div id="health-bar-container" class="hud-card hud-card--health">
                 <span class="icon-health"></span>
@@ -380,11 +386,16 @@
     <script src="particles.js"></script>
     <script src="fx.js"></script>
     <script src="weapons.js"></script>
+    <script src="boss-motion.js"></script>
+    <script src="art.js"></script>
+    <script src="enemy-types.js"></script>
+    <script src="hero-appearance.js"></script>
     <script src="entities.js"></script>
     <script src="levels.js"></script>
+    <script src="campaign.js"></script>
     <script src="progression.js"></script>
     <script src="renderer.js"></script>
-    <script src="game.js?v=4"></script>
+    <script src="game.js?v=6"></script>
     <script>
     (function() {
         const scene = document.querySelector('.title-scene');
