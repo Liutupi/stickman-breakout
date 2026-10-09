@@ -43,6 +43,7 @@ const Game = (() => {
     let lastBossPhase = 0;
     let highestSector = 0;
     let arenaSweepDone = false;
+    let continuesUsed = 0;
     let lastBossHealthPct = 100;
     let bossChipPct = 100;
     let rageReadyAnnounced = false;
@@ -861,7 +862,7 @@ const Game = (() => {
     }
 
     function gradeHTML(g, isNewBest) {
-        return `<div class="grade-stamp grade-stamp--${g.grade}"><span class="grade-stamp__letter">${g.grade}</span><span class="grade-stamp__meta">评级 · 最高连击 ${maxCombo} · 击杀 ${levelKills} · 用时 ${Math.round(levelTime)}s${isNewBest ? ' · <b>新纪录</b>' : ''}</span></div>`;
+        return `<div class="grade-stamp grade-stamp--${g.grade}"><span class="grade-stamp__letter">${g.grade}</span><span class="grade-stamp__meta">评级 · 最高连击 ${maxCombo} · 击杀 ${levelKills} · 用时 ${Math.round(levelTime)}s${continuesUsed ? ' · 续关 ' + continuesUsed + ' 次' : ''}${isNewBest ? ' · <b>新纪录</b>' : ''}</span></div>`;
     }
 
     function showMenu(id) {
@@ -1252,6 +1253,7 @@ const Game = (() => {
         bossAnnounceTimer = 0;
         highestSector = 0;
         arenaSweepDone = false;
+        continuesUsed = 0;
         drops = levelData.weaponDrops.map(drop => new WeaponDrop(drop.x, drop.y, drop.type));
 
         Particles.clear();
@@ -1375,7 +1377,7 @@ const Game = (() => {
         sectors.forEach((sector, i) => {
             if (i > highestSector && player.x >= sector.x) {
                 highestSector = i;
-                FX.banner(sector.name, { sub: i === sectors.length - 1 ? '清除剩余敌人，准备首领战' : `${sector.rhythm || '深入区域'} · 前方设有补给`,
+                FX.banner(sector.name, { sub: (i === sectors.length - 1 ? '清除剩余敌人，准备首领战' : `${sector.rhythm || '深入区域'} · 前方设有补给`) + ' · 检查点已记录',
                     color: '#d9e9ee', glow: '#5f9aa7', size: 36, life: 1.8, channel: 'sector' });
             }
         });
@@ -1833,6 +1835,8 @@ const Game = (() => {
             const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
             const diffText = final.diffBonus !== 0 ? ` | 难度加成: 基础×${final.baseScoreMul} 奖励×${final.bonusMul} ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
             const deathReward = grantRewards({ grade: null, bossKilled: false, clearedLevel: null });
+            const cpBtn = $('checkpoint-btn');
+            if (cpBtn) cpBtn.textContent = `从检查点继续 · ${checkpointName()}`;
             ui.deathInfo.innerHTML = rewardHTML(deathReward) + `关卡: ${levelData.name}<br>特工: ${currentPlayerName} · ${diffLabel}<br>基础得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">总积分: ${final.total}</strong>`;
         }
 
@@ -2089,6 +2093,61 @@ const Game = (() => {
         }, 350);
     }
 
+    // ==================== 检查点：死亡后从最近到达的区域复活 ====================
+    function checkpointName() {
+        if (!levelData) return '';
+        if (bossSpawned) return '首领决战区';
+        const sectors = levelData.sectors || [];
+        return highestSector > 0 && sectors[highestSector] ? sectors[highestSector].name : '关卡起点';
+    }
+
+    function checkpointPosition() {
+        const sectors = levelData.sectors || [];
+        let x = levelData.playerStart.x;
+        if (bossSpawned && levelData.arenaStart) x = levelData.arenaStart + 120;
+        else if (highestSector > 0 && sectors[highestSector]) x = sectors[highestSector].x + 60;
+        // 找脚下的地面（优先厚地面，其次最高的平台）
+        const under = levelData.platforms.filter(p => x >= p.x + 10 && x <= p.x + p.w - 10 && p.y < 620);
+        under.sort((a, b) => ((b.h > 50) - (a.h > 50)) || (a.y - b.y));
+        const y = under.length ? under[0].y - 2 : levelData.playerStart.y;
+        return { x, y };
+    }
+
+    function continueFromCheckpoint() {
+        if (!player || state !== 'dead') return;
+        const cp = checkpointPosition();
+        player.dead = false;
+        player.deathTimer = 0;
+        player._deathFx = false;
+        player.health = player.maxHealth;
+        player.x = cp.x; player.y = cp.y;
+        player.vx = 0; player.vy = 0;
+        player.invincibleTimer = 2.5;
+        player.stagnationTimer = 0;
+        player.overdriveTimer = 0;
+        player.groundPounding = false;
+        player.bullets = [];
+        // 复活代价：本次死亡前的收益已在死亡时结算；评级按“受伤”计入
+        player.earned = 0;
+        player.damageTaken += player.maxHealth * 0.5;
+        rewardGranted = false;
+        continuesUsed++;
+        // 清掉场上敌方子弹和首领地面攻击，避免复活瞬间被秒
+        for (const e of enemies) e.bullets.length = 0;
+        if (boss) { boss.bullets.length = 0; if (boss.hazards) boss.hazards.length = 0; boss.windup = null; }
+        // 把贴身的敌人推开一点
+        for (const e of enemies) {
+            if (!e.dead && Math.abs(e.x - cp.x) < 220) e.x = cp.x + (e.x >= cp.x ? 260 : -260);
+        }
+        Utils.camera.x = cp.x - Renderer.width() * 0.35;
+        FX.setTint('255,120,30', 0);
+        FX.shockwave(cp.x, cp.y - 26, 120, '124,231,255', 6, 0.5);
+        FX.banner('检查点复活', { sub: `${checkpointName()} · 第 ${continuesUsed} 次续战`, color: '#d9f6ff', glow: '#4db8e8', size: 40, life: 1.6, channel: 'sector' });
+        Audio.play('upgrade');
+        hideAllMenus();
+        state = 'playing';
+    }
+
     // restartLevel 与 restart 逻辑完全一致，作为别名保留兼容
     const restartLevel = restart;
 
@@ -2233,7 +2292,7 @@ const Game = (() => {
         showDifficultySelect, hideDifficultySelect, selectDifficulty,
         showPlayerMenu, hidePlayerMenu, addNewPlayer,
         showLeaderboard, hideLeaderboard, chooseUpgrade,
-        showGrowth, hideGrowth, buyUpgrade,
+        showGrowth, hideGrowth, buyUpgrade, continueFromCheckpoint,
         // 调试用（控制台可查看当前状态）
         _debug: () => ({ player, enemies, boss, state, combo, maxCombo, levelData, currentLevel, levelTime }),
     };

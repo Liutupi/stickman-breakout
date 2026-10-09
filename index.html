@@ -139,7 +139,8 @@
                 <div class="menu-kicker">SIGNAL LOST</div>
                 <h2>行动失败</h2>
                 <p id="death-info" class="menu-copy"></p>
-                <button class="menu-btn" onclick="Game.restartLevel()">重新挑战</button>
+                <button class="menu-btn menu-btn--primary" id="checkpoint-btn" onclick="Game.continueFromCheckpoint()">从检查点继续</button>
+                <button class="menu-btn" onclick="Game.restartLevel()">从头开始</button>
                 <button class="menu-btn menu-btn--growth" onclick="Game.showGrowth('death-menu')">成长中心 · 变强再来</button>
                 <button class="menu-btn secondary" onclick="Game.backToTitle()">返回主菜单</button>
             </div>
