@@ -16,6 +16,27 @@ const Input = (() => {
     let stickCurrent = { x: 0, y: 0 };
     const STICK_MAX_RADIUS = 40;
     const STICK_THRESHOLD = 8;
+    // 右侧瞄准摇杆：以圆心为原点的方向；轻点不拖动时由游戏自动瞄准最近敌人
+    let aimCenter = { x: 0, y: 0 };
+    let aimVec = null;
+    let aimOverride = null;
+    const AIM_DEADZONE = 14;
+    function updateAim(x, y) {
+        const dx = x - aimCenter.x, dy = y - aimCenter.y;
+        const d = Math.hypot(dx, dy);
+        aimVec = d > AIM_DEADZONE ? { x: dx / d, y: dy / d } : null;
+        const knob = document.getElementById('aim-knob');
+        if (knob) {
+            const k = Math.min(d, 46) / (d || 1);
+            knob.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
+            knob.classList.add('is-active');
+        }
+    }
+    function resetAim() {
+        aimVec = null;
+        const knob = document.getElementById('aim-knob');
+        if (knob) { knob.style.transform = 'translate(0px, 0px)'; knob.classList.remove('is-active'); }
+    }
 
     function init(canvas) {
         if (initialized) return;
@@ -104,8 +125,10 @@ const Input = (() => {
             e.preventDefault();
             const touch = e.changedTouches[0];
             touchAimId = touch.identifier;
-            mouseX = touch.clientX;
-            mouseY = touch.clientY;
+            const ar = aimArea.getBoundingClientRect();
+            aimCenter.x = ar.left + ar.width / 2;
+            aimCenter.y = ar.top + ar.height / 2;
+            updateAim(touch.clientX, touch.clientY);
             mouseDown = true;
             mouseJustPressed = true;
             Audio.init();
@@ -115,8 +138,7 @@ const Input = (() => {
             e.preventDefault();
             for (let i = 0; i < e.changedTouches.length; i++) {
                 if (e.changedTouches[i].identifier === touchAimId) {
-                    mouseX = e.changedTouches[i].clientX;
-                    mouseY = e.changedTouches[i].clientY;
+                    updateAim(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
                 }
             }
         }, { passive: false });
@@ -127,6 +149,7 @@ const Input = (() => {
                     e.preventDefault();
                     touchAimId = null;
                     mouseDown = false;
+                    resetAim();
                 }
             }
         };
@@ -242,7 +265,12 @@ const Input = (() => {
 
     function isDown(code) { return !!keys[code]; }
     function wasPressed(code) { return justPressed.has(code); }
-    function getMouse() { return { x: mouseX, y: mouseY }; }
+    // 画面在矮屏上会整体缩放，这里把屏幕坐标换算成画布逻辑坐标
+    function getMouse() {
+        if (aimOverride) return { x: aimOverride.x, y: aimOverride.y };
+        const s = (typeof Renderer !== 'undefined' && Renderer.viewScale) ? Renderer.viewScale() : 1;
+        return { x: mouseX / s, y: mouseY / s };
+    }
     function isMouseDown() { return mouseDown; }
     function wasMousePressed() { return mouseJustPressed; }
     function getScrollDelta() { return scrollDelta; }
@@ -263,5 +291,9 @@ const Input = (() => {
         scrollDelta = 0;
     }
 
-    return { init, isDown, wasPressed, getMouse, isMouseDown, wasMousePressed, getScrollDelta, getHoldTime, update, endFrame, _getJustPressed: () => justPressed };
+    function getTouchAim() { return { active: touchAimId !== null, vec: aimVec }; }
+    function setAimOverride(p) { aimOverride = p; }
+    function isTouch() { return document.body.classList.contains('touch-device'); }
+
+    return { getTouchAim, setAimOverride, isTouch, init, isDown, wasPressed, getMouse, isMouseDown, wasMousePressed, getScrollDelta, getHoldTime, update, endFrame, _getJustPressed: () => justPressed };
 })();

@@ -2614,3 +2614,129 @@ body.menu-open #hud {
     .settings-row { padding: 6px 10px; }
     .settings-seg button { padding: 5px 8px; }
 }
+
+/* ==================== 手机竖屏：横屏提示 ==================== */
+#rotate-hint { display: none; }
+@media (orientation: portrait) {
+    body.touch-device.in-game #rotate-hint {
+        display: flex; position: fixed; inset: 0; z-index: 9000;
+        flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+        padding: 24px; text-align: center;
+        background: radial-gradient(circle at 50% 38%, rgba(77, 184, 232, 0.16), transparent 60%), rgba(4, 8, 16, 0.96);
+        color: var(--text);
+    }
+    body.touch-device.in-game #mobile-controls { visibility: hidden; }
+}
+.rotate-hint__phone {
+    width: 64px; height: 108px; border: 3px solid var(--cyan-strong); border-radius: 14px; position: relative;
+    box-shadow: 0 0 24px rgba(77, 184, 232, 0.35); animation: rotateHint 2.2s ease-in-out infinite; margin-bottom: 18px;
+}
+.rotate-hint__phone span { position: absolute; left: 50%; bottom: 8px; width: 18px; height: 3px; margin-left: -9px; border-radius: 2px; background: var(--cyan-strong); }
+@keyframes rotateHint { 0%, 20% { transform: rotate(0deg); } 50%, 80% { transform: rotate(-90deg); } 100% { transform: rotate(0deg); } }
+.rotate-hint__title { font-size: 24px; font-weight: 900; letter-spacing: 2px; }
+.rotate-hint__sub { font-size: 14px; color: #b9c8da; line-height: 1.7; }
+.rotate-hint__tip { font-size: 12px; color: var(--muted); line-height: 1.6; max-width: 280px; }
+.rotate-hint__back { margin-top: 10px; width: auto !important; padding: 10px 22px; }
+
+/* 手机上禁用长按选中 / 双击缩放 / 系统菜单 */
+body.touch-device { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+body.touch-device.in-game { overscroll-behavior: none; }
+
+/* ==================== 手机横屏（矮屏）统一适配 ==================== */
+@media (max-height: 500px) {
+    /* ---- 菜单：去掉装饰标题、按钮横排、内容可滚动 ---- */
+    .menu { padding: 6px 10px; }
+    .menu:not(.menu--title) .menu-shell {
+        width: min(760px, calc(100vw - 20px));
+        max-height: calc(100vh - 12px);
+        max-height: calc(100dvh - 12px);
+        padding: 10px 16px 12px;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+    .menu:not(.menu--title) .menu-kicker { display: none; }
+    .menu:not(.menu--title) h1,
+    .menu:not(.menu--title) h2 { font-size: 20px; line-height: 1.2; margin: 0 0 4px; letter-spacing: 1px; }
+    .menu:not(.menu--title) .menu-copy { font-size: 12px; line-height: 1.5; margin: 0 0 8px; }
+    .menu:not(.menu--title) .menu-shell > .menu-btn {
+        display: inline-block; width: auto; min-width: 128px; margin: 6px 3px 0;
+        padding: 9px 16px; font-size: 13px; box-shadow: none;
+    }
+
+    /* 结算 / 阵亡奖励卡 */
+    .grade-stamp { margin: 2px auto 6px; transform: scale(0.82); }
+    .reward-box { margin: 4px auto 6px; padding: 8px 12px; }
+    .reward-box__row { font-size: 16px; }
+    .reward-box__hint { display: none; }
+
+    /* 升级三选一 */
+    .upgrade-choice-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .upgrade-choice-card { padding: 8px; font-size: 12px; }
+
+    /* 关卡选择：小卡片多列 */
+    .level-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important; gap: 8px !important; margin: 4px 0 6px; }
+    .level-card { padding: 10px 10px 8px !important; min-height: 0 !important; }
+    .level-card__scene { height: 54px; margin: -10px -10px 6px; }
+    .level-card__desc, .level-card__route { display: none; }
+    .level-card__name { font-size: 14px; margin: 2px 0; }
+    .level-card__boss { font-size: 11px; margin-top: 2px; }
+
+    /* 难度：三列 */
+    .difficulty-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px !important; margin: 4px 0 6px; }
+    .difficulty-card { padding: 10px 8px !important; min-height: 0 !important; }
+    .difficulty-card__desc { font-size: 11px !important; line-height: 1.4; }
+    .difficulty-card__stats { display: none !important; }
+
+    /* 成长中心 */
+    .g-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 6px !important; }
+    .g-card { padding: 8px !important; }
+    .g-card__desc { font-size: 11px; }
+    .g-head { flex-direction: row !important; gap: 10px; }
+    .g-battle-preview { display: none; }
+
+    /* ---- 战斗 HUD：血条左上、区域信息右上、武器栏居中，互不遮挡 ---- */
+    body.touch-device #hud-top { top: 6px; left: 8px; right: 8px; transform: none; width: auto; gap: 8px; }
+    body.touch-device .hud-card { padding: 5px 8px; border-radius: 8px; box-shadow: none; backdrop-filter: none; }
+    body.touch-device .hud-card--health { min-width: 0; width: clamp(150px, 26vw, 220px); }
+    body.touch-device #health-bar-container .icon-health { display: none; }
+    body.touch-device .hud-card--center { min-width: 0; padding: 4px 8px; flex-direction: row; align-items: center; gap: 8px; }
+    body.touch-device .hud-card--center .hud-label,
+    body.touch-device #difficulty-display { display: none; }
+    body.touch-device #level-name { font-size: 12px; white-space: nowrap; max-width: 22vw; overflow: hidden; text-overflow: ellipsis; }
+    body.touch-device #score-display { font-size: 12px; white-space: nowrap; }
+    body.touch-device #mute-btn { width: 26px; height: 26px; margin: 0; }
+    body.touch-device .hud-card--boss { position: fixed; left: 50%; top: 44px; transform: translateX(-50%); min-width: 0; width: 44vw; }
+    body.touch-device #stagnation-warning { position: fixed; left: 50%; top: 92px; transform: translateX(-50%) scale(0.8); }
+
+    body.touch-device #hud-bottom {
+        top: 6px; bottom: auto; left: 50%; right: auto;
+        transform: translateX(-50%) scale(0.6); transform-origin: top center;
+    }
+    body.touch-device #weapon-level-display,
+    body.touch-device #thrown-weapons { display: none; }
+    body.touch-device #expedition-hud { top: 50px; transform: translateX(-50%) scale(0.74); opacity: 0.8; }
+    body.touch-device .combo-display { top: 26%; transform: scale(0.75); transform-origin: top right; }
+    body.touch-device #watermark { display: none; }
+}
+/* 很窄的横屏（如 iPhone SE）：武器栏只留当前枪，切枪用右下“切”按钮 */
+@media (max-height: 500px) and (max-width: 700px) {
+    body.touch-device .weapon-slot:not(.active) { display: none; }
+    body.touch-device #expedition-hud { display: none; }
+}
+@media (max-height: 500px) {
+    .menu:not(.menu--title) .menu-shell--wide > .menu-btn { display: block; margin: 8px auto 0; }
+}
+/* 极矮横屏（带浏览器工具栏的小屏手机） */
+@media (max-height: 360px) {
+    .player-bar { flex-wrap: nowrap; white-space: nowrap; }
+    .player-bar__label { display: none; }
+    .hero-title strong { font-size: 32px; }
+    .studio-signature { display: none; }
+    .reward-box__level, .reward-xpbar { display: none; }
+    .reward-box { padding: 6px 10px; }
+    #death-info, #level-complete-info { font-size: 11px; line-height: 1.45; }
+    .menu:not(.menu--title) .menu-shell > .menu-btn { padding: 8px 12px; min-width: 110px; margin-top: 4px; }
+}
+.aim-knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(255, 80, 110, 0.18); border: 2px solid rgba(255, 110, 140, 0.55); pointer-events: none; transition: background .12s; }
+.aim-knob.is-active { background: rgba(255, 80, 110, 0.38); box-shadow: 0 0 16px rgba(255, 60, 100, 0.5); }
+.aim-area .aim-hint { pointer-events: none; }

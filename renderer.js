@@ -93,6 +93,8 @@ const Renderer = (() => {
         resize();
         if (!initialized) {
             window.addEventListener('resize', resize);
+            window.addEventListener('orientationchange', () => setTimeout(resize, 300));
+            if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
             initialized = true;
         }
     }
@@ -116,18 +118,24 @@ const Renderer = (() => {
         } catch (e) { /* 不支持时保持原样 */ }
     }
 
+    const MIN_VIEW_H = 620;
+    let viewScale = 1;
+
     function resize() {
         if (!canvas || !ctx) return;
 
         const dpr = Math.min(window.devicePixelRatio || 1, pixelRatioCap);
-        width = window.innerWidth;
-        height = window.innerHeight;
+        const cssW = window.innerWidth, cssH = window.innerHeight;
+        // 矮屏（手机横屏）整体缩放画面：保证至少能看到 MIN_VIEW_H 高的战场，否则主角会掉到屏幕外
+        viewScale = cssH < MIN_VIEW_H ? cssH / MIN_VIEW_H : 1;
+        width = cssW / viewScale;
+        height = cssH / viewScale;
 
-        canvas.width = Math.floor(width * dpr);
-        canvas.height = Math.floor(height * dpr);
-        canvas.style.width = `${width}px`;
-        canvas.style.height = `${height}px`;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        canvas.width = Math.floor(cssW * dpr);
+        canvas.height = Math.floor(cssH * dpr);
+        canvas.style.width = `${cssW}px`;
+        canvas.style.height = `${cssH}px`;
+        ctx.setTransform(dpr * viewScale, 0, 0, dpr * viewScale, 0, 0);
     }
 
     // ==================== 背景生成系统 ====================
@@ -1590,6 +1598,7 @@ const Renderer = (() => {
         addAudioPulse, updateAudioPulse, drawAudioPulse,
         ctx: () => ctx,
         width: () => width,
+        viewScale: () => viewScale,
         height: () => height,
     };
 })();

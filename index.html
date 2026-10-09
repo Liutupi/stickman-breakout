@@ -2,14 +2,18 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="screen-orientation" content="landscape">
+    <meta name="x5-orientation" content="landscape">
     <meta name="theme-color" content="#0a101a">
     <title>火柴人：突围行动</title>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=7">
+    <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
     <div id="boot-screen" class="boot-screen hidden" aria-hidden="true" onclick="Game.bootStart()">
@@ -371,6 +375,14 @@
     </div>
 
     <!-- 移动端虚拟控制 -->
+    <div id="rotate-hint" aria-live="polite">
+        <div class="rotate-hint__phone"><span></span></div>
+        <div class="rotate-hint__title">请把手机横过来</div>
+        <div class="rotate-hint__sub">横屏游玩，视野更大、操作更顺手<br>转过来后自动继续</div>
+        <div class="rotate-hint__tip">转不过来？iPhone 请在控制中心关闭「竖排方向锁定」，安卓请打开「自动旋转」</div>
+        <button class="menu-btn secondary rotate-hint__back" onclick="Game.backToTitle()">返回主菜单</button>
+    </div>
+
     <div id="mobile-controls" class="mobile-controls">
         <div id="stick-area" class="stick-area">
             <div id="stick-knob" class="stick-knob"></div>
@@ -381,7 +393,8 @@
             <button class="m-btn m-btn-dash" id="m-btn-dash">冲</button>
         </div>
         <div id="aim-area" class="aim-area">
-            <div class="aim-hint">拖动瞄准<br>按住射击</div>
+            <div id="aim-knob" class="aim-knob"></div>
+            <div class="aim-hint">按住射击<br>拖动瞄准</div>
         </div>
         <div class="mobile-actions mobile-actions-right">
             <button class="m-btn m-btn-pickup" id="m-btn-pickup">拾</button>
@@ -392,23 +405,23 @@
         <button class="m-btn m-btn-pause" id="m-btn-pause">⏸</button>
     </div>
 
-    <script src="utils.js?v=7"></script>
-    <script src="audio.js?v=7"></script>
-    <script src="input.js?v=7"></script>
-    <script src="particles.js?v=7"></script>
-    <script src="fx.js?v=7"></script>
-    <script src="weapons.js?v=7"></script>
-    <script src="boss-motion.js?v=7"></script>
-    <script src="art.js?v=7"></script>
-    <script src="enemy-types.js?v=7"></script>
-    <script src="hero-appearance.js?v=7"></script>
-    <script src="entities.js?v=7"></script>
-    <script src="levels.js?v=7"></script>
-    <script src="campaign.js?v=7"></script>
-    <script src="progression.js?v=7"></script>
-    <script src="renderer.js?v=7"></script>
-    <script src="settings.js?v=7"></script>
-    <script src="game.js?v=7"></script>
+    <script src="utils.js?v=8"></script>
+    <script src="audio.js?v=8"></script>
+    <script src="input.js?v=8"></script>
+    <script src="particles.js?v=8"></script>
+    <script src="fx.js?v=8"></script>
+    <script src="weapons.js?v=8"></script>
+    <script src="boss-motion.js?v=8"></script>
+    <script src="art.js?v=8"></script>
+    <script src="enemy-types.js?v=8"></script>
+    <script src="hero-appearance.js?v=8"></script>
+    <script src="entities.js?v=8"></script>
+    <script src="levels.js?v=8"></script>
+    <script src="campaign.js?v=8"></script>
+    <script src="progression.js?v=8"></script>
+    <script src="renderer.js?v=8"></script>
+    <script src="settings.js?v=8"></script>
+    <script src="game.js?v=8"></script>
     <script>
     (function() {
         const scene = document.querySelector('.title-scene');

@@ -1023,6 +1023,8 @@ const Game = (() => {
         state = 'playing';
         hideAllMenus();
         ui.hud.classList.remove('hidden');
+        document.body.classList.add('in-game');
+        requestLandscape();
 
         lastTime = performance.now();
         gameTime = 0;
@@ -1282,6 +1284,56 @@ const Game = (() => {
         Utils.camera.y = 0;
     }
 
+    // 手机瞄准：拖动右摇杆按方向瞄准；只按住不拖时自动锁定最近的敌人，没有敌人就朝移动方向
+    let touchAimTarget = null;
+    function updateTouchAim() {
+        const ox = player.x, oy = player.y - (player.crouching ? 14 : 30);
+        const aim = Input.getTouchAim();
+        let tx, ty;
+        if (aim.vec) {
+            tx = ox + aim.vec.x * 420; ty = oy + aim.vec.y * 420;
+            touchAimTarget = null;
+        } else {
+            const moveDir = Input.isDown('KeyA') ? -1 : Input.isDown('KeyD') ? 1 : 0;
+            const viewW = Renderer.width(), viewH = Renderer.height();
+            let best = null, bestScore = Infinity;
+            const consider = (e, w) => {
+                if (!e || e.dead || e.health <= 0) return;
+                const cx = e.x, cy = e.y - (e.h || 60) / 2;
+                const sx = cx - Utils.camera.x, sy = cy - Utils.camera.y;
+                if (sx < -20 || sx > viewW + 20 || sy < -40 || sy > viewH + 40) return;
+                const dx = cx - ox, dy = cy - oy;
+                if (Math.abs(dx) > 760 || Math.abs(dy) > 420) return;
+                let score = Math.hypot(dx, dy * 1.4) * w;
+                if (moveDir && Math.sign(dx) !== moveDir) score += 260;          // 优先前进方向
+                if (e === touchAimTarget) score *= 0.7;                          // 锁定粘滞，避免来回跳
+                if (score < bestScore) { bestScore = score; best = e; }
+            };
+            for (const e of enemies) consider(e, 1);
+            if (boss) consider(boss, 0.9);
+            touchAimTarget = best;
+            if (best) { tx = best.x; ty = best.y - (best.h || 60) / 2; }
+            else { const dir = moveDir || player.facing || 1; tx = ox + dir * 420; ty = oy; }
+        }
+        Input.setAimOverride({ x: tx - Utils.camera.x, y: ty - Utils.camera.y });
+    }
+
+    function isPortraitTouch() {
+        return document.body.classList.contains('touch-device') && window.innerHeight > window.innerWidth;
+    }
+
+    // 安卓浏览器支持全屏后锁定横屏；iOS / 微信不支持则静默跳过，由横屏提示引导
+    function requestLandscape() {
+        if (!document.body.classList.contains('touch-device')) return;
+        if (/MicroMessenger|QQ\//i.test(navigator.userAgent)) return;
+        try {
+            const el = document.documentElement;
+            const lock = () => { try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (e) { /* ignore */ } };
+            if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }).then(lock).catch(() => {});
+            else lock();
+        } catch (e) { /* ignore */ }
+    }
+
     function gameLoop(timestamp) {
         animFrame = requestAnimationFrame(gameLoop);
 
@@ -1291,7 +1343,9 @@ const Game = (() => {
         frameDt = realDt;
 
         let frozen = false;
-        if (state === 'playing') {
+        // 手机竖屏时暂停战斗，提示横屏（转回横屏自动继续）
+        const portraitBlocked = isPortraitTouch();
+        if (state === 'playing' && !portraitBlocked) {
             const dt = FX.stepTime(realDt);   // 顿帧时为 0，慢动作时缩放
             frozen = dt === 0;
             gameTime += dt;                   // 仅战斗中计时（修复：暂停/菜单不再计入）
@@ -1368,6 +1422,7 @@ const Game = (() => {
         }
 
         // 玩家更新
+        if (Input.isTouch()) updateTouchAim();
         player.update(dt, levelData.platforms);
         // 关卡左右边界（修复：冲刺/走出关卡尽头会掉出地图直接死亡）
         const rightEdge = levelData._rightEdge - 16;
@@ -2231,6 +2286,7 @@ const Game = (() => {
         hideAllMenus();
         showMenu('start-menu');
         ui.hud.classList.add('hidden');
+        document.body.classList.remove('in-game');
         carryOverScore = 0;
         gameTime = 0;
         if (animFrame) cancelAnimationFrame(animFrame);
