@@ -2763,3 +2763,6 @@ body:not(.touch-device) .controls-mobile-hint { display: none; }
 body:not(.in-game) #mobile-controls { display: none !important; }
 
 .aim-area .aim-hint { position: absolute; left: 0; right: 0; bottom: 8px; font-size: 10px; line-height: 1.3; color: rgba(255, 255, 255, 0.4); }
+/* 低画质：去掉全屏噪点/网格叠层和毛玻璃，减轻手机 GPU 负担 */
+body.quality-low .screen-noise, body.quality-low .screen-grid { display: none; }
+body.quality-low .hud-card, body.quality-low .aim-area, body.quality-low .stick-area, body.quality-low .m-btn { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }

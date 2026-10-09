@@ -29,6 +29,7 @@ const Settings = (() => {
 
     function applyQuality() {
         const q = QUALITY[tier()] || QUALITY.high;
+        try { ['high', 'medium', 'low'].forEach(k => document.body.classList.toggle('quality-' + k, k === tier())); } catch (e) { /* ignore */ }
         if (Renderer.setQuality) Renderer.setQuality(q);
         if (Particles.setQuality) Particles.setQuality(q);
         if (FX.setQuality) FX.setQuality(q);

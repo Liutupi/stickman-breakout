@@ -222,6 +222,10 @@ const Input = (() => {
             knob.style.transform = `translate(${stickCurrent.x}px, ${stickCurrent.y}px)`;
         }
 
+        // 摇杆明显上推 = 跳（再推一次二段跳）
+        if (!stickJumpLatched && dy < -28 && -dy > Math.abs(dx) * 0.9) { stickJumpLatched = true; simulateKeyDown('Space'); }
+        else if (stickJumpLatched && dy > -14) { stickJumpLatched = false; simulateKeyUp('Space'); }
+
         if (clampedDist > STICK_THRESHOLD) {
             if (dx < -STICK_THRESHOLD) {
                 simulateKeyDown('KeyA');
@@ -239,7 +243,9 @@ const Input = (() => {
         }
     }
 
+    let stickJumpLatched = false;
     function resetStick() {
+        if (stickJumpLatched) { stickJumpLatched = false; simulateKeyUp('Space'); }
         stickCurrent.x = 0;
         stickCurrent.y = 0;
         const knob = document.getElementById('stick-knob');
