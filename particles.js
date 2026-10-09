@@ -128,10 +128,17 @@ const Particles = (() => {
     let particles = [];
     let floatingTexts = [];
 
-    const MAX_PARTICLES = 900;
+    let MAX_PARTICLES = 900;
+    let thinning = 0;   // 低画质时按比例丢弃新粒子
+    function setQuality(opts) {
+        if (opts.maxParticles) MAX_PARTICLES = opts.maxParticles;
+        if (opts.thinning !== undefined) thinning = opts.thinning;
+        if (particles.length > MAX_PARTICLES) particles.length = MAX_PARTICLES;
+    }
     const GLOW_COLORS = new Set(['#ff6600', '#ffcc00', '#fff', '#ffffff', '#f1c40f', '#ff9500', '#ff4400', '#d07830', '#7ce7ff', '#00d2ff', '#4db8e8']);
 
     function add(p) {
+        if (thinning > 0 && Math.random() < thinning) return;
         if (particles.length >= MAX_PARTICLES) {
             // 替换最老的粒子，避免爆炸时新粒子被丢弃
             particles[(Math.random() * particles.length) | 0] = p;
@@ -344,5 +351,5 @@ const Particles = (() => {
 
     function clear() { particles = []; floatingTexts = []; }
 
-    return { spawn, spray, spawnBlood, spawnSparks, spawnExplosion, spawnDust, spawnHitImpact, spawnDamageNum, spawnCritNum, spawnAmmoText, spawnScoreText, update, draw, drawTexts, clear };
+    return { spawn, spray, spawnBlood, spawnSparks, spawnExplosion, spawnDust, spawnHitImpact, spawnDamageNum, spawnCritNum, spawnAmmoText, spawnScoreText, update, draw, drawTexts, clear, setQuality };
 })();

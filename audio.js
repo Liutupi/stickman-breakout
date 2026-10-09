@@ -61,6 +61,9 @@ const Audio = (() => {
     };
     let muted = false;
     let volume = 0.3;
+    // 玩家设置：音乐 / 音效分开调（0~1），由 Settings 模块写入
+    let musicLevel = 1, sfxLevel = 1;
+    function sfxGain() { return volume * sfxLevel; }
     let pageHidden = false;
     let visibilityBound = false;
     let ambientNodes = [];       // 环境背景音节点
@@ -81,7 +84,7 @@ const Audio = (() => {
         if (!ctx) {
             ctx = new (window.AudioContext || window.webkitAudioContext)();
             masterGain = ctx.createGain();
-            masterGain.gain.value = muted ? 0 : volume;
+            masterGain.gain.value = muted ? 0 : sfxGain();
             // 母线：压缩器（让爆炸/霰弹更响但不破音）+ 短混响（枪声有空间尾音）
             compressor = ctx.createDynamicsCompressor();
             compressor.threshold.value = -16;
@@ -438,8 +441,7 @@ const Audio = (() => {
         const audio = mp3Audios[name];
         if (!audio) return;
         audio.currentTime = 0;
-        if (vol !== undefined) audio.volume = Math.max(0, Math.min(1, vol));
-        else audio.volume = 1;
+        audio.volume = Math.max(0, Math.min(1, (vol !== undefined ? vol : 1) * sfxLevel));
         audio.play().catch(function() {});
     }
 
@@ -448,8 +450,7 @@ const Audio = (() => {
         const audio = mp3Audios[name];
         if (!audio) { if (onEnd) onEnd(); return; }
         audio.currentTime = 0;
-        if (vol !== undefined) audio.volume = Math.max(0, Math.min(1, vol));
-        else audio.volume = 1;
+        audio.volume = Math.max(0, Math.min(1, (vol !== undefined ? vol : 1) * sfxLevel));
         audio.onended = function() {
             audio.onended = null;
             if (onEnd) onEnd();
@@ -458,25 +459,50 @@ const Audio = (() => {
     }
 
     let savedBgmVolume = null;
+    let bgmDuck = 1;
+
+    // iOS Safari 的 <audio>.volume 只读（恒为 1），需要改走 Web Audio 增益节点才能调音乐音量
+    const elementVolumeWorks = (function() {
+        try { const a = new window.Audio(); a.volume = 0.5; return Math.abs(a.volume - 0.5) < 0.01; } catch (e) { return true; }
+    })();
+    const bgmRoutes = new Map();
+    function applyBgmVolume(audio, v) {
+        v = Math.max(0, Math.min(1, v));
+        if (elementVolumeWorks) { audio.volume = v; return; }
+        let route = bgmRoutes.get(audio);
+        if (!route && ctx && v < 0.999) {
+            try {
+                const src = ctx.createMediaElementSource(audio);
+                const g = ctx.createGain();
+                src.connect(g); g.connect(ctx.destination);
+                route = { gain: g }; bgmRoutes.set(audio, route);
+            } catch (e) { /* 无法接管时保持原音量 */ }
+        }
+        if (route) route.gain.gain.value = v;
+    }
 
     function setBgmVolume(vol) {
         if (currentBgm) {
             if (savedBgmVolume === null) savedBgmVolume = currentBgm.volume;
-            currentBgm.volume = Math.max(0, Math.min(1, vol));
+            bgmDuck = Math.max(0, Math.min(1, vol));
+            applyBgmVolume(currentBgm, bgmDuck * musicLevel);
         }
     }
 
     function restoreBgmVolume() {
         if (currentBgm && savedBgmVolume !== null) {
-            currentBgm.volume = savedBgmVolume;
+            bgmDuck = 1;
+            applyBgmVolume(currentBgm, musicLevel);
             savedBgmVolume = null;
         }
     }
 
     let currentBgm = null;
 
+    let pendingBgm = null;   // 静音期间请求的曲目，取消静音后接着放
     function playBgm(name) {
-        if (muted) return;
+        if (muted) { pendingBgm = name; return; }
+        pendingBgm = null;
         stopBgm();
         const audio = mp3Audios[name];
         if (!audio) {
@@ -486,6 +512,9 @@ const Audio = (() => {
         
         audio.currentTime = 0;
         audio.loop = true;
+        bgmDuck = 1;
+        applyBgmVolume(audio, musicLevel);
+        savedBgmVolume = null;
         currentBgm = audio;
         if (pageHidden) return;
         audio.play().then(function() {
@@ -496,6 +525,7 @@ const Audio = (() => {
     }
 
     function stopBgm() {
+        pendingBgm = null;
         if (currentBgm) {
             currentBgm.pause();
             currentBgm.currentTime = 0;
@@ -550,14 +580,14 @@ const Audio = (() => {
     function setMasterGainBoost(boost) {
         if (masterGain) {
             masterGain.gain.cancelScheduledValues(ctx.currentTime);
-            masterGain.gain.setValueAtTime(volume * boost, ctx.currentTime);
+            masterGain.gain.setValueAtTime(sfxGain() * boost, ctx.currentTime);
         }
     }
 
     function restoreMasterGain() {
         if (masterGain) {
             masterGain.gain.cancelScheduledValues(ctx.currentTime);
-            masterGain.gain.setValueAtTime(muted ? 0 : volume, ctx.currentTime);
+            masterGain.gain.setValueAtTime(muted ? 0 : sfxGain(), ctx.currentTime);
         }
     }
 
@@ -565,15 +595,35 @@ const Audio = (() => {
         volume = Math.max(0, Math.min(1, v));
         if (!muted && masterGain) {
             masterGain.gain.cancelScheduledValues(ctx.currentTime);
-            masterGain.gain.setValueAtTime(volume, ctx.currentTime);
+            masterGain.gain.setValueAtTime(sfxGain(), ctx.currentTime);
         }
     }
+
+    function setSfxLevel(v) {
+        sfxLevel = Math.max(0, Math.min(1, v));
+        if (!muted && masterGain && ctx) {
+            masterGain.gain.cancelScheduledValues(ctx.currentTime);
+            masterGain.gain.setValueAtTime(sfxGain(), ctx.currentTime);
+        }
+    }
+
+    function setMusicLevel(v) {
+        musicLevel = Math.max(0, Math.min(1, v));
+        if (currentBgm) applyBgmVolume(currentBgm, bgmDuck * musicLevel);
+    }
+    function getLevels() { return { music: musicLevel, sfx: sfxLevel }; }
 
     function toggleMute() {
         muted = !muted;
         if (masterGain) {
             masterGain.gain.cancelScheduledValues(ctx.currentTime);
-            masterGain.gain.setValueAtTime(muted ? 0 : volume, ctx.currentTime);
+            masterGain.gain.setValueAtTime(muted ? 0 : sfxGain(), ctx.currentTime);
+        }
+        if (currentBgm) {
+            if (muted) currentBgm.pause();
+            else if (!pageHidden) currentBgm.play().catch(function() {});
+        } else if (!muted && pendingBgm) {
+            playBgm(pendingBgm);
         }
         const btn = document.getElementById('mute-btn');
         if (btn) {
@@ -989,7 +1039,7 @@ const Audio = (() => {
 
     return {
         init, play, playMp3, playMp3WithCallback, playBgm, stopBgm,
-        setBgmVolume, restoreBgmVolume,
+        setBgmVolume, restoreBgmVolume, setMusicLevel, setSfxLevel, getLevels,
         setVolume, toggleMute, getMuted, getVolume,
         startAmbient, stopAmbient, updateLowHealth, updateWarning,
         setMasterGainBoost, restoreMasterGain, setBackgroundPaused,

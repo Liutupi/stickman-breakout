@@ -1285,6 +1285,7 @@ const Game = (() => {
     function gameLoop(timestamp) {
         animFrame = requestAnimationFrame(gameLoop);
 
+        Settings.tick((timestamp - lastTime) / 1000, state === 'playing');
         const realDt = Math.min((timestamp - lastTime) / 1000, 0.05);
         lastTime = timestamp;
         frameDt = realDt;

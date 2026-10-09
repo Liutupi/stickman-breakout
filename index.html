@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
     <div id="boot-screen" class="boot-screen hidden" aria-hidden="true" onclick="Game.bootStart()">
@@ -62,6 +62,7 @@
                     <div class="hero-actions hero-actions--title" style="margin-top: 14px;">
                         <button class="menu-btn secondary" onclick="Game.showControls()">查看操作</button>
                         <button class="menu-btn secondary" onclick="Game.showLeaderboard()">作战排行榜</button>
+                        <button class="menu-btn secondary" onclick="Settings.show('start-menu')">设置</button>
                     </div>
 
                     <div class="title-footnote">建议佩戴耳机体验开机音乐与环境音</div>
@@ -130,6 +131,7 @@
                 <p class="menu-copy">战术界面已冻结，准备好后继续推进。</p>
                 <button class="menu-btn" onclick="Game.resume()">继续行动</button>
                 <button class="menu-btn" onclick="Game.restart()">重新开始</button>
+                <button class="menu-btn secondary" onclick="Settings.show('pause-menu')">设置</button>
                 <button class="menu-btn secondary" onclick="Game.backToTitle()">返回主菜单</button>
             </div>
         </div>
@@ -233,6 +235,15 @@
                     <!-- 玩家列表由JS生成 -->
                 </div>
                 <button class="menu-btn secondary" onclick="Game.hidePlayerMenu()">返回主菜单</button>
+            </div>
+        </div>
+
+        <div id="settings-menu" class="menu hidden">
+            <div class="menu-shell">
+                <div class="menu-kicker">SETTINGS</div>
+                <h2>设置</h2>
+                <div id="settings-content"></div>
+                <button class="menu-btn secondary" onclick="Settings.hide()">返回</button>
             </div>
         </div>
 
@@ -381,22 +392,23 @@
         <button class="m-btn m-btn-pause" id="m-btn-pause">⏸</button>
     </div>
 
-    <script src="utils.js"></script>
-    <script src="audio.js"></script>
-    <script src="input.js"></script>
-    <script src="particles.js"></script>
-    <script src="fx.js"></script>
-    <script src="weapons.js"></script>
-    <script src="boss-motion.js"></script>
-    <script src="art.js"></script>
-    <script src="enemy-types.js"></script>
-    <script src="hero-appearance.js"></script>
-    <script src="entities.js"></script>
-    <script src="levels.js"></script>
-    <script src="campaign.js"></script>
-    <script src="progression.js"></script>
-    <script src="renderer.js"></script>
-    <script src="game.js?v=6"></script>
+    <script src="utils.js?v=7"></script>
+    <script src="audio.js?v=7"></script>
+    <script src="input.js?v=7"></script>
+    <script src="particles.js?v=7"></script>
+    <script src="fx.js?v=7"></script>
+    <script src="weapons.js?v=7"></script>
+    <script src="boss-motion.js?v=7"></script>
+    <script src="art.js?v=7"></script>
+    <script src="enemy-types.js?v=7"></script>
+    <script src="hero-appearance.js?v=7"></script>
+    <script src="entities.js?v=7"></script>
+    <script src="levels.js?v=7"></script>
+    <script src="campaign.js?v=7"></script>
+    <script src="progression.js?v=7"></script>
+    <script src="renderer.js?v=7"></script>
+    <script src="settings.js?v=7"></script>
+    <script src="game.js?v=7"></script>
     <script>
     (function() {
         const scene = document.querySelector('.title-scene');

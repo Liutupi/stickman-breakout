@@ -25,6 +25,8 @@ const FX = (() => {
     let realTime = 0;
 
     const MAX_GIBS = 90;
+    let maxLights = 40;   // 低画质时减少动态光源（径向渐变叠加开销较大）
+    function setQuality(opts) { if (opts.maxLights) { maxLights = opts.maxLights; if (lights.length > maxLights) lights.splice(0, lights.length - maxLights); } }
     const MAX_SHELLS = 60;
     const MAX_ORBS = 120;
 
@@ -67,7 +69,7 @@ const FX = (() => {
     }
 
     function light(x, y, radius, color, life, intensity) {
-        if (lights.length > 40) lights.shift();
+        if (lights.length > maxLights) lights.shift();
         lights.push({ x, y, radius, color: color || '255,170,60', life: life || 0.2, maxLife: life || 0.2, intensity: intensity || 0.6 });
     }
 
@@ -510,6 +512,6 @@ const FX = (() => {
         hitStop, slowMo, stepTime, isFrozen, getTimeScale,
         shockwave, light, scorch, stickGibs, shell, spawnOrbs,
         banner, burstSpeedLines, setLetterbox, setTint,
-        update, drawUnder, drawOver, drawScreen, clear,
+        update, drawUnder, drawOver, drawScreen, clear, setQuality,
     };
 })();

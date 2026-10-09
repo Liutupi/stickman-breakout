@@ -2593,3 +2593,24 @@ body.menu-open #hud {
     }
     body.touch-device .m-btn-pause { top: auto; right: auto; left: 50%; bottom: 10px; transform: translateX(-50%); width: 38px; height: 38px; }
 }
+
+/* ==================== 设置菜单 ==================== */
+#settings-content { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 16px; text-align: left; }
+.settings-row { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border: 1px solid var(--panel-line); border-radius: 10px; background: rgba(77, 184, 232, 0.05); }
+.settings-row__label { flex: 0 0 76px; font-size: 14px; color: var(--text); letter-spacing: 1px; }
+.settings-row__val { flex: 0 0 34px; text-align: right; font-variant-numeric: tabular-nums; color: var(--cyan-strong); font-size: 13px; }
+.settings-row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--cyan); height: 24px; cursor: pointer; }
+.settings-seg { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; }
+.settings-seg button { flex: 1 1 auto; min-width: 52px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--panel-line-strong); background: rgba(8, 14, 26, 0.6); color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; transition: background .15s, color .15s; }
+.settings-seg button:hover { color: var(--text); }
+.settings-seg button.is-on { background: rgba(77, 184, 232, 0.22); color: #fff; border-color: var(--cyan); box-shadow: 0 0 12px rgba(77, 184, 232, 0.25); }
+.settings-hint { margin: 2px 2px 0; font-size: 12px; color: var(--muted); line-height: 1.6; }
+@media (max-height: 460px) and (orientation: landscape) {
+    #settings-menu .menu-shell { max-height: calc(100vh - 16px); overflow-y: auto; padding-top: 14px; padding-bottom: 14px; }
+    #settings-menu .menu-kicker { display: none; }
+    #settings-menu h2 { font-size: 20px; margin: 0 0 6px; }
+    #settings-menu .settings-hint { display: none; }
+    #settings-content { gap: 6px; margin-bottom: 8px; }
+    .settings-row { padding: 6px 10px; }
+    .settings-seg button { padding: 5px 8px; }
+}

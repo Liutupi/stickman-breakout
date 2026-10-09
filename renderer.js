@@ -89,6 +89,7 @@ const Renderer = (() => {
     function init(canvasEl) {
         canvas = canvasEl;
         ctx = canvas.getContext('2d');
+        hookShadows(ctx);
         resize();
         if (!initialized) {
             window.addEventListener('resize', resize);
@@ -96,10 +97,29 @@ const Renderer = (() => {
         }
     }
 
+    // 画质：限制渲染分辨率倍率（手机 dpr=3 时全分辨率开销极大），低画质关闭 shadowBlur 光晕
+    let pixelRatioCap = 2;
+    let shadowsOn = true;
+    function setQuality(opts) {
+        if (opts.pixelRatioCap !== undefined && opts.pixelRatioCap !== pixelRatioCap) { pixelRatioCap = opts.pixelRatioCap; resize(); }
+        if (opts.shadows !== undefined) shadowsOn = !!opts.shadows;
+    }
+    function hookShadows(c) {
+        const desc = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'shadowBlur');
+        if (!desc || !desc.set) return;
+        try {
+            Object.defineProperty(c, 'shadowBlur', {
+                configurable: true,
+                get() { return desc.get.call(this); },
+                set(v) { desc.set.call(this, shadowsOn ? v : 0); },
+            });
+        } catch (e) { /* 不支持时保持原样 */ }
+    }
+
     function resize() {
         if (!canvas || !ctx) return;
 
-        const dpr = window.devicePixelRatio || 1;
+        const dpr = Math.min(window.devicePixelRatio || 1, pixelRatioCap);
         width = window.innerWidth;
         height = window.innerHeight;
 
@@ -1382,7 +1402,7 @@ const Renderer = (() => {
     let trauma = 0;
     let shakeTime = 0;
     let kick = { x: 0, y: 0, vx: 0, vy: 0 };
-    let shakeEnabled = true;
+    let shakeScale = 1;   // 设置里的震屏强度：1 标准 / 0.5 轻微 / 0 关闭
 
     function shake(amount, duration) {
         // amount 以像素为量级；duration 越长衰减越慢
@@ -1395,7 +1415,7 @@ const Renderer = (() => {
         kick.vy += dy * 60;
     }
 
-    function setShakeEnabled(v) { shakeEnabled = v; }
+    function setShakeEnabled(v) { shakeScale = v === true ? 1 : v === false ? 0 : Math.max(0, Math.min(1, +v || 0)); }
 
     function applyShake(dt) {
         shakeTime += dt;
@@ -1407,12 +1427,12 @@ const Renderer = (() => {
         trauma = Math.max(0, trauma - dt * 1.7);
 
         const t2 = trauma * trauma;
-        let dx = kick.x, dy = kick.y, rot = 0;
-        if (t2 > 0.0005 && shakeEnabled) {
-            const maxOff = 26;
+        let dx = kick.x * shakeScale, dy = kick.y * shakeScale, rot = 0;
+        if (t2 > 0.0005 && shakeScale > 0) {
+            const maxOff = 26 * shakeScale;
             dx += maxOff * t2 * (Math.sin(shakeTime * 61.3) * 0.6 + Math.sin(shakeTime * 97.1 + 1.7) * 0.4);
             dy += maxOff * t2 * (Math.sin(shakeTime * 71.9 + 3.1) * 0.6 + Math.sin(shakeTime * 113.3) * 0.4);
-            rot = 0.02 * t2 * Math.sin(shakeTime * 43.7);
+            rot = 0.02 * shakeScale * t2 * Math.sin(shakeTime * 43.7);
         }
         if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05 && rot === 0) return false;
         ctx.save();
@@ -1563,7 +1583,7 @@ const Renderer = (() => {
 
     return {
         init, resize, generateBackground, drawBackground,
-        drawPlatforms, shake, addKick, setShakeEnabled, applyShake, endShake, setAmbient,
+        drawPlatforms, shake, addKick, setShakeEnabled, setQuality, applyShake, endShake, setAmbient,
         drawVignette, drawScreenVignette,
         addFlash, updateFlash, drawFlash,
         startTransition, updateTransition, drawTransition,
