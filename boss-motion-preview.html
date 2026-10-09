@@ -53,6 +53,7 @@
     attackSelect.onchange=()=>reset();document.getElementById('restart').onclick=()=>reset();
     document.getElementById('pause').onclick=e=>{paused=!paused;e.target.textContent=paused?'继续':'暂停';e.target.setAttribute('aria-pressed',String(paused));};
     canvas.onclick=e=>{const rect=canvas.getBoundingClientRect();target=Utils.clamp((e.clientX-rect.left)/rect.width*1280,120,1160);};
+    GameArt.preloadAllMotions();   // 演示页需要全部九位 Boss 的动作图
     reset();
     function draw(now) {
         const dt=Math.min((now-last)/1000,.04)*Number(document.getElementById('speed').value);last=now;

@@ -413,11 +413,14 @@ const Audio = (() => {
     const MIN_INTERVAL = { fire_smg: 0.03, impact_pistol: 0.025, impact_smg: 0.03, impact_shotgun: 0.05, impact_laser: 0.04, impact_armor: 0.035, impact_headshot: 0.04, impact_crit: 0.04, impact_kill: 0.03, enemyShoot: 0.05, dry: 0.15, switch: 0.06, hit: 0.03, hitTick: 0.035, enemyShoot: 0.05, orb: 0.03, shellTink: 0.06, land: 0.12, explode: 0.04, kill: 0.03 };
 
     // ---- MP3 音效（使用 HTML5 Audio 元素）----
+    // 短语音（几十 KB）预加载；BGM（每首 2-4MB）只在真正播放时才下载
     function loadMp3(name, url) {
         try {
-            const audio = new window.Audio(url);
-            audio.preload = 'auto';
-            audio.load();
+            const isBgm = name.startsWith('bgm_');
+            const audio = new window.Audio();
+            audio.preload = isBgm ? 'none' : 'auto';
+            audio.src = url;
+            if (!isBgm) audio.load();
             mp3Audios[name] = audio;
             audio.oncanplaythrough = function() {
                 console.log('MP3 就绪: ' + name);

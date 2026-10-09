@@ -42,6 +42,7 @@ const Game = (() => {
     let orbPitchTimer = 0;
     let lastBossPhase = 0;
     let highestSector = 0;
+    let arenaSweepDone = false;
     let lastBossHealthPct = 100;
     let bossChipPct = 100;
     let rageReadyAnnounced = false;
@@ -1250,12 +1251,14 @@ const Game = (() => {
         bossWarningTimer = 0;
         bossAnnounceTimer = 0;
         highestSector = 0;
+        arenaSweepDone = false;
         drops = levelData.weaponDrops.map(drop => new WeaponDrop(drop.x, drop.y, drop.type));
 
         Particles.clear();
         FX.clear();
         Renderer.generateBackground(levelData);
         Renderer.setAmbient(index);
+        if (typeof GameArt !== 'undefined' && GameArt.prepareLevel) GameArt.prepareLevel(Levels[index].artIndex ?? index);
         combo = 0; comboTimer = 0; maxCombo = 0; levelKills = 0; levelTime = 0;
         orbPitch = 0; lastBossPhase = 0; bossChipPct = 100; rageReadyAnnounced = false;
         player.onHurt = onPlayerHurt;
@@ -1521,6 +1524,19 @@ const Game = (() => {
         }
 
         // Boss 鐢熸垚閫昏緫锛氬綋鎵€鏈夊皬鎬娑堢伃鍚庯紝鏄剧ず璀﹀憡骞剁敓鎴?Boss
+        // 进入决战区：远远落在后方的掉队敌人（悬停飞行兵、卡在断层的步兵等）直接撤离，
+        // 否则玩家必须折返上万像素去找它们，首领永远不出现。
+        if (!bossSpawned && !arenaSweepDone && levelData.arenaStart && player.x >= levelData.arenaStart - 180) {
+            arenaSweepDone = true;
+            let retreated = 0;
+            for (const e of enemies) {
+                if (!e.dead && e.x < levelData.arenaStart - 900) {
+                    e.dead = true; e.health = 0; e._killHandled = true; e.fellToAbyss = true;
+                    retreated++;
+                }
+            }
+            if (retreated) FX.banner('残敌撤退', { sub: `${retreated} 名掉队敌人已撤离 · 首领即将现身`, color: '#d9e9ee', glow: '#5f9aa7', size: 36, life: 1.8, channel: 'sector' });
+        }
         if (!bossSpawned && enemies.length === 0 && !player.dead && player.x >= (levelData.arenaStart || 0) - 180) {
             if (bossWarningTimer === 0) {
                 FX.setLetterbox(true);

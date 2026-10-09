@@ -1,7 +1,12 @@
 // 生图图集 + 独立视差层。素材失败时返回 false，由原矢量渲染接管。
 const GameArt = (() => {
+    // 先加载体积小 4 倍的 WebP，浏览器不支持或文件缺失时自动回退到 PNG。
+    function loadArt(img, base) {
+        img.onerror = () => { if (!img._pngFallback) { img._pngFallback = true; img.src = base + '.png'; } };
+        img.src = base + '.webp';
+    }
     const backgrounds = new Image();
-    backgrounds.src = 'assets/generated/environments-v2.png';
+    loadArt(backgrounds, 'assets/generated/environments-v2');
     const bosses = new Image();
     const infantry = new Image();
     const enemyOrder = ['walker', 'runner', 'shooter', 'jumper', 'missile', 'kamikaze',
@@ -31,16 +36,21 @@ const GameArt = (() => {
     }
     bosses.onload = () => measureAtlas(bosses, 3, 3, bossFrames, 9);
     infantry.onload = () => measureAtlas(infantry, 6, 3, enemyFrames, 17);
-    bosses.src = 'assets/generated/bosses-v2.png';
-    infantry.src = 'assets/generated/enemies-v2.png';
+    loadArt(bosses, 'assets/generated/bosses-v2');
+    loadArt(infantry, 'assets/generated/enemies-v2');
     const motionNames = ['steel-guardian','shadow-king','inferno-demon','frost-beast','void-lord',
         'chaos-creator','neon-assassin','sand-colossus','sky-judicator'];
-    const motions = motionNames.map(name => {
-        const sheet = { img:new Image(), frames:[] };
+    // 九张 Boss 动作图（每张解码后约 6MB 显存）不再开局全部下载：进入关卡时只加载本关 Boss。
+    const motions = motionNames.map(name => ({ img: new Image(), frames: [], name, requested: false }));
+    function requestMotion(index) {
+        const sheet = motions[index];
+        if (!sheet || sheet.requested) return;
+        sheet.requested = true;
         sheet.img.onload = () => measureMotion(sheet);
-        sheet.img.src = `assets/generated/boss-motion/${name}.png`;
-        return sheet;
-    });
+        loadArt(sheet.img, `assets/generated/boss-motion/${sheet.name}`);
+    }
+    function prepareLevel(index) { requestMotion(index || 0); }
+    function preloadAllMotions() { motions.forEach((_, i) => requestMotion(i)); }
     function measureMotion(sheet) {
         const img=sheet.img, buffer=document.createElement('canvas');
         buffer.width=img.naturalWidth; buffer.height=img.naturalHeight;
@@ -250,6 +260,7 @@ const GameArt = (() => {
     }
     function drawEnemy(ctx, enemy) { return drawSprite(ctx, infantry, enemyFrames[enemyOrder.indexOf(enemy.type)], enemy, false); }
     function drawBoss(ctx, boss) {
+        requestMotion(boss.artIndex || 0);
         const sheet=motions[boss.artIndex || 0];
         if(!sheet || sheet.frames.length!==16) return drawSprite(ctx,bosses,bossFrames[boss.artIndex || 0],boss,true);
         const scale=boss.h/sheet.frames[0].h;
@@ -297,6 +308,8 @@ const GameArt = (() => {
     }
     function drawForeground(ctx, level, time) { drawScenery(ctx, level.artIndex || 0, time, Renderer.width(), Renderer.height(), true); }
     return { drawEnvironment, drawPlatformDepth, drawPlatformFace, drawEnemy, drawBoss, drawWorldDetails, drawForeground,
+        prepareLevel, preloadAllMotions,
+        // bossMotion：所有“已请求”的动作图都已就绪（未请求的不阻塞）
         ready: () => ({ backgrounds: !!backgrounds.naturalWidth, bosses: bossFrames.length === 9, enemies: enemyFrames.length === 17,
-            bossMotion: motions.every(s=>s.frames.length===16) }) };
+            bossMotion: motions.every(s => !s.requested || s.frames.length === 16) }) };
 })();
