@@ -2766,3 +2766,45 @@ body:not(.in-game) #mobile-controls { display: none !important; }
 /* 低画质：去掉全屏噪点/网格叠层和毛玻璃，减轻手机 GPU 负担 */
 body.quality-low .screen-noise, body.quality-low .screen-grid { display: none; }
 body.quality-low .hud-card, body.quality-low .aim-area, body.quality-low .stick-area, body.quality-low .m-btn { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+
+/* ==================== 手机：情境按钮（升级武器 / 护盾 / 投掷物） ==================== */
+.m-context { position: absolute; right: 24px; bottom: 200px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none; }
+.m-pill {
+    pointer-events: auto; touch-action: none; appearance: none;
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 34px; padding: 0 12px; border-radius: 17px;
+    border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(8, 14, 26, 0.62);
+    color: #dfe8f3; font: inherit; font-size: 13px; font-weight: 800; letter-spacing: 1px; white-space: nowrap;
+}
+.m-pill b { font-weight: 700; font-size: 12px; color: #9fb3c8; }
+.m-pill i { font-style: normal; opacity: 0.7; }
+.m-pill:active { transform: scale(0.94); }
+.m-pill.hidden { display: none; }
+.m-pill--thrown.is-empty { opacity: 0.45; }
+.m-pill--shield { border-color: rgba(77, 184, 232, 0.6); color: #bfe9ff; background: rgba(20, 70, 110, 0.55); }
+.m-pill--upgrade { opacity: 0.7; }
+.m-pill--upgrade.is-ready {
+    opacity: 1; color: #2a1600; border-color: #ffd36b;
+    background: linear-gradient(180deg, #ffe08a, #f0a83a);
+    box-shadow: 0 0 16px rgba(255, 190, 70, 0.6);
+    animation: mPillPulse 1.1s ease-in-out infinite;
+}
+.m-pill--upgrade.is-ready b { color: #5a3300; }
+.m-pill--upgrade.is-max { opacity: 0.4; }
+@keyframes mPillPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+
+/* 矮屏横屏：右侧按钮横排在瞄准圈左边，不再压在瞄准圈上；暂停挪到右上角 */
+@media (max-height: 500px) {
+    body.touch-device .aim-area { right: 12px; bottom: 12px; width: 112px; height: 112px; }
+    body.touch-device .mobile-actions-right { right: 134px; bottom: 12px; top: auto; left: auto; flex-direction: row; gap: 8px; }
+    body.touch-device .mobile-actions-right .m-btn { width: 42px; height: 42px; font-size: 14px; }
+    body.touch-device .m-context { right: 134px; bottom: 64px; flex-direction: row-reverse; align-items: center; gap: 6px; }
+    body.touch-device .m-pill { height: 30px; padding: 0 10px; font-size: 12px; }
+    body.touch-device .m-btn-pause { top: 48px; right: 8px; bottom: auto; left: auto; transform: none; width: 34px; height: 34px; font-size: 14px; }
+}
+@media (max-height: 500px) and (max-width: 640px) {
+    body.touch-device .mobile-actions-right { gap: 5px; }
+    body.touch-device .mobile-actions-right .m-btn { width: 38px; height: 38px; font-size: 13px; }
+    body.touch-device .m-context { bottom: 58px; }
+    body.touch-device .m-pill { padding: 0 8px; letter-spacing: 0; }
+}

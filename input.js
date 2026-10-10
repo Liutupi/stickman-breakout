@@ -185,6 +185,9 @@ const Input = (() => {
             }, { passive: false });
         }
         bindMobileButton('m-btn-rage', 'KeyV');
+        bindMobileButton('m-btn-upgrade', 'KeyR');
+        bindMobileButton('m-btn-shield', 'ShiftLeft');
+        bindMobileButton('m-btn-thrown', 'KeyF');
 
         // 全局阻止默认触摸滚动（仅游戏过程中）
         document.addEventListener('touchmove', e => {

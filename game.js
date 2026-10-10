@@ -108,6 +108,9 @@ const Game = (() => {
             scoreDisplay: $('score-display'),
             currentWeaponLevel: $('current-weapon-level'),
             upgradeHint: $('upgrade-hint'),
+            mUpgrade: $('m-btn-upgrade'), mUpgradeLabel: $('m-upgrade-label'), mUpgradeCost: $('m-upgrade-cost'),
+            mShield: $('m-btn-shield'), mShieldCount: $('m-shield-count'),
+            mThrown: $('m-btn-thrown'), mThrownName: $('m-thrown-name'), mThrownCount: $('m-thrown-count'),
             upgradeCost: $('upgrade-cost'),
             bossHealthContainer: $('boss-health-container'),
             bossName: $('boss-name'),
@@ -1215,6 +1218,31 @@ const Game = (() => {
         ui.thrownGrenade.classList.toggle('active', player.selectedThrown === 'grenade' && player.grenadeCount > 0);
         ui.thrownMolotov.classList.toggle('active', player.selectedThrown === 'molotov' && player.molotovCount > 0);
         ui.stagnationWarning.classList.toggle('hidden', player.stagnationTimer <= 1.5);
+        if (ui.mUpgrade && Input.isTouch()) updateMobileContext();
+    }
+
+    // 手机端情境按钮：升级武器 / 护盾 / 投掷物切换（只在状态变化时改 DOM）
+    let mCtxKey = '';
+    function updateMobileContext() {
+        const w = player.weapon;
+        const maxed = !w || w.level >= w.maxLevel;
+        const cost = w && !maxed ? w.getUpgradeCost() : 0;
+        const can = !maxed && player.score >= cost;
+        const isG = player.selectedThrown === 'grenade';
+        const tCount = isG ? player.grenadeCount : player.molotovCount;
+        const key = [maxed, cost, can, player.shieldStorage, player.shieldActive, isG, tCount].join('|');
+        if (key === mCtxKey) return;
+        mCtxKey = key;
+        ui.mUpgrade.classList.toggle('is-ready', can);
+        ui.mUpgrade.classList.toggle('is-max', maxed);
+        ui.mUpgradeLabel.textContent = maxed ? '武器满级' : can ? '升级武器' : '升级';
+        ui.mUpgradeCost.textContent = maxed ? '' : cost + '分';
+        const showShield = player.shieldStorage > 0 && !player.shieldActive;
+        ui.mShield.classList.toggle('hidden', !showShield);
+        ui.mShieldCount.textContent = 'x' + player.shieldStorage;
+        ui.mThrownName.textContent = isG ? '手雷' : '燃烧瓶';
+        ui.mThrownCount.textContent = 'x' + tCount;
+        ui.mThrown.classList.toggle('is-empty', tCount <= 0);
     }
 
     function typewriterLevelName(text) {
@@ -1706,6 +1734,10 @@ const Game = (() => {
         if (Input.wasPressed('KeyR')) {
             if (player.upgradeWeapon()) {
                 Particles.spawn(player.x, player.y - 30, 15, '#f1c40f', 200, 0.6);
+                Particles.spawnAmmoText(player.x, player.y - player.h - 14, `武器升级 Lv.${player.weapon.level}`, '#ffd36b');
+            } else if (player.weapon && player.weapon.level < player.weapon.maxLevel) {
+                Particles.spawnAmmoText(player.x, player.y - player.h - 14, `分数不足（需要 ${player.weapon.getUpgradeCost()}）`, '#ff8a8a');
+                Audio.play('dry');
             }
         }
 

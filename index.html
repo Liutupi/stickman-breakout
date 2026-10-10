@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
     <div id="boot-screen" class="boot-screen hidden" aria-hidden="true" onclick="Game.bootStart()">
@@ -106,6 +106,9 @@
                         <div class="control-item"><span class="key">拾</span><span>拾取武器与补给</span></div>
                         <div class="control-item"><span class="key">投</span><span>按住瞄准，松手投掷</span></div>
                         <div class="control-item"><span class="key">切</span><span>循环切换武器</span></div>
+                        <div class="control-item"><span class="key">升级武器</span><span>分数够时变金色，点一下升级当前武器</span></div>
+                        <div class="control-item"><span class="key">手雷 ⇄</span><span>点一下切换手雷 / 燃烧瓶</span></div>
+                        <div class="control-item"><span class="key">护盾</span><span>拾取护盾后出现，点一下开启</span></div>
                         <div class="control-item"><span class="key">爆</span><span>怒气满后释放狂暴</span></div>
                         <div class="control-item"><span class="key">⏸</span><span>暂停游戏</span></div>
                     </div>
@@ -396,6 +399,11 @@
             <div id="aim-knob" class="aim-knob"></div>
             <div class="aim-hint">按住射击<br>拖动瞄准</div>
         </div>
+        <div id="m-context" class="m-context">
+            <button class="m-pill m-pill--thrown" id="m-btn-thrown"><span id="m-thrown-name">手雷</span><b id="m-thrown-count">x3</b><i>⇄</i></button>
+            <button class="m-pill m-pill--shield hidden" id="m-btn-shield">护盾<b id="m-shield-count">x1</b></button>
+            <button class="m-pill m-pill--upgrade" id="m-btn-upgrade"><span id="m-upgrade-label">升级武器</span><b id="m-upgrade-cost">500分</b></button>
+        </div>
         <div class="mobile-actions mobile-actions-right">
             <button class="m-btn m-btn-pickup" id="m-btn-pickup">拾</button>
             <button class="m-btn m-btn-throw" id="m-btn-throw">投</button>
@@ -405,23 +413,23 @@
         <button class="m-btn m-btn-pause" id="m-btn-pause">⏸</button>
     </div>
 
-    <script src="utils.js?v=10"></script>
-    <script src="audio.js?v=10"></script>
-    <script src="input.js?v=10"></script>
-    <script src="particles.js?v=10"></script>
-    <script src="fx.js?v=10"></script>
-    <script src="weapons.js?v=10"></script>
-    <script src="boss-motion.js?v=10"></script>
-    <script src="art.js?v=10"></script>
-    <script src="enemy-types.js?v=10"></script>
-    <script src="hero-appearance.js?v=10"></script>
-    <script src="entities.js?v=10"></script>
-    <script src="levels.js?v=10"></script>
-    <script src="campaign.js?v=10"></script>
-    <script src="progression.js?v=10"></script>
-    <script src="renderer.js?v=10"></script>
-    <script src="settings.js?v=10"></script>
-    <script src="game.js?v=10"></script>
+    <script src="utils.js?v=11"></script>
+    <script src="audio.js?v=11"></script>
+    <script src="input.js?v=11"></script>
+    <script src="particles.js?v=11"></script>
+    <script src="fx.js?v=11"></script>
+    <script src="weapons.js?v=11"></script>
+    <script src="boss-motion.js?v=11"></script>
+    <script src="art.js?v=11"></script>
+    <script src="enemy-types.js?v=11"></script>
+    <script src="hero-appearance.js?v=11"></script>
+    <script src="entities.js?v=11"></script>
+    <script src="levels.js?v=11"></script>
+    <script src="campaign.js?v=11"></script>
+    <script src="progression.js?v=11"></script>
+    <script src="renderer.js?v=11"></script>
+    <script src="settings.js?v=11"></script>
+    <script src="game.js?v=11"></script>
     <script>
     (function() {
         const scene = document.querySelector('.title-scene');
