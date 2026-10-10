@@ -1046,6 +1046,31 @@ const Game = (() => {
         }
     }
 
+    // ---- 新敌人首次出现时的提示（每种只提示一次，记在本机） ----
+    const ENEMY_INFO = {
+        walker: ['步兵', '近身冲撞'], shooter: ['枪手', '远程射击'], runner: ['疾跑兵', '速度快、血少'],
+        jumper: ['跳跃兵', '会跳上平台追你'], kamikaze: ['自爆兵', '靠近就爆炸 · 远处先打掉它'], turret: ['炮台', '固定不动，持续射击'],
+        missile: ['导弹兵', '追踪导弹 · 子弹可以打掉导弹'], shielder: ['持盾兵', '正面挡子弹 · 打头、绕背或用爆炸'],
+        sniper: ['狙击手', '红色激光锁定后开枪 · 看到闪烁就跳或冲刺'], flyer: ['飞行兵', '空中射击'], drone: ['无人机', '绕着你转圈射击'],
+        bomber: ['轰炸机', '高空投弹'], swooper: ['俯冲者', '高空盘旋后俯冲'], lancer: ['突击枪兵', '蓄力后直线冲锋'],
+        scattergun: ['散弹兵', '扇形预警后连发五弹'], medic: ['战地医师', '会给同伴回血 · 优先击杀'], sentinel: ['棱镜哨兵', '悬浮蓄力三连射'],
+        swarm: ['蜂群无人机', '闪红后俯冲撞人 · 散弹枪克制'], gunship: ['空中炮艇', '高空扇射 + 投弹 · 用激光或火箭'],
+        diver: ['俯冲雷鹰', '红线锁定后直线俯冲 · 冲刺躲开'],
+    };
+    let seenEnemies = (() => { try { return JSON.parse(localStorage.getItem('stickman_seen_enemies')) || {}; } catch (e) { return {}; } })();
+    let enemyIntroCooldown = 0;
+    function maybeIntroduceEnemy(e) {
+        if (seenEnemies[e.type] || enemyIntroCooldown > 0 || !ENEMY_INFO[e.type]) return;
+        const sx = e.x - Utils.camera.x, sy = e.y - Utils.camera.y;
+        if (sx < 40 || sx > Renderer.width() - 40 || sy < 0 || sy > Renderer.height()) return;
+        seenEnemies[e.type] = 1;
+        try { localStorage.setItem('stickman_seen_enemies', JSON.stringify(seenEnemies)); } catch (err) { /* ignore */ }
+        enemyIntroCooldown = 2.6;
+        const [name, tip] = ENEMY_INFO[e.type];
+        FX.banner('新敌人：' + name, { sub: tip, color: '#ffe0a8', glow: '#ff7a1f', size: 30, y: 0.2, life: 2.4, channel: 'intro' });
+        Particles.spawnAmmoText(e.x, e.y - e.h - 24, '新！', '#ffd36b');
+    }
+
     function cloneLevelWithDifficulty(rawLevel, difficulty) {
         const config = DIFFICULTY_CONFIG[difficulty] || DIFFICULTY_CONFIG.normal;
 
@@ -1759,6 +1784,7 @@ const Game = (() => {
         }
 
         // 敌人
+        enemyIntroCooldown = Math.max(0, enemyIntroCooldown - dt);
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
             if (!enemy.dead && !enemy.activated) {
@@ -1766,6 +1792,7 @@ const Game = (() => {
                 if (!near) continue;
                 enemy.activated = true;
             }
+            if (enemy.activated && !enemy.dead && !seenEnemies[enemy.type]) maybeIntroduceEnemy(enemy);
             const tgt = nearestAlive(enemy.x, enemy.y);
             const alive = enemy.update(dt, levelData.platforms, tgt.x, tgt.y, enemies);
             if (!alive) {

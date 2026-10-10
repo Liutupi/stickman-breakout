@@ -24,9 +24,33 @@
         swarm: { health: 14, speed: 150, damage: 9, score: 35, color: '#ffd166', aggroRange: 520, attackRate: 2.6, w: 20, h: 18 },
         gunship: { health: 160, speed: 75, damage: 12, score: 260, color: '#7cc4ff', aggroRange: 640, attackRate: 2.3, bulletSpeed: 300, w: 76, h: 40 },
         diver: { health: 40, speed: 130, damage: 18, score: 100, color: '#ff7a7a', aggroRange: 640, attackRate: 3.4, w: 36, h: 26 },
+        // 原关卡里的老兵种，也可以出现在扩展路段
+        runner: { health: 25, speed: 150, damage: 10, score: 60, color: '#c0392b' },
+        kamikaze: { health: 15, speed: 220, damage: 35, score: 90, color: '#f39c12', aggroRange: 350 },
+        missile: { health: 55, speed: 55, damage: 14, score: 150, color: '#9b59b6', canShoot: true, attackRate: 2.5, aggroRange: 500, bulletSpeed: 220 },
+        turret: { health: 50, speed: 0, damage: 10, score: 100, color: '#e74c3c', canShoot: true, attackRate: 0.9, aggroRange: 420 },
+        sniper: { health: 95, speed: 60, damage: 40, score: 450, color: '#ff3b5c', canShoot: true, attackRate: 2.6, aggroRange: 950, bulletSpeed: 1150 },
+        flyer: { health: 30, speed: 120, damage: 10, score: 90, color: '#00bcd4', canShoot: true, attackRate: 1.5, aggroRange: 400 },
+        drone: { health: 20, speed: 150, damage: 8, score: 80, color: '#00ffff', canShoot: true, attackRate: 0.8, aggroRange: 350 },
+        bomber: { health: 40, speed: 80, damage: 14, score: 120, color: '#ff8800', canShoot: true, attackRate: 2.0, aggroRange: 450 },
+        swooper: { health: 35, speed: 140, damage: 14, score: 130, color: '#ff4488', aggroRange: 380 },
     };
-    const AIR_TYPES = ['sentinel', 'swarm', 'gunship', 'diver'];
-    const AIR_HEIGHT = { swarm: 170, gunship: 250, diver: 280 };
+    // ---- 每关兵种表：逐关引入新兵种、组合越来越复杂（难度递增），每关主题不同 ----
+    // ground 普通地面 / elite 精英与支援 / air 空中 / heavy 重型空中（炮艇）
+    const ROSTER = [
+        { theme: '步兵突击', ground: ['walker', 'shooter', 'runner'], elite: ['lancer', 'scattergun'], air: ['swarm', 'flyer'], heavy: [] },
+        { theme: '林间伏击', ground: ['jumper', 'walker', 'shooter'], elite: ['scattergun', 'medic', 'lancer'], air: ['swooper', 'swarm', 'diver'], heavy: [] },
+        { theme: '自爆与轰炸', ground: ['kamikaze', 'runner', 'shooter'], elite: ['lancer', 'turret', 'scattergun'], air: ['bomber', 'swarm', 'diver'], heavy: ['gunship'] },
+        { theme: '盾阵推进', ground: ['shielder', 'jumper', 'walker'], elite: ['medic', 'missile', 'sentinel'], air: ['drone', 'diver', 'swarm'], heavy: ['gunship'] },
+        { theme: '虚空空袭', airBonus: 2, ground: ['jumper', 'kamikaze', 'walker'], elite: ['sentinel', 'missile', 'scattergun'], air: ['swooper', 'drone', 'flyer', 'swarm', 'diver'], heavy: ['gunship'] },
+        { theme: '混沌混编', ground: ['shielder', 'kamikaze', 'runner'], elite: ['medic', 'missile', 'lancer', 'turret'], air: ['bomber', 'diver', 'swarm', 'swooper'], heavy: ['gunship'] },
+        { theme: '狙击街区', ground: ['shielder', 'runner', 'shooter'], elite: ['sniper', 'medic', 'lancer', 'sentinel'], air: ['drone', 'swarm', 'diver'], heavy: ['gunship'] },
+        { theme: '沙暴围猎', ground: ['jumper', 'shielder', 'kamikaze'], elite: ['sniper', 'missile', 'scattergun', 'medic'], air: ['bomber', 'swooper', 'diver', 'swarm'], heavy: ['gunship'] },
+        { theme: '天空要塞', airBonus: 1, ground: ['shielder', 'kamikaze'], elite: ['sniper', 'medic', 'sentinel', 'lancer', 'missile'], air: ['diver', 'swarm', 'drone', 'swooper', 'bomber'], heavy: ['gunship'] },
+    ];
+    const AIR_Y = { swarm: 170, gunship: 250, diver: 280, flyer: 150, drone: 160, bomber: 240, swooper: 230, sentinel: 180 };
+    const AIR_TYPES = ['sentinel', 'swarm', 'gunship', 'diver', 'flyer', 'drone', 'bomber', 'swooper'];
+    const AIR_HEIGHT = AIR_Y;
 
     Levels.forEach((level, index) => {
         const originalEnd = level.levelWidth;
@@ -76,26 +100,35 @@
                 level.platforms.push({ x: cursor + Math.round(length * fraction), y: floorY - elevation, w: 180, h: 18,
                     moving: traversal && fraction === 0.34 ? { ampY: 24, speedY: 1.1 + index * 0.06 } : undefined });
             }
-            const encounters = [
-                [[.19,'lancer'],[.37,'walker'],[.56,'scattergun'],[.75,'lancer'],[.88,'shooter']],
-                [[.18,'jumper'],[.34,'sentinel'],[.44,'shooter'],[.69,'jumper'],[.84,'scattergun']],
-                [[.18,'scattergun'],[.32,'shooter'],[.46,'sentinel'],[.64,'lancer'],[.76,'shooter'],[.89,'scattergun']],
-                [[.18,'shielder'],[.25,'medic'],[.42,'lancer'],[.61,'shielder'],[.68,'medic'],[.85,'scattergun']],
-                [[.17,'sentinel'],[.30,'jumper'],[.43,'lancer'],[.68,'sentinel'],[.79,'jumper'],[.9,'scattergun']],
-                [[.15,'shielder'],[.24,'medic'],[.37,'scattergun'],[.48,'sentinel'],[.63,'lancer'],[.73,'shielder'],[.82,'medic'],[.91,'scattergun']],
-            ][zone];
-            for (const [fraction, type] of encounters) {
-                addEnemy(cursor + Math.round(length * fraction), type === 'sentinel' ? floorY - 180 : floorY - 2, type);
+            // 按本关兵种表生成本区的遭遇：数量随关卡和区段递增，类型在各区之间轮换
+            const R = ROSTER[index];
+            const pick = (list, k) => list[(k + zone * 2 + index) % list.length];
+            const nGround = 3 + Math.floor(index / 3) + (zone >= 3 ? 1 : 0);
+            const nElite = 1 + Math.floor((index + zone) / 4);
+            const nAir = 1 + Math.floor(index / 3) + (zone === 4 ? 1 : 0) + (R.airBonus && zone % 2 === 1 ? R.airBonus : 0);
+            const nHeavy = R.heavy.length ? ((zone === 2 || zone === 5) ? 1 : 0) + (index >= 6 && zone === 4 ? 1 : 0) : 0;
+            const slots = [];
+            const total = nGround + nElite;
+            for (let k = 0; k < total; k++) {
+                let f = 0.14 + (k + 0.5) / total * 0.78;
+                if (traversal && f > 0.47 && f < 0.64) f = f < 0.555 ? 0.45 : 0.67;   // 避开断桥缺口
+                slots.push(f);
             }
-            const airWaves = [
-                [[.45,'swarm'],[.8,'diver']],
-                [[.28,'diver'],[.6,'swarm']],
-                [[.4,'gunship'],[.7,'swarm']],
-                [[.3,'swarm'],[.62,'diver']],
-                [[.25,'gunship'],[.45,'swarm'],[.6,'diver'],[.8,'diver']],
-                [[.35,'gunship'],[.55,'swarm'],[.75,'diver']].concat(index >= 3 ? [[.88,'gunship']] : []),
-            ][zone];
-            for (const [fraction, type] of airWaves) addAir(cursor + Math.round(length * fraction), floorY, type);
+            let si = 0;
+            for (let k = 0; k < nGround; k++) {
+                const type = pick(R.ground, k);
+                addEnemy(cursor + Math.round(length * slots[si++]), floorY - 2, type);
+            }
+            for (let k = 0; k < nElite; k++) {
+                const type = pick(R.elite, k);
+                const x = cursor + Math.round(length * slots[si++]);
+                if (type === 'sentinel') addEnemy(x, floorY - AIR_Y.sentinel, type);
+                else addEnemy(x, floorY - 2, type);
+                // 医师总和盾兵/枪兵搭配出现
+                if (type === 'medic') addEnemy(x + 70, floorY - 2, R.ground.includes('shielder') ? 'shielder' : 'walker');
+            }
+            for (let k = 0; k < nAir; k++) addAir(cursor + Math.round(length * (0.25 + (k + 0.5) / nAir * 0.6)), floorY, pick(R.air, k));
+            for (let k = 0; k < nHeavy; k++) addAir(cursor + Math.round(length * (k ? 0.82 : 0.4)), floorY, 'gunship');
             level.weaponDrops.push({ x: cursor + 90, y: floorY - 4, type: 'health' });
             level.weaponDrops.push({ x: cursor + Math.round(length * .16) + 70, y: floorY - 94,
                 type: ['shotgun', 'laser', 'rocket', 'shotgun', 'laser', 'rocket'][zone] });

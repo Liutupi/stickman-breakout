@@ -27,8 +27,15 @@ test('九关新路线、补给、敌人和 Boss 全部位于有效地图内', ()
         assert.ok(row.width > row.old * 2.6); assert.equal(row.sectors, 8);
         assert.equal(row.supply, 6); assert.ok(row.bossFloor); assert.ok(row.end > row.arena);
         assert.equal(row.invalid, false);
-        for (const type of ['lancer', 'scattergun', 'medic', 'sentinel']) assert.ok(row.variants.includes(type));
+        assert.ok(row.variants.length >= 7, '每关扩展路段至少 7 种敌人');
+        assert.ok(row.variants.filter(t => ['swarm','gunship','diver','flyer','drone','bomber','swooper','sentinel'].includes(t)).length >= 2, '每关至少 2 种空中敌人');
         assert.ok(row.oldEnd >= row.old - 400, '原路线必须能接到扩展入口');
+    }
+    // 每关兵种组合都不同，且后一关的扩展路段总血量不低于前一关（难度递增）
+    const hp = run(`Levels.map(l => l.enemies.filter(e=>e.x>l.originalWidth).reduce((a,e)=>a+(e.health||30),0))`);
+    for (let i = 1; i < rows.length; i++) {
+        assert.notDeepEqual([...rows[i].variants].sort(), [...rows[i - 1].variants].sort(), `第 ${i + 1} 关兵种组合与上一关相同`);
+        assert.ok(hp[i] >= hp[i - 1], `第 ${i + 1} 关难度没有递增`);
     }
 });
 
@@ -62,7 +69,7 @@ test('医师只治疗范围内受伤同伴，受上限和冷却限制', () => {
 });
 
 test('所有飞行单位持续悬浮，不被平台或重力拖落', () => {
-    for (const type of ['flyer', 'bomber', 'swooper', 'drone', 'sentinel']) {
+    for (const type of ['flyer', 'bomber', 'swooper', 'drone', 'sentinel', 'swarm', 'gunship', 'diver']) {
         const run = runtime();
         assert.ok(run(`(() => {const e=new Enemy(200,280,{type:'${type}',baseY:280});for(let i=0;i<900;i++)e.update(1/60,[{x:0,y:300,w:1000,h:100}],10000,500);return !e.dead && e.y>200 && e.y<340 && !e.onGround;})()`), type);
     }
