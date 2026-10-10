@@ -17,7 +17,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=16">
+    <link rel="stylesheet" href="style.css?v=17">
 </head>
 <body>
     <div id="boot-screen" class="boot-screen hidden" aria-hidden="true" onclick="Game.bootStart()">
@@ -339,12 +339,28 @@
             </div>
 
             <div id="p2-hud" class="hud-card hud-card--p2 hidden">
-                <span class="p2-tag">2P</span>
-                <div class="p2-bars">
-                    <div class="p2-hp"><div id="p2-hp-fill"></div></div>
-                    <div class="p2-rage"><div id="p2-rage-fill"></div></div>
+                <div class="p2-row">
+                    <span class="p2-tag">2P</span>
+                    <div class="p2-bars">
+                        <div class="p2-hp"><div id="p2-hp-fill"></div><span id="p2-hp-text"></span></div>
+                        <div class="p2-rage"><div id="p2-rage-fill"></div></div>
+                    </div>
+                    <span id="p2-status" class="p2-status"></span>
+                    <span id="p2-score" class="p2-score"></span>
                 </div>
-                <span id="p2-status" class="p2-status"></span>
+                <div class="p2-row p2-row--gear">
+                    <div class="p2-slots">
+                        <span class="p2-slot"><b>1</b><i></i><em></em></span>
+                        <span class="p2-slot"><b>2</b><i></i><em></em></span>
+                        <span class="p2-slot"><b>3</b><i></i><em></em></span>
+                        <span class="p2-slot"><b>4</b><i></i><em></em></span>
+                        <span class="p2-slot"><b>5</b><i></i><em></em></span>
+                    </div>
+                    <span id="p2-wlv" class="p2-chip p2-chip--lv"></span>
+                    <span id="p2-grenade" class="p2-chip">手雷 <b>x0</b></span>
+                    <span id="p2-molotov" class="p2-chip">燃烧瓶 <b>x0</b></span>
+                    <span id="p2-shield" class="p2-chip p2-chip--shield hidden">护盾 <b>x0</b></span>
+                </div>
             </div>
 
             <div id="stagnation-warning" class="hidden">
@@ -472,25 +488,25 @@
         <button class="m-btn m-btn-pause" id="m-btn-pause">⏸</button>
     </div>
 
-    <script src="utils.js?v=16"></script>
-    <script src="audio.js?v=16"></script>
-    <script src="input.js?v=16"></script>
-    <script src="particles.js?v=16"></script>
-    <script src="fx.js?v=16"></script>
-    <script src="weapons.js?v=16"></script>
-    <script src="boss-motion.js?v=16"></script>
-    <script src="art.js?v=16"></script>
-    <script src="enemy-types.js?v=16"></script>
-    <script src="hero-appearance.js?v=16"></script>
-    <script src="entities.js?v=16"></script>
-    <script src="levels.js?v=16"></script>
-    <script src="campaign.js?v=16"></script>
-    <script src="progression.js?v=16"></script>
-    <script src="renderer.js?v=16"></script>
-    <script src="settings.js?v=16"></script>
-    <script src="install.js?v=16"></script>
-    <script src="gamepad.js?v=16"></script>
-    <script src="game.js?v=16"></script>
+    <script src="utils.js?v=17"></script>
+    <script src="audio.js?v=17"></script>
+    <script src="input.js?v=17"></script>
+    <script src="particles.js?v=17"></script>
+    <script src="fx.js?v=17"></script>
+    <script src="weapons.js?v=17"></script>
+    <script src="boss-motion.js?v=17"></script>
+    <script src="art.js?v=17"></script>
+    <script src="enemy-types.js?v=17"></script>
+    <script src="hero-appearance.js?v=17"></script>
+    <script src="entities.js?v=17"></script>
+    <script src="levels.js?v=17"></script>
+    <script src="campaign.js?v=17"></script>
+    <script src="progression.js?v=17"></script>
+    <script src="renderer.js?v=17"></script>
+    <script src="settings.js?v=17"></script>
+    <script src="install.js?v=17"></script>
+    <script src="gamepad.js?v=17"></script>
+    <script src="game.js?v=17"></script>
     <script>
     (function() {
         const scene = document.querySelector('.title-scene');

@@ -2869,18 +2869,44 @@ body:not(.touch-device) .controls-gamepad-hint { display: block; }
 .mode-toggle__btn.is-on { color: #fff; background: rgba(77, 184, 232, 0.24); border-color: var(--cyan); }
 #mode-coop.is-on { background: rgba(255, 110, 200, 0.24); border-color: #ff8ad8; }
 .mode-toggle__hint { flex-basis: 100%; text-align: center; font-size: 12px; color: var(--muted); }
-.hud-card--p2 { align-items: center; gap: 8px; padding: 6px 10px; min-width: 0; }
+.hud-card--p2 { flex-direction: column; align-items: stretch; gap: 5px; padding: 7px 10px; min-width: 0; border-color: rgba(255, 138, 216, 0.35); }
 .hud-card--p2.hidden { display: none; }
-.p2-tag { font: 900 13px "Orbitron", sans-serif; color: #ff8ad8; letter-spacing: 1px; }
-.p2-bars { display: flex; flex-direction: column; gap: 3px; width: 120px; }
-.p2-hp, .p2-rage { height: 7px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.p2-row { display: flex; align-items: center; gap: 8px; }
+.p2-tag { font: 900 14px "Orbitron", sans-serif; color: #ff8ad8; letter-spacing: 1px; }
+.p2-bars { display: flex; flex-direction: column; gap: 3px; width: 150px; }
+.p2-hp, .p2-rage { position: relative; height: 10px; border-radius: 5px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
 .p2-rage { height: 4px; }
 #p2-hp-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff5fb8, #ffb3e6); transition: width .15s; }
+#p2-hp-text { position: absolute; inset: 0; font-size: 9px; line-height: 10px; text-align: center; color: #fff; text-shadow: 0 1px 2px #000; }
 #p2-rage-fill { height: 100%; width: 0; background: #ffb347; }
 .p2-status { font-size: 11px; color: #ffd0ee; white-space: nowrap; }
-.hud-card--p2.is-waiting .p2-bars { display: none; }
+.p2-score { margin-left: auto; font-size: 12px; font-weight: 800; color: var(--gold); white-space: nowrap; }
+.p2-slots { display: flex; gap: 3px; }
+.p2-slot { display: flex; flex-direction: column; align-items: center; min-width: 40px; padding: 2px 4px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); line-height: 1.15; }
+.p2-slot b { font-size: 8px; color: var(--muted); font-weight: 700; }
+.p2-slot i { font-style: normal; font-size: 10px; color: #dfe8f3; white-space: nowrap; }
+.p2-slot em { font-style: normal; font-size: 9px; color: #9fb3c8; min-height: 10px; }
+.p2-slot.empty { opacity: 0.35; }
+.p2-slot.active { border-color: #ff8ad8; background: rgba(255, 110, 200, 0.2); box-shadow: 0 0 10px rgba(255, 110, 200, 0.35); opacity: 1; }
+.p2-slot.active i { color: #fff; font-weight: 800; }
+.p2-chip { font-size: 11px; padding: 3px 7px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); color: #c9d6e6; white-space: nowrap; }
+.p2-chip b { color: #fff; }
+.p2-chip.active { border-color: #ff8ad8; color: #fff; background: rgba(255, 110, 200, 0.18); }
+.p2-chip--lv.is-ready { border-color: #ffd36b; color: #2a1600; background: linear-gradient(180deg, #ffe08a, #f0a83a); }
+.p2-chip--lv.is-ready b { color: #2a1600; }
+.p2-chip--shield { border-color: rgba(77, 184, 232, 0.6); color: #bfe9ff; }
+.p2-chip.hidden { display: none; }
+.hud-card--p2.is-waiting .p2-bars, .hud-card--p2.is-waiting .p2-row--gear { display: none; }
 .hud-card--p2.is-waiting { animation: p2Wait 1.4s ease-in-out infinite; }
 .hud-card--p2.is-down .p2-status { color: #ff8a8a; font-weight: 800; }
 @keyframes p2Wait { 50% { opacity: 0.55; } }
+/* 小屏：只保留当前武器 */
+@media (max-width: 1100px) { .p2-slot:not(.active) { display: none; } .p2-bars { width: 110px; } }
 @media (max-height: 500px) { .p2-bars { width: 80px; } .mode-toggle { margin-bottom: 6px; } .mode-toggle__btn { padding: 5px 14px; font-size: 13px; } }
 body:not(.touch-device) .controls-coop-hint { display: block; }
+/* 双人时给 1P 的血条和武器栏标上 1P */
+body.coop-on #health-bar-container::after,
+body.coop-on #weapon-slots::after {
+    content: '1P'; position: absolute; top: -9px; left: 10px; padding: 0 6px; border-radius: 6px;
+    font: 900 11px "Orbitron", sans-serif; color: #7ce7ff; background: rgba(4, 8, 16, 0.85); border: 1px solid rgba(124, 231, 255, 0.5);
+}

@@ -1167,26 +1167,62 @@ const Game = (() => {
         setTimeout(() => el.classList.remove('pop'), 450);
     }
 
-    // 2P 小血条：合作模式下显示；还没加入时提示“按手柄任意键加入”
+    // 2P 状态栏：血量/怒气/分数 + 武器槽（当前武器、弹药）、武器等级与升级费用、投掷物、护盾
     let p2HudKey = '';
+    let p2Ui = null;
     function updateP2Hud() {
         const box = $('p2-hud');
         if (!box) return;
+        if (!coopMode || !player2) document.body.classList.remove('coop-on');
         if (!coopMode) { if (p2HudKey !== 'off') { box.classList.add('hidden'); p2HudKey = 'off'; } return; }
         box.classList.remove('hidden');
-        const st = $('p2-status');
+        if (!p2Ui) {
+            p2Ui = {
+                status: $('p2-status'), score: $('p2-score'), hpFill: $('p2-hp-fill'), hpText: $('p2-hp-text'), rageFill: $('p2-rage-fill'),
+                slots: Array.from(box.querySelectorAll('.p2-slot')).map(el => ({ el, name: el.querySelector('i'), ammo: el.querySelector('em') })),
+                wlv: $('p2-wlv'), gren: $('p2-grenade'), molo: $('p2-molotov'), shield: $('p2-shield'),
+            };
+        }
+        const u = p2Ui;
         if (!player2) {
             box.classList.add('is-waiting');
-            if (p2HudKey !== 'wait') { st.textContent = '手柄按任意键加入'; p2HudKey = 'wait'; }
+            if (p2HudKey !== 'wait') { u.status.textContent = '手柄按任意键加入'; u.score.textContent = ''; p2HudKey = 'wait'; }
             return;
         }
         box.classList.remove('is-waiting');
-        $('p2-hp-fill').style.width = Math.max(0, player2.health / player2.maxHealth * 100) + '%';
-        $('p2-rage-fill').style.width = (player2.overdriveTimer > 0 ? 100 : player2.rage) + '%';
-        const txt = player2.dead ? '倒地 · 去救！' : player2.overdriveTimer > 0 ? '狂暴中' : player2.rage >= 100 ? '怒气满 · LB' : (player2.weapon ? player2.weapon.name || '' : '');
-        if (st.textContent !== txt) st.textContent = txt;
-        box.classList.toggle('is-down', player2.dead);
-        p2HudKey = 'on';
+        document.body.classList.toggle('coop-on', true);
+        const q = player2;
+        u.hpFill.style.width = Math.max(0, q.health / q.maxHealth * 100) + '%';
+        u.rageFill.style.width = (q.overdriveTimer > 0 ? 100 : q.rage) + '%';
+        const w = q.weapon;
+        const maxed = !w || w.level >= w.maxLevel;
+        const cost = w && !maxed ? w.getUpgradeCost() : 0;
+        const key = [Math.ceil(q.health), q.maxHealth, q.dead, q.overdriveTimer > 0, q.rage >= 100, q.score, q.currentWeapon,
+            q.weapons.map(x => x ? x.type + ':' + (x.infinite ? 'i' : x.ammo) + ':' + x.level : '-').join(','),
+            q.selectedThrown, q.grenadeCount, q.molotovCount, q.shieldStorage, q.shieldActive].join('|');
+        if (key === p2HudKey) return;
+        p2HudKey = key;
+        u.hpText.textContent = `${Math.max(0, Math.ceil(q.health))} / ${q.maxHealth}`;
+        const txt = q.dead ? '倒地 · 快去救！' : q.overdriveTimer > 0 ? '狂暴中' : q.rage >= 100 ? '怒气满 · 按 LB' : `怒气 ${Math.floor(q.rage)}%`;
+        u.status.textContent = txt;
+        u.score.textContent = `分数 ${q.score}`;
+        box.classList.toggle('is-down', q.dead);
+        const names = ['手枪', '霰弹枪', '冲锋枪', '激光枪', '火箭筒'];
+        u.slots.forEach((s, i) => {
+            const wi = q.weapons[i];
+            s.el.classList.toggle('active', i === q.currentWeapon);
+            s.el.classList.toggle('empty', !wi);
+            s.name.textContent = wi ? wi.name : names[i];
+            s.ammo.textContent = wi ? (wi.infinite ? '∞' : wi.ammo) : '';
+        });
+        u.wlv.textContent = !w ? '' : maxed ? `Lv.${w.level} 满级` : `Lv.${w.level} · 升级 ${cost}分（Select）`;
+        u.wlv.classList.toggle('is-ready', !maxed && q.score >= cost);
+        u.gren.innerHTML = `手雷 <b>x${q.grenadeCount}</b>`;
+        u.molo.innerHTML = `燃烧瓶 <b>x${q.molotovCount}</b>`;
+        u.gren.classList.toggle('active', q.selectedThrown === 'grenade');
+        u.molo.classList.toggle('active', q.selectedThrown === 'molotov');
+        u.shield.classList.toggle('hidden', !(q.shieldStorage > 0) || q.shieldActive);
+        u.shield.innerHTML = `护盾 <b>x${q.shieldStorage}</b> · L3`;
     }
 
     function updateHUD() {
