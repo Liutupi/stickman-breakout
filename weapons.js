@@ -1,6 +1,7 @@
 // ==================== 武器系统 ====================
 const WeaponData = {
     pistol: {
+        range: 460,          // 基础射程（像素），每升 1 级 +15%
         name: '手枪',
         color: '#bdc3c7',
         fireRate: 0.3,
@@ -17,6 +18,7 @@ const WeaponData = {
         explosion: false,
     },
     shotgun: {
+        range: 270,          // 基础射程（像素），每升 1 级 +15%
         name: '散弹枪',
         color: '#e67e22',
         fireRate: 0.6,
@@ -33,6 +35,7 @@ const WeaponData = {
         explosion: false,
     },
     smg: {
+        range: 400,          // 基础射程（像素），每升 1 级 +15%
         name: '冲锋枪',
         color: '#3498db',
         fireRate: 0.08,
@@ -49,6 +52,7 @@ const WeaponData = {
         explosion: false,
     },
     laser: {
+        range: 680,          // 基础射程（像素），每升 1 级 +15%
         name: '激光枪',
         color: '#9b59b6',
         fireRate: 0.15,
@@ -65,6 +69,7 @@ const WeaponData = {
         explosion: false,
     },
     rocket: {
+        range: 600,          // 基础射程（像素），每升 1 级 +15%
         name: '火箭筒',
         color: '#e74c3c',
         fireRate: 1.0,
@@ -184,7 +189,11 @@ class Weapon {
         this.level = 1;
         this.maxLevel = 5;
         this.cooldown = 0;
+        this.baseRange = data.range || 600;
     }
+
+    // 射程随武器等级提升：Lv1 = 基础，之后每级 +15%（Lv5 = 1.6 倍）
+    get range() { return Math.round(this.baseRange * (1 + (this.level - 1) * 0.15)); }
 
     canFire() { return this.cooldown <= 0 && this.ammo > 0; }
 
@@ -205,6 +214,7 @@ class Weapon {
                 trail: this.trailColor,
                 explosion: this.explosion,
                 wtype: this.type,
+                range: this.range,
             });
         }
         return bullets;
@@ -251,6 +261,9 @@ class Bullet {
         this.pierce = 0;
         this.hitIds = null;
         this.wtype = data.wtype || 'pistol';
+        this.range = data.range || 99999;   // 最远飞行距离，超出后消散（火箭在射程尽头爆炸）
+        this.traveled = 0;
+        this.rangeEnd = false;
     }
 
     update(dt) {
@@ -264,7 +277,13 @@ class Bullet {
 
         this.x += this.vx * dt;
         this.y += this.vy * dt;
+        this.traveled += Math.hypot(this.vx, this.vy) * dt;
         this.life -= dt;
+        if (this.traveled >= this.range) {
+            this.dead = true;
+            this.rangeEnd = true;
+            if (!this.explosion) Particles.spawn(this.x, this.y, 2, this.color, 50, 0.18, 1.6);
+        }
         if (this.life <= 0) this.dead = true;
     }
 
@@ -274,16 +293,20 @@ class Bullet {
         const sy = this.y - cy;
         const color = this.overdrive ? '#ffb347' : this.color;
         const trail = this.overdrive ? '#ff6a2a' : this.trail;
+        // 接近射程尽头逐渐变淡，让玩家看得出“打不到那么远”
+        const fade = this.range < 99999 ? Utils.clamp((this.range - this.traveled) / (this.range * 0.22), 0, 1) : 1;
 
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
+        if (fade < 1) ctx.globalAlpha = fade;
+        const baseAlpha = fade;
         ctx.lineCap = 'round';
         // 拖尾：一条渐细的光带
         if (this.trailPoints.length > 1) {
             const n = this.trailPoints.length;
             for (let i = 1; i < n; i++) {
                 const t = i / n;
-                ctx.globalAlpha = t * 0.55;
+                ctx.globalAlpha = t * 0.55 * baseAlpha;
                 ctx.strokeStyle = trail;
                 ctx.lineWidth = Math.max(1, this.size * 1.4 * t);
                 ctx.beginPath();
@@ -292,7 +315,7 @@ class Bullet {
                 ctx.stroke();
             }
             const last = this.trailPoints[n - 1];
-            ctx.globalAlpha = 0.8;
+            ctx.globalAlpha = 0.8 * baseAlpha;
             ctx.lineWidth = this.size * 1.3;
             ctx.beginPath();
             ctx.moveTo(last.x - cx, last.y - cy);
@@ -303,12 +326,12 @@ class Bullet {
         const sp = Math.hypot(this.vx, this.vy) || 1;
         const ux = this.vx / sp, uy = this.vy / sp;
         const len = this.size * (this.explosion ? 2.5 : 4);
-        ctx.globalAlpha = 0.35;
+        ctx.globalAlpha = 0.35 * baseAlpha;
         ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(sx, sy, this.size * 2.6, 0, Math.PI * 2);
         ctx.fill();
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = baseAlpha;
         ctx.strokeStyle = color;
         ctx.lineWidth = this.size * 1.4;
         ctx.beginPath();

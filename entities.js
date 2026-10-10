@@ -427,7 +427,7 @@ class Player {
                             ...b,
                             damage: b.damage * damageMul,
                         });
-                        if (od) { bullet.pierce = 2; bullet.overdrive = true; }
+                        if (od) { bullet.pierce = 2; bullet.overdrive = true; bullet.range *= 1.25; }
                         this.bullets.push(bullet);
                     }
                     // 后坐力：镜头反向踢动 + 角色微退
@@ -449,6 +449,8 @@ class Player {
         for (let i = this.bullets.length - 1; i >= 0; i--) {
             this.bullets[i].update(dt);
             if (this.bullets[i].dead) {
+                const b = this.bullets[i];
+                if (b.rangeEnd && b.explosion && this.onBulletExpire) this.onBulletExpire(b);
                 const last = this.bullets.pop();
                 if (i < this.bullets.length) this.bullets[i] = last;
             }
@@ -1828,7 +1830,7 @@ class Enemy {
     constructor(x, y, config) {
         this.x = x; this.y = y;
         this.w = config.w || 30;
-        this.h = config.h || (['flyer', 'bomber', 'swooper', 'drone'].includes(config.type) ? 46 : 62);
+        this.h = config.h || (['flyer', 'bomber', 'swooper', 'drone', 'swarm', 'diver'].includes(config.type) ? 46 : 62);
         this.vx = 0; this.vy = 0;
         this.speed = config.speed || 100;
         this.gravity = 1200;
@@ -1844,7 +1846,7 @@ class Enemy {
         this.type = config.type || 'walker';
         this.spawnId = config.spawnId;
         this.activated = false;
-        this.flying = ['flyer', 'bomber', 'swooper', 'drone', 'sentinel'].includes(this.type);
+        this.flying = ['flyer', 'bomber', 'swooper', 'drone', 'sentinel', 'swarm', 'gunship', 'diver'].includes(this.type);
         this.aggroRange = config.aggroRange || 300;
         this.attackCooldown = 0;
         this.attackRate = config.attackRate || 1;
@@ -2153,10 +2155,13 @@ class Enemy {
                 b.vx = Math.cos(newAngle) * speed;
                 b.vy = Math.sin(newAngle) * speed;
             }
+            if (b.gravity) b.vy += b.gravity * dt;   // 炮艇投下的炸弹受重力下坠
             b.x += b.vx * dt;
             b.y += b.vy * dt;
             b.life -= dt;
+            if (b.bomb && b.vy > 0 && platforms.some(pl => b.x > pl.x && b.x < pl.x + pl.w && b.y >= pl.y && b.y <= pl.y + 24)) b.life = 0;
             if (b.life <= 0) {
+                if (b.bomb) { Particles.spawnExplosion(b.x, b.y, 0.5); Audio.play('explode'); }
                 const last = this.bullets.pop();
                 if (i < this.bullets.length) this.bullets[i] = last;
             }

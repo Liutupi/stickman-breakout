@@ -1,12 +1,108 @@
 // 新兵种使用独立、基于时间的状态机；所有攻击都有可读前摇。
 const EnemyVariants = (() => {
-    const names = { lancer: '突击枪兵', scattergun: '散弹兵', medic: '战地医师', sentinel: '棱镜哨兵' };
+    const names = { lancer: '突击枪兵', scattergun: '散弹兵', medic: '战地医师', sentinel: '棱镜哨兵', swarm: '蜂群无人机', gunship: '空中炮艇', diver: '俯冲雷鹰' };
+    const AIR = new Set(['swarm', 'gunship', 'diver']);
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+    // ---------- 空中新兵种 ----------
+    // 蜂群无人机：成群绕着玩家飞，闪红 0.45 秒后直线俯冲撞人，撞完拉回高空（散弹枪克制）
+    // 空中炮艇：高空悬停，保持在玩家 360 像素外；扇形连射，每第三轮改为投弹（逼玩家靠近/用远程武器）
+    // 俯冲雷鹰：高空盘旋，锁定时画出红色俯冲线（最后 0.3 秒不再跟踪），然后高速直线俯冲（冲刺/跳开躲避）
+    function updateAir(e, dt, px, py, dx, dist, active, dir) {
+        if (e.phase === undefined) { e.phase = Math.random() * Math.PI * 2; e.homeX = e.x; e.side = Math.random() < 0.5 ? -1 : 1; e.state = 'hover'; }
+        const bob = (amp, sp) => e.baseY + Math.sin(e.animTime * sp + e.phase) * amp;
+        if (e.type === 'swarm') {
+            if (e.state === 'dive') {
+                e.diveT -= dt;
+                if (e.diveT <= 0 || e.y > py + 40) e.state = 'return';
+            } else if (e.state === 'return') {
+                e.vy = -e.speed * 1.6; e.vx *= 0.92;
+                if (e.y <= e.baseY + 10) { e.state = 'hover'; e.attackCooldown = e.attackRate + Math.random() * 1.2; }
+            } else if (e.state === 'tele') {
+                e.vx *= 0.85; e.vy *= 0.85;
+                e.telegraph += dt;
+                if (e.telegraph >= 0.45) {
+                    const a = Math.atan2(py - 30 - (e.y - e.h / 2), dx);
+                    e.vx = Math.cos(a) * 470; e.vy = Math.sin(a) * 470;
+                    e.diveT = 0.6; e.state = 'dive'; e.telegraph = 0;
+                    Audio.play('dash');
+                }
+            } else {
+                const tx = active ? px + Math.cos(e.animTime * 1.6 + e.phase) * 150 : e.homeX + Math.cos(e.animTime + e.phase) * 70;
+                const ty = bob(36, 2.3);
+                e.vx = clamp((tx - e.x) * 2.2, -e.speed * 1.6, e.speed * 1.6);
+                e.vy = clamp((ty - e.y) * 3, -e.speed, e.speed);
+                if (active && e.attackCooldown <= 0 && dist < 430) { e.state = 'tele'; e.telegraph = dt; }
+            }
+            e.facing = e.vx >= 0 ? 1 : -1;
+            return;
+        }
+        if (e.type === 'gunship') {
+            e.facing = dir;
+            const tx = active ? px - dir * 360 : e.homeX + Math.sin(e.animTime * 0.5 + e.phase) * 120;
+            e.vx = clamp((tx - e.x) * 1.2, -e.speed, e.speed);
+            e.vy = (bob(14, 1.3) - e.y) * 3;
+            if (active && e.attackCooldown <= 0) {
+                e.telegraph = (e.telegraph || 0) + dt;
+                if (e.telegraph >= 0.7) {
+                    e.volley = (e.volley || 0) + 1;
+                    const ox = e.x + dir * 22, oy = e.y - e.h * 0.3;
+                    if (e.volley % 3 === 0) {
+                        for (let i = -1; i <= 1; i++) {
+                            e.bullets.push({ x: e.x + i * 18, y: e.y - 4, vx: dir * 70 + i * 40, vy: 30, gravity: 650,
+                                size: 6, damage: e.damage * 1.3, life: 2.4, bomb: true });
+                        }
+                        Audio.play('throw');
+                    } else {
+                        const a0 = Math.atan2(py - 26 - oy, px - ox);
+                        for (let i = -2; i <= 2; i++) {
+                            const a = a0 + i * 0.13;
+                            e.bullets.push({ x: ox, y: oy, vx: Math.cos(a) * e.bulletSpeed, vy: Math.sin(a) * e.bulletSpeed,
+                                size: 3.5, damage: e.damage * 0.55, life: 2.2 });
+                        }
+                        Audio.play('enemyShoot');
+                    }
+                    e.telegraph = 0; e.attackCooldown = e.attackRate;
+                }
+            } else e.telegraph = 0;
+            return;
+        }
+        if (e.type === 'diver') {
+            if (e.state === 'aim') {
+                e.vx *= 0.9; e.vy = (e.baseY - 10 - e.y) * 3;
+                e.telegraph += dt;
+                if (e.telegraph < 0.5) { e.lockX = px; e.lockY = py - 28; }   // 前 0.5 秒跟踪，之后锁死给玩家反应
+                e.facing = e.lockX >= e.x ? 1 : -1;
+                if (e.telegraph >= 0.8) {
+                    const a = Math.atan2(e.lockY - (e.y - e.h / 2), e.lockX - e.x);
+                    e.vx = Math.cos(a) * 680; e.vy = Math.sin(a) * 680;
+                    e.diveT = 1.0; e.state = 'dive'; e.telegraph = 0;
+                    Audio.play('dash');
+                }
+            } else if (e.state === 'dive') {
+                e.diveT -= dt;
+                e.facing = e.vx >= 0 ? 1 : -1;
+                if (e.diveT <= 0 || e.y > e.lockY + 90) e.state = 'recover';
+            } else if (e.state === 'recover') {
+                e.vy = -280; e.vx *= 0.95;
+                if (e.y <= e.baseY) { e.state = 'hover'; e.attackCooldown = e.attackRate; e.side *= -1; }
+            } else {
+                const tx = active ? px + e.side * 230 : e.homeX + Math.sin(e.animTime * 0.7 + e.phase) * 90;
+                e.vx = clamp((tx - e.x) * 1.5, -e.speed * 1.5, e.speed * 1.5);
+                e.vy = (bob(18, 2) - e.y) * 4;
+                e.facing = dir;
+                if (active && e.attackCooldown <= 0 && dist < 640) { e.state = 'aim'; e.telegraph = 0; e.lockX = px; e.lockY = py - 28; }
+            }
+        }
+    }
+
     function update(e, dt, platforms, px, py, allies) {
         if (!names[e.type]) return false;
         e.signal = Math.max(0, (e.signal || 0) - dt);
         const dx = px - e.x, dist = Math.hypot(dx, py - e.y);
         const active = dist < e.aggroRange;
         const dir = dx >= 0 ? 1 : -1;
+        if (AIR.has(e.type)) { updateAir(e, dt, px, py, dx, dist, active, dir); return true; }
         if (e.type === 'sentinel') {
             e.facing = dir;
             e.vx = active && Math.abs(dx) > 290 ? dir * e.speed : 0;
@@ -88,9 +184,89 @@ const EnemyVariants = (() => {
         return true;
     }
 
+    function drawAir(ctx, e, color) {
+        ctx.save();
+        // 俯冲雷鹰的预警线（世界坐标换算到以敌人脚底为原点）
+        if (e.type === 'diver' && e.state === 'aim') {
+            const lx = e.lockX - e.x, ly = e.lockY - e.y, oy = -e.h / 2;
+            const locked = e.telegraph >= 0.5;
+            ctx.strokeStyle = locked ? 'rgba(255,60,60,0.85)' : 'rgba(255,120,120,0.45)';
+            ctx.lineWidth = locked ? 3 : 1.5;
+            ctx.setLineDash(locked ? [] : [8, 6]);
+            const ex = lx + (lx) * 0.25, ey = ly + (ly - oy) * 0.25;
+            ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(ex, ey); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.beginPath(); ctx.arc(lx, ly, 10 + Math.sin(e.animTime * 20) * 3, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.scale(e.facing, 1);
+        if (e.type === 'swarm') {
+            const tele = e.state === 'tele';
+            const blink = tele && Math.sin(e.animTime * 40) > 0;
+            const c = blink ? '#ff4040' : color;
+            ctx.translate(0, -e.h / 2);
+            ctx.rotate(clamp(e.vy / 900, -0.6, 0.6));
+            ctx.scale(1.45, 1.45);
+            ctx.fillStyle = tele ? 'rgba(255,60,60,0.25)' : 'rgba(255,209,102,0.16)';
+            ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#1b2333'; ctx.strokeStyle = c; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.ellipse(0, 0, 9, 6, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            ctx.globalAlpha = 0.55;
+            const flap = Math.sin(e.animTime * 50) * 3;
+            ctx.fillStyle = c;
+            ctx.beginPath(); ctx.ellipse(-3, -6 - flap * 0.3, 7, 2 + Math.abs(flap) * 0.4, -0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = c; ctx.beginPath(); ctx.arc(6, 0, 2.4, 0, Math.PI * 2); ctx.fill();
+            if (e.state === 'dive') { ctx.strokeStyle = 'rgba(255,200,80,0.6)'; ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(-26, 0); ctx.stroke(); }
+        } else if (e.type === 'gunship') {
+            ctx.translate(0, -e.h / 2);
+            ctx.rotate(clamp(e.vx / 600, -0.12, 0.12) * e.facing);
+            // 机身
+            ctx.fillStyle = '#18233a'; ctx.strokeStyle = color; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(-36, -4); ctx.lineTo(-18, -16); ctx.lineTo(26, -14); ctx.lineTo(38, -2); ctx.lineTo(24, 12); ctx.lineTo(-28, 10); ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = color; ctx.globalAlpha = 0.85; ctx.fillRect(8, -10, 16, 5); ctx.globalAlpha = 1;
+            // 旋翼
+            ctx.strokeStyle = 'rgba(200,230,255,0.55)'; ctx.lineWidth = 2;
+            const r = Math.sin(e.animTime * 60) * 30;
+            ctx.beginPath(); ctx.moveTo(-r, -22); ctx.lineTo(r, -22); ctx.stroke();
+            ctx.fillStyle = '#2b3a55'; ctx.fillRect(-3, -22, 6, 7);
+            // 机炮与吊舱
+            ctx.fillStyle = '#9fb3c8'; ctx.fillRect(28, 4, 16, 4);
+            ctx.fillStyle = '#2b3a55'; ctx.fillRect(-14, 10, 20, 6);
+            if (e.telegraph > 0) {
+                ctx.fillStyle = `rgba(255,80,80,${0.4 + e.telegraph * 0.8})`;
+                ctx.beginPath(); ctx.arc(44, 6, 4 + e.telegraph * 6, 0, Math.PI * 2); ctx.fill();
+            }
+            // 血条
+            ctx.rotate(0);
+        } else if (e.type === 'diver') {
+            ctx.translate(0, -e.h / 2);
+            const diving = e.state === 'dive';
+            ctx.rotate(diving ? Math.atan2(e.vy, Math.abs(e.vx)) : Math.sin(e.animTime * 3) * 0.08);
+            const wing = diving ? 4 : 10 + Math.sin(e.animTime * 14) * 6;
+            ctx.fillStyle = '#241826'; ctx.strokeStyle = color; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(-8, -wing); ctx.lineTo(-16, 0); ctx.lineTo(-8, wing); ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(10, -3); ctx.lineTo(10, 3); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = e.state === 'aim' ? '#ff4040' : '#ffd166'; ctx.beginPath(); ctx.arc(8, -1, 2.2, 0, Math.PI * 2); ctx.fill();
+            if (diving) { ctx.strokeStyle = 'rgba(255,120,120,0.5)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(-44, 0); ctx.stroke(); }
+        }
+        ctx.restore();
+        if (e.type !== 'swarm') {
+            ctx.save(); ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillStyle = color; ctx.fillText(names[e.type], 0, -e.h - (e.type === 'gunship' ? 22 : 12)); ctx.restore();
+        }
+        // 炮艇血条（血厚，需要让玩家看到进度）
+        if (e.type === 'gunship' && e.health < e.maxHealth) {
+            const w = 56, p = Math.max(0, e.health / e.maxHealth);
+            ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(-w / 2, -e.h - 18, w, 4);
+            ctx.fillStyle = '#7cc4ff'; ctx.fillRect(-w / 2, -e.h - 18, w * p, 4); ctx.restore();
+        }
+        return true;
+    }
+
     function draw(ctx, e) {
         if (!names[e.type]) return false;
         const color = e.hitFlashTimer > 0 ? '#ffffff' : e.color;
+        if (AIR.has(e.type)) return drawAir(ctx, e, color);
         ctx.save();
         if (e.signal > 0) {
             ctx.strokeStyle = `rgba(103,239,187,${e.signal})`; ctx.lineWidth = 2;
@@ -183,5 +359,5 @@ const EnemyVariants = (() => {
         }
         ctx.restore();
     }
-    return { update, draw, drawSignals, names };
+    return { update, draw, drawSignals, names, AIR };
 })();

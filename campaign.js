@@ -20,7 +20,13 @@
         jumper: { health: 32, speed: 110, damage: 12, score: 85, color: '#d796ed' },
         shielder: { health: 60, speed: 65, damage: 14, score: 130, color: '#82b8d8', shieldHP: 60 },
         shooter: { health: 32, speed: 60, damage: 12, score: 90, color: '#ec9c62', canShoot: true, attackRate: 1.8, aggroRange: 380 },
+        // 空中兵种：蜂群（成群俯冲撞人）、炮艇（高空远距离扇射+投弹）、雷鹰（锁定后直线俯冲）
+        swarm: { health: 14, speed: 150, damage: 9, score: 35, color: '#ffd166', aggroRange: 520, attackRate: 2.6, w: 20, h: 18 },
+        gunship: { health: 160, speed: 75, damage: 12, score: 260, color: '#7cc4ff', aggroRange: 640, attackRate: 2.3, bulletSpeed: 300, w: 76, h: 40 },
+        diver: { health: 40, speed: 130, damage: 18, score: 100, color: '#ff7a7a', aggroRange: 640, attackRate: 3.4, w: 36, h: 26 },
     };
+    const AIR_TYPES = ['sentinel', 'swarm', 'gunship', 'diver'];
+    const AIR_HEIGHT = { swarm: 170, gunship: 250, diver: 280 };
 
     Levels.forEach((level, index) => {
         const originalEnd = level.levelWidth;
@@ -35,9 +41,21 @@
                 health: Math.round(base.health * scale), score: Math.round(base.score * (1 + index * 0.18)),
                 damage: Math.round(base.damage * (1 + index * 0.1)),
                 shieldHP: base.shieldHP ? Math.round(base.shieldHP * scale) : 0,
-                baseY: type === 'sentinel' ? y : undefined,
+                baseY: AIR_TYPES.includes(type) ? y : undefined,
             });
         };
+        // 一群蜂群无人机（数量随关卡增加）
+        const swarmSize = 3 + Math.floor(index / 2);
+        const addSwarm = (x, floorY) => {
+            for (let k = 0; k < swarmSize; k++) addEnemy(x + (k - swarmSize / 2) * 46, floorY - AIR_HEIGHT.swarm - (k % 2) * 34, 'swarm');
+        };
+        const addAir = (x, floorY, type) => type === 'swarm' ? addSwarm(x, floorY) : addEnemy(x, floorY - AIR_HEIGHT[type], type);
+        // 原关卡路段也补上空中威胁（远离出生点）
+        if (originalEnd > 2400) {
+            addSwarm(Math.round(originalEnd * 0.42), 430);
+            addAir(Math.round(originalEnd * 0.72), 500, 'diver');
+            if (index >= 3) addAir(Math.round(originalEnd * 0.86), 500, 'gunship');
+        }
         // 接回原关尾端；浮空关卡也能安全落到新路线。
         level.platforms.push({ x: originalEnd - 220, y: 500, w: 300, h: 100 });
         for (let zone = 0; zone < 6; zone++) {
@@ -69,6 +87,15 @@
             for (const [fraction, type] of encounters) {
                 addEnemy(cursor + Math.round(length * fraction), type === 'sentinel' ? floorY - 180 : floorY - 2, type);
             }
+            const airWaves = [
+                [[.45,'swarm'],[.8,'diver']],
+                [[.28,'diver'],[.6,'swarm']],
+                [[.4,'gunship'],[.7,'swarm']],
+                [[.3,'swarm'],[.62,'diver']],
+                [[.25,'gunship'],[.45,'swarm'],[.6,'diver'],[.8,'diver']],
+                [[.35,'gunship'],[.55,'swarm'],[.75,'diver']].concat(index >= 3 ? [[.88,'gunship']] : []),
+            ][zone];
+            for (const [fraction, type] of airWaves) addAir(cursor + Math.round(length * fraction), floorY, type);
             level.weaponDrops.push({ x: cursor + 90, y: floorY - 4, type: 'health' });
             level.weaponDrops.push({ x: cursor + Math.round(length * .16) + 70, y: floorY - 94,
                 type: ['shotgun', 'laser', 'rocket', 'shotgun', 'laser', 'rocket'][zone] });

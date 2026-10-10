@@ -701,7 +701,7 @@ const Game = (() => {
         if (enemy.selfDetonated) return; // 自爆兵冲脸自爆不算击杀
 
         // 视觉：肢体飞散 + 能量喷射 + 冲击环 + 光
-        const isFlyer = ['flyer', 'drone', 'bomber', 'swooper'].includes(enemy.type);
+        const isFlyer = ['flyer', 'drone', 'bomber', 'swooper', 'swarm', 'gunship', 'diver'].includes(enemy.type);
         if (enemy.type !== 'turret' && !isFlyer) {
             FX.stickGibs(enemy.x, enemy.y, enemy.h, enemy.color, dirX, enemy._overkill ? 1.4 : 1);
         } else {
@@ -829,6 +829,11 @@ const Game = (() => {
             Audio.play('orb', orbPitch);
         }
         Particles.spray(player.x, player.y - 26, 3, o.kind === 'heal' ? '#7dffb5' : '#ffd36b', -Math.PI / 2, 1.6, 60, 160, 0.25, 1.6);
+    }
+
+    // 火箭弹飞到射程尽头时在空中爆炸
+    function onBulletExpire(b) {
+        explodeAt(b.x, b.y, 95, b.damage * 0.6, { scale: 1 });
     }
 
     function onPlayerHurt(amount) {
@@ -987,6 +992,7 @@ const Game = (() => {
         p.isP2 = true;
         p.score = p2CarryScore;
         p.onHurt = onPlayerHurt;
+        p.onBulletExpire = onBulletExpire;
         return p;
     }
 
@@ -1215,7 +1221,7 @@ const Game = (() => {
             s.name.textContent = wi ? wi.name : names[i];
             s.ammo.textContent = wi ? (wi.infinite ? '∞' : wi.ammo) : '';
         });
-        u.wlv.textContent = !w ? '' : maxed ? `Lv.${w.level} 满级` : `Lv.${w.level} · 升级 ${cost}分（Select）`;
+        u.wlv.textContent = !w ? '' : maxed ? `Lv.${w.level} 满级 · 射程 ${w.range}` : `Lv.${w.level} · 射程 ${w.range} · 升级 ${cost}分（Select）`;
         u.wlv.classList.toggle('is-ready', !maxed && q.score >= cost);
         u.gren.innerHTML = `手雷 <b>x${q.grenadeCount}</b>`;
         u.molo.innerHTML = `燃烧瓶 <b>x${q.molotovCount}</b> <small>RB⇄</small>`;
@@ -1329,7 +1335,7 @@ const Game = (() => {
         }
 
         if (player.weapon) {
-            const wlv = `Lv.${player.weapon.level}`;
+            const wlv = `Lv.${player.weapon.level} · 射程 ${player.weapon.range}`;
             if (ui.currentWeaponLevel.textContent !== wlv) {
                 ui.currentWeaponLevel.textContent = wlv;
                 if (player.weapon.level !== lastHudWeaponLevel) {
@@ -1478,6 +1484,7 @@ const Game = (() => {
         combo = 0; comboTimer = 0; maxCombo = 0; levelKills = 0; levelTime = 0;
         orbPitch = 0; lastBossPhase = 0; bossChipPct = 100; rageReadyAnnounced = false;
         player.onHurt = onPlayerHurt;
+        player.onBulletExpire = onBulletExpire;
         if (options.carryRage) player.rage = options.carryRage;
         Audio.startAmbient(index);
 
@@ -1517,6 +1524,7 @@ const Game = (() => {
                 if (Math.abs(dx) > 760 || Math.abs(dy) > 420) return;
                 let score = Math.hypot(dx, dy * 1.4) * w;
                 if (moveDir && Math.sign(dx) !== moveDir) score += 260;          // 优先前进方向
+                if (player.weapon && Math.hypot(dx, dy) > player.weapon.range) score += 500;   // 射程外的目标靠后
                 if (e === player._aimTarget) score *= 0.7;                          // 锁定粘滞，避免来回跳
                 if (score < bestScore) { bestScore = score; best = e; }
             };
@@ -1951,7 +1959,7 @@ const Game = (() => {
         if (Input.wasPressed('KeyR')) {
             if (player.upgradeWeapon()) {
                 Particles.spawn(player.x, player.y - 30, 15, '#f1c40f', 200, 0.6);
-                Particles.spawnAmmoText(player.x, player.y - player.h - 14, `武器升级 Lv.${player.weapon.level}`, '#ffd36b');
+                Particles.spawnAmmoText(player.x, player.y - player.h - 14, `武器升级 Lv.${player.weapon.level} · 射程 ${player.weapon.range}`, '#ffd36b');
             } else if (player.weapon && player.weapon.level < player.weapon.maxLevel) {
                 Particles.spawnAmmoText(player.x, player.y - player.h - 14, `分数不足（需要 ${player.weapon.getUpgradeCost()}）`, '#ff8a8a');
                 Audio.play('dry');
@@ -2309,6 +2317,26 @@ const Game = (() => {
     function drawCrosshair() {
         const mouse = Input.getMouse();
         const mx = mouse.x, my = mouse.y;
+        // 射程提示：准星超出当前武器射程时，在瞄准线上的射程尽头画一个小圈
+        if (player && !player.dead && player.weapon) {
+            const ox = player.x - Utils.camera.x, oy = player.y - (player.crouching ? 14 : 30) - Utils.camera.y;
+            const d = Math.hypot(mx - ox, my - oy);
+            const range = player.weapon.range * (player.overdriveTimer > 0 ? 1.25 : 1);
+            if (d > range) {
+                const ex = ox + (mx - ox) / d * range, ey = oy + (my - oy) / d * range;
+                ctx.save();
+                ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+                ctx.setLineDash([3, 4]);
+                ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(ex, ey, 7, 0, Math.PI * 2); ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.font = '700 10px "Microsoft YaHei", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.fillText('射程', ex, ey - 11);
+                ctx.restore();
+            }
+        }
         const recoil = player ? player.recoil : 0;
         const size = 8 + recoil * 6;
         const gap = 4 + recoil * 6;
