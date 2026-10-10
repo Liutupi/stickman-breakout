@@ -1218,8 +1218,9 @@ const Game = (() => {
         u.wlv.textContent = !w ? '' : maxed ? `Lv.${w.level} 满级` : `Lv.${w.level} · 升级 ${cost}分（Select）`;
         u.wlv.classList.toggle('is-ready', !maxed && q.score >= cost);
         u.gren.innerHTML = `手雷 <b>x${q.grenadeCount}</b>`;
-        u.molo.innerHTML = `燃烧瓶 <b>x${q.molotovCount}</b>`;
+        u.molo.innerHTML = `燃烧瓶 <b>x${q.molotovCount}</b> <small>RB⇄</small>`;
         u.gren.classList.toggle('active', q.selectedThrown === 'grenade');
+        u.gren.title = u.molo.title = 'RB 切换 · LT 按住投掷';
         u.molo.classList.toggle('active', q.selectedThrown === 'molotov');
         u.shield.classList.toggle('hidden', !(q.shieldStorage > 0) || q.shieldActive);
         u.shield.innerHTML = `护盾 <b>x${q.shieldStorage}</b> · L3`;

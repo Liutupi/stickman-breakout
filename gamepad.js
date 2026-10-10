@@ -1,6 +1,6 @@
 // ==================== 手柄支持（蓝牙 / 有线，标准布局：Xbox / PS / Switch Pro / 多数安卓手柄） ====================
-// 战斗：左摇杆/十字键移动，摇杆上推/十字键上 跳（二段跳再推一次），摇杆下 蹲；A/RT/RB 射击，右摇杆瞄准（不推则自动瞄准）；
-//       B 冲刺，X 拾取，Y 切枪，LB 狂暴，LT 投掷，R3 切换手雷/燃烧瓶，L3 护盾，Select 升级武器，Start 暂停。
+// 战斗：左摇杆/十字键移动，摇杆上推/十字键上 跳（二段跳再推一次），摇杆下 蹲；A/RT 射击，右摇杆瞄准（不推则自动瞄准）；
+//       B 冲刺，X 拾取，Y 切枪，LB 狂暴，LT 投掷，RB（或 R3）切换手雷/燃烧瓶，L3 护盾，Select 升级武器，Start 暂停。
 // 菜单：摇杆/十字键移动选择，A 确认，B 返回。
 const PadInput = (() => {
     const DEAD = 0.28;
@@ -8,7 +8,7 @@ const PadInput = (() => {
     const BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, SELECT: 8, START: 9, L3: 10, R3: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
     // 按键 → 模拟的键盘键
     // 跳跃 = 左摇杆上推 / 十字键上（不占按键）；A 也能射击，方便单手玩
-    const KEYMAP = { [BTN.B]: 'KeyC', [BTN.X]: 'KeyE', [BTN.LB]: 'KeyV', [BTN.LT]: 'KeyQ', [BTN.R3]: 'KeyF', [BTN.SELECT]: 'KeyR', [BTN.START]: 'Escape', [BTN.L3]: 'ShiftLeft' };
+    const KEYMAP = { [BTN.B]: 'KeyC', [BTN.X]: 'KeyE', [BTN.LB]: 'KeyV', [BTN.LT]: 'KeyQ', [BTN.RB]: 'KeyF', [BTN.R3]: 'KeyF', [BTN.SELECT]: 'KeyR', [BTN.START]: 'Escape', [BTN.L3]: 'ShiftLeft' };
     // 输入“去向”：1P = 全局输入（与键盘鼠标共用），2P = 双人模式下 2P 的独立输入源
     const SINKS = {
         p1: { held: {}, stickJump: false, keyDown: c => Input.keyDown(c), keyUp: c => Input.keyUp(c), fire: v => Input.setGamepadFire(v), aim: v => Input.setGamepadAim(v), scroll: n => Input.addScroll(n) },
@@ -182,9 +182,11 @@ const PadInput = (() => {
         if (!sink.stickJump && ay < -0.55 && -ay > Math.abs(ax) * 0.6) sink.stickJump = true;
         else if (sink.stickJump && ay > -0.3) sink.stickJump = false;
         setKey(sink, 'Space', sink.stickJump || pressed(b[BTN.UP]));
-        for (const k in KEYMAP) setKey(sink, KEYMAP[k], pressed(b[k]));
+        const want = {};
+        for (const k in KEYMAP) want[KEYMAP[k]] = want[KEYMAP[k]] || pressed(b[k]);
+        for (const code in want) setKey(sink, code, want[code]);
         if (pressed(b[BTN.Y]) && !prevOf(p)[BTN.Y]) sink.scroll(1);
-        sink.fire(pressed(b[BTN.A]) || pressed(b[BTN.RT]) || pressed(b[BTN.RB]));
+        sink.fire(pressed(b[BTN.A]) || pressed(b[BTN.RT]));
         const rx = p.axes[2] || 0, ry = p.axes[3] || 0;
         const m = Math.hypot(rx, ry);
         sink.aim(m > 0.35 ? { x: rx / m, y: ry / m } : null);
