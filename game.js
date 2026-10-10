@@ -1907,7 +1907,11 @@ const Game = (() => {
                 if (bossSound) {
                     Audio.stopBgm();
                     // 不再放大音效母线（之前会让击杀 Boss 时所有音效突然变成 3 倍响）
-                    Audio.playMp3WithCallback(bossSound, 1, function() {
+                    // 台词登场：低频重击 + 震屏闪光，台词本身加大厅混响
+                    Audio.play('slam');
+                    Renderer.shake(8, 0.35);
+                    Renderer.addFlash('rgba(255, 220, 160, 0.25)', 0.8, 0.25);
+                    Audio.playVoiceEpic(bossSound, function() {
                         Audio.restoreMasterGain();
                         schedulePostBossTransition();
                     });

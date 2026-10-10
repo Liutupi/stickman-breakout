@@ -458,6 +458,36 @@ const Audio = (() => {
         audio.play().catch(function() { if (onEnd) onEnd(); });
     }
 
+    // 首领台词“大厅混响”：台词走 Web Audio，加 2 秒大空间混响 + 低频加厚，听起来更震撼。
+    // 只在音频引擎已运行时接管（接管后元素只能经由 Web Audio 出声）；否则按普通方式播放。
+    const voiceRoutes = new Map();
+    let voiceHall = null;
+    function routeVoice(audio) {
+        if (voiceRoutes.has(audio)) return true;
+        if (!ctx || ctx.state !== 'running') return false;
+        try {
+            if (!voiceHall) {
+                const conv = ctx.createConvolver();
+                conv.buffer = makeImpulse(2.2, 2.4);
+                const wet = ctx.createGain(); wet.gain.value = 0.32;
+                conv.connect(wet); wet.connect(ctx.destination);
+                voiceHall = conv;
+            }
+            const src = ctx.createMediaElementSource(audio);
+            const body = ctx.createBiquadFilter(); body.type = 'lowshelf'; body.frequency.value = 160; body.gain.value = 3;
+            const dry = ctx.createGain(); dry.gain.value = 1;
+            src.connect(body); body.connect(dry); dry.connect(ctx.destination);
+            body.connect(voiceHall);
+            voiceRoutes.set(audio, true);
+            return true;
+        } catch (e) { return false; }
+    }
+    function playVoiceEpic(name, onEnd) {
+        const audio = mp3Audios[name];
+        if (audio && !muted && !pageHidden) routeVoice(audio);
+        playMp3WithCallback(name, 1, onEnd);
+    }
+
     let savedBgmVolume = null;
     let bgmDuck = 1;
 
@@ -555,19 +585,19 @@ const Audio = (() => {
     }
 
     function preloadMp3s() {
-        loadMp3('deathVoice', '啊.mp3');
-        loadMp3('bossExplode', '我的刀盾.mp3');
-        loadMp3('levelComplete', '颗秒.mp3');
+        loadMp3('deathVoice', '啊.mp3?v=2');
+        loadMp3('bossExplode', '我的刀盾.mp3?v=2');
+        loadMp3('levelComplete', '颗秒.mp3?v=2');
         loadMp3('bgm_level1', '三角洲典狱长进行曲.mp3');
         loadMp3('bgm_level2', '威龙进行曲.mp3');
         loadMp3('bgm_level3', '猛攻小曲.mp3');
         loadMp3('bgm_level4', 'Underground.mp3');
         loadMp3('bgm_level5', '决斗小曲.mp3');
-        loadMp3('bossLaugh', '气笑的一天.mp3');
-        loadMp3('bossLuck', '下次就没那么好运啦.mp3');
-        loadMp3('bossRespect', '有两下子.mp3');
-        loadMp3('bossBad', '坏的很.mp3');
-        loadMp3('bossSurrender', '我服了.mp3');
+        loadMp3('bossLaugh', '气笑的一天.mp3?v=2');
+        loadMp3('bossLuck', '下次就没那么好运啦.mp3?v=2');
+        loadMp3('bossRespect', '有两下子.mp3?v=2');
+        loadMp3('bossBad', '坏的很.mp3?v=2');
+        loadMp3('bossSurrender', '我服了.mp3?v=2');
     }
 
     // ---- 公开接口 ----
@@ -1038,7 +1068,7 @@ const Audio = (() => {
     }
 
     return {
-        init, play, playMp3, playMp3WithCallback, playBgm, stopBgm,
+        init, play, playMp3, playMp3WithCallback, playVoiceEpic, playBgm, stopBgm,
         setBgmVolume, restoreBgmVolume, setMusicLevel, setSfxLevel, getLevels,
         setVolume, toggleMute, getMuted, getVolume,
         startAmbient, stopAmbient, updateLowHealth, updateWarning,
