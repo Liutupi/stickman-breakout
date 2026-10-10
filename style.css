@@ -2842,3 +2842,16 @@ body.quality-low .hud-card, body.quality-low .aim-area, body.quality-low .stick-
     .hero-actions--secondary { display: grid !important; grid-template-columns: 1fr 1fr; gap: 10px; }
     .hero-actions--secondary .menu-btn { width: 100%; min-width: 0; padding-left: 8px; padding-right: 8px; }
 }
+
+/* ==================== 手柄 ==================== */
+body.gamepad-active #mobile-controls { display: none !important; }
+body.gamepad-active { cursor: none; }
+body:not(.touch-device) .controls-gamepad-hint { display: block; }
+.gp-focus { outline: 3px solid #ffd36b !important; outline-offset: 3px; box-shadow: 0 0 22px rgba(255, 200, 80, 0.55) !important; }
+#gp-toast {
+    position: fixed; left: 50%; top: 14px; z-index: 9800; transform: translate(-50%, -140%);
+    padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(124, 231, 255, 0.45);
+    background: rgba(6, 12, 22, 0.92); color: #dff6ff; font-size: 13px; font-weight: 700; letter-spacing: 1px;
+    pointer-events: none; transition: transform .3s cubic-bezier(.2,1.2,.4,1);
+}
+#gp-toast.is-on { transform: translate(-50%, 0); }

@@ -1450,7 +1450,8 @@ const Game = (() => {
         }
 
         // 玩家更新
-        if (Input.isTouch()) updateTouchAim();
+        if (Input.isTouch() || Input.gamepadActive()) updateTouchAim();
+        else Input.setAimOverride(null);
         player.update(dt, levelData.platforms);
         // 关卡左右边界（修复：冲刺/走出关卡尽头会掉出地图直接死亡）
         const rightEdge = levelData._rightEdge - 16;

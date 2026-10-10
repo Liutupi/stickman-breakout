@@ -17,7 +17,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=12">
+    <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
     <div id="boot-screen" class="boot-screen hidden" aria-hidden="true" onclick="Game.bootStart()">
@@ -116,6 +116,26 @@
                         <div class="control-item"><span class="key">护盾</span><span>拾取护盾后出现，点一下开启</span></div>
                         <div class="control-item"><span class="key">爆</span><span>怒气满后释放狂暴</span></div>
                         <div class="control-item"><span class="key">⏸</span><span>暂停游戏</span></div>
+                    </div>
+                </div>
+
+                <div class="controls-mobile-hint controls-gamepad-hint">
+                    <h3>手柄操作（蓝牙 / 有线手柄，连上后按任意键）</h3>
+                    <div class="controls-grid">
+                        <div class="control-item"><span class="key">左摇杆 / 十字键</span><span>移动，下 = 蹲</span></div>
+                        <div class="control-item"><span class="key">右摇杆</span><span>瞄准（不推则自动瞄准最近敌人）</span></div>
+                        <div class="control-item"><span class="key">RT / RB</span><span>射击</span></div>
+                        <div class="control-item"><span class="key">A</span><span>跳跃（空中再按二段跳）</span></div>
+                        <div class="control-item"><span class="key">B</span><span>冲刺</span></div>
+                        <div class="control-item"><span class="key">X</span><span>拾取</span></div>
+                        <div class="control-item"><span class="key">Y</span><span>切换武器</span></div>
+                        <div class="control-item"><span class="key">LT（按住）</span><span>投掷瞄准，松开扔出</span></div>
+                        <div class="control-item"><span class="key">LB</span><span>切换手雷 / 燃烧瓶</span></div>
+                        <div class="control-item"><span class="key">R3 / 十字键上</span><span>释放狂暴</span></div>
+                        <div class="control-item"><span class="key">L3</span><span>开启护盾</span></div>
+                        <div class="control-item"><span class="key">Select / 视图键</span><span>升级武器</span></div>
+                        <div class="control-item"><span class="key">Start / 菜单键</span><span>暂停</span></div>
+                        <div class="control-item"><span class="key">菜单里</span><span>摇杆选择，A 确认，B 返回</span></div>
                     </div>
                 </div>
 
@@ -427,24 +447,25 @@
         <button class="m-btn m-btn-pause" id="m-btn-pause">⏸</button>
     </div>
 
-    <script src="utils.js?v=12"></script>
-    <script src="audio.js?v=12"></script>
-    <script src="input.js?v=12"></script>
-    <script src="particles.js?v=12"></script>
-    <script src="fx.js?v=12"></script>
-    <script src="weapons.js?v=12"></script>
-    <script src="boss-motion.js?v=12"></script>
-    <script src="art.js?v=12"></script>
-    <script src="enemy-types.js?v=12"></script>
-    <script src="hero-appearance.js?v=12"></script>
-    <script src="entities.js?v=12"></script>
-    <script src="levels.js?v=12"></script>
-    <script src="campaign.js?v=12"></script>
-    <script src="progression.js?v=12"></script>
-    <script src="renderer.js?v=12"></script>
-    <script src="settings.js?v=12"></script>
-    <script src="install.js?v=12"></script>
-    <script src="game.js?v=12"></script>
+    <script src="utils.js?v=13"></script>
+    <script src="audio.js?v=13"></script>
+    <script src="input.js?v=13"></script>
+    <script src="particles.js?v=13"></script>
+    <script src="fx.js?v=13"></script>
+    <script src="weapons.js?v=13"></script>
+    <script src="boss-motion.js?v=13"></script>
+    <script src="art.js?v=13"></script>
+    <script src="enemy-types.js?v=13"></script>
+    <script src="hero-appearance.js?v=13"></script>
+    <script src="entities.js?v=13"></script>
+    <script src="levels.js?v=13"></script>
+    <script src="campaign.js?v=13"></script>
+    <script src="progression.js?v=13"></script>
+    <script src="renderer.js?v=13"></script>
+    <script src="settings.js?v=13"></script>
+    <script src="install.js?v=13"></script>
+    <script src="gamepad.js?v=13"></script>
+    <script src="game.js?v=13"></script>
     <script>
     (function() {
         const scene = document.querySelector('.title-scene');

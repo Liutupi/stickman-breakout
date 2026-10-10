@@ -59,6 +59,7 @@ const Input = (() => {
         canvas.addEventListener('mousemove', e => {
             mouseX = e.clientX;
             mouseY = e.clientY;
+            if (gp.active && (Math.abs(e.movementX) + Math.abs(e.movementY) > 6)) setGamepadActive(false);
         });
         canvas.addEventListener('mousedown', e => {
             if (e.button === 0) {
@@ -280,7 +281,7 @@ const Input = (() => {
         const s = (typeof Renderer !== 'undefined' && Renderer.viewScale) ? Renderer.viewScale() : 1;
         return { x: mouseX / s, y: mouseY / s };
     }
-    function isMouseDown() { return mouseDown; }
+    function isMouseDown() { return mouseDown || gp.fire; }
     function wasMousePressed() { return mouseJustPressed; }
     function getScrollDelta() { return scrollDelta; }
     function clearScrollDelta() { scrollDelta = 0; }
@@ -300,7 +301,25 @@ const Input = (() => {
         scrollDelta = 0;
     }
 
-    function getTouchAim() { return { active: touchAimId !== null, vec: aimVec }; }
+    // ---- 手柄（由 gamepad.js 写入） ----
+    const gp = { active: false, fire: false, aimVec: null };
+    function setGamepadActive(v) {
+        gp.active = !!v;
+        if (!v) { gp.fire = false; gp.aimVec = null; aimOverride = null; }
+        document.body.classList.toggle('gamepad-active', gp.active);
+    }
+    function setGamepadFire(down) {
+        if (down && !gp.fire) mouseJustPressed = true;
+        gp.fire = !!down;
+    }
+    function setGamepadAim(vec) { gp.aimVec = vec; }
+    function addScroll(n) { scrollDelta += n; }
+    function gamepadActive() { return gp.active; }
+
+    function getTouchAim() {
+        if (gp.active && touchAimId === null) return { active: gp.fire, vec: gp.aimVec };
+        return { active: touchAimId !== null, vec: aimVec };
+    }
     function setAimOverride(p) { aimOverride = p; }
     function isTouch() { return document.body.classList.contains('touch-device'); }
 
@@ -309,5 +328,5 @@ const Input = (() => {
         if (('ontouchstart' in window || navigator.maxTouchPoints > 0) && document.body) document.body.classList.add('touch-device');
     } catch (e) { /* ignore */ }
 
-    return { getTouchAim, setAimOverride, isTouch, init, isDown, wasPressed, getMouse, isMouseDown, wasMousePressed, getScrollDelta, getHoldTime, update, endFrame, _getJustPressed: () => justPressed };
+    return { setGamepadActive, setGamepadFire, setGamepadAim, addScroll, gamepadActive, keyDown: simulateKeyDown, keyUp: simulateKeyUp, getTouchAim, setAimOverride, isTouch, init, isDown, wasPressed, getMouse, isMouseDown, wasMousePressed, getScrollDelta, getHoldTime, update, endFrame, _getJustPressed: () => justPressed };
 })();

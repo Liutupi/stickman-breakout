@@ -1415,6 +1415,7 @@ const Renderer = (() => {
     function shake(amount, duration) {
         // amount 以像素为量级；duration 越长衰减越慢
         const add = Math.min(1, amount / 14) * Math.min(1.5, 0.6 + (duration || 0.1) * 2);
+        if (amount >= 7 && shakeScale > 0 && typeof PadInput !== 'undefined') PadInput.rumble(Math.min(1, amount / 18), 60 + (duration || 0.1) * 400);
         trauma = Math.min(1, trauma + add * 0.6);
     }
 
