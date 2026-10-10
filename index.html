@@ -17,7 +17,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=15">
+    <link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
     <div id="boot-screen" class="boot-screen hidden" aria-hidden="true" onclick="Game.bootStart()">
@@ -138,6 +138,18 @@
                     </div>
                 </div>
 
+                <div class="controls-mobile-hint controls-coop-hint">
+                    <h3>双人合作</h3>
+                    <div class="controls-grid">
+                        <div class="control-item"><span class="key">开启</span><span>选难度时点「双人合作」</span></div>
+                        <div class="control-item"><span class="key">1P / 2P</span><span>1P 键盘鼠标，2P 手柄（两个手柄则各用一个）</span></div>
+                        <div class="control-item"><span class="key">加入</span><span>开局后 2P 按手柄任意键，随时加入</span></div>
+                        <div class="control-item"><span class="key">救人</span><span>队友倒地后，走到他身边站 2 秒救起；12 秒没人救会自动复活</span></div>
+                        <div class="control-item"><span class="key">难度</span><span>双人时敌人血量 ×1.35，首领 ×1.5；两人都倒下才算失败</span></div>
+                        <div class="control-item"><span class="key">镜头</span><span>两人不能离开同一屏幕，走太远会被拉住</span></div>
+                    </div>
+                </div>
+
                 <div class="tips-stack">
                     <p class="tip-line tip-green">每局结束都能拿到金币和经验（失败也有），在「成长中心」永久强化生命、火力、暴击等属性。</p>
                     <p class="tip-line tip-green">新区域入口有补给；突击枪兵会蓄力冲锋，散弹兵有扇形预警，优先消灭能治疗同伴的战地医师。</p>
@@ -217,6 +229,11 @@
                 <div class="menu-kicker">DIFFICULTY SELECT</div>
                 <h2>选择难度</h2>
                 <p class="menu-copy" id="difficulty-select-desc">为行动选择合适的难度等级。</p>
+                <div class="mode-toggle">
+                    <button id="mode-solo" class="mode-toggle__btn is-on" onclick="Game.setCoop(false)">单人</button>
+                    <button id="mode-coop" class="mode-toggle__btn" onclick="Game.setCoop(true)">双人合作</button>
+                    <span id="mode-hint" class="mode-toggle__hint"></span>
+                </div>
                 <div class="difficulty-grid">
                     <div class="difficulty-card difficulty-card--easy" onclick="Game.selectDifficulty('easy')">
                         <span class="difficulty-card__name">简单</span>
@@ -319,6 +336,15 @@
                         <span id="rage-text">怒气 0%</span>
                     </div>
                 </div>
+            </div>
+
+            <div id="p2-hud" class="hud-card hud-card--p2 hidden">
+                <span class="p2-tag">2P</span>
+                <div class="p2-bars">
+                    <div class="p2-hp"><div id="p2-hp-fill"></div></div>
+                    <div class="p2-rage"><div id="p2-rage-fill"></div></div>
+                </div>
+                <span id="p2-status" class="p2-status"></span>
             </div>
 
             <div id="stagnation-warning" class="hidden">
@@ -446,25 +472,25 @@
         <button class="m-btn m-btn-pause" id="m-btn-pause">⏸</button>
     </div>
 
-    <script src="utils.js?v=15"></script>
-    <script src="audio.js?v=15"></script>
-    <script src="input.js?v=15"></script>
-    <script src="particles.js?v=15"></script>
-    <script src="fx.js?v=15"></script>
-    <script src="weapons.js?v=15"></script>
-    <script src="boss-motion.js?v=15"></script>
-    <script src="art.js?v=15"></script>
-    <script src="enemy-types.js?v=15"></script>
-    <script src="hero-appearance.js?v=15"></script>
-    <script src="entities.js?v=15"></script>
-    <script src="levels.js?v=15"></script>
-    <script src="campaign.js?v=15"></script>
-    <script src="progression.js?v=15"></script>
-    <script src="renderer.js?v=15"></script>
-    <script src="settings.js?v=15"></script>
-    <script src="install.js?v=15"></script>
-    <script src="gamepad.js?v=15"></script>
-    <script src="game.js?v=15"></script>
+    <script src="utils.js?v=16"></script>
+    <script src="audio.js?v=16"></script>
+    <script src="input.js?v=16"></script>
+    <script src="particles.js?v=16"></script>
+    <script src="fx.js?v=16"></script>
+    <script src="weapons.js?v=16"></script>
+    <script src="boss-motion.js?v=16"></script>
+    <script src="art.js?v=16"></script>
+    <script src="enemy-types.js?v=16"></script>
+    <script src="hero-appearance.js?v=16"></script>
+    <script src="entities.js?v=16"></script>
+    <script src="levels.js?v=16"></script>
+    <script src="campaign.js?v=16"></script>
+    <script src="progression.js?v=16"></script>
+    <script src="renderer.js?v=16"></script>
+    <script src="settings.js?v=16"></script>
+    <script src="install.js?v=16"></script>
+    <script src="gamepad.js?v=16"></script>
+    <script src="game.js?v=16"></script>
     <script>
     (function() {
         const scene = document.querySelector('.title-scene');

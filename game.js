@@ -2,6 +2,12 @@
 const Game = (() => {
     let state = 'menu'; // menu, playing, paused, dead, levelComplete, victory
     let player = null;
+    // ---- 双人合作：player 永远是 1P；player2 是 2P（手柄加入）。逐人处理时临时把 player 指向当前角色 ----
+    let player2 = null;
+    let coopMode = (() => { try { return localStorage.getItem('stickman_coop') === '1'; } catch (e) { return false; } })();
+    let p2Joined = false;          // 本轮是否有 2P 加入（换关/重开时自动带上）
+    let p2CarryScore = 0;
+    let coopScaledLevel = false;   // 本关敌人是否已按双人加强
     let enemies = [];
     let boss = null;
     let drops = [];
@@ -540,7 +546,7 @@ const Game = (() => {
     function grantRewards(opts) {
         if (rewardGranted || !player) return null;
         rewardGranted = true;
-        const res = Progression.grant(currentPlayerName, { scoreGained: player.earned || 0, ...opts });
+        const res = Progression.grant(currentPlayerName, { scoreGained: (player.earned || 0) + (player2 ? player2.earned || 0 : 0), ...opts });
         updatePlayerDisplay();
         if (res.leveledUp) setTimeout(() => Audio.play('agentLevelUp'), 500);
         else setTimeout(() => Audio.play('coin'), 300);
@@ -945,6 +951,95 @@ const Game = (() => {
         });
     }
 
+    function eachPlayer(fn) {
+        const main = player;
+        const list = [main, player2].filter(Boolean);
+        try {
+            for (const p of list) {
+                player = p;
+                Input.useSource(p === player2 ? Input.p2.src : null);
+                fn(p);
+            }
+        } finally {
+            player = main;
+            Input.useSource(null);
+        }
+    }
+    function allPlayers() { return [player, player2].filter(Boolean); }
+    function alivePlayers() { return allPlayers().filter(p => !p.dead); }
+    function nearestAlive(x, y) {
+        let best = null, bd = Infinity;
+        for (const p of alivePlayers()) { const d = Math.abs(p.x - x) + Math.abs(p.y - y) * 0.5; if (d < bd) { bd = d; best = p; } }
+        return best || player;
+    }
+    // 结算用：双人时分数相加、血量取平均
+    function resultSubject() {
+        if (!player2) return player;
+        const r = (player.health / player.maxHealth + player2.health / player2.maxHealth) / 2;
+        return { score: player.score + player2.score, health: r * 100, maxHealth: 100 };
+    }
+
+    function createP2(x, y) {
+        const p = new Player(x, y);
+        for (const id of persistentUpgradeIds) p.applyUpgrade(id, true);
+        if (healthBonus > 0) p.increaseMaxHealth(healthBonus);
+        applyProgression(p);
+        p.isP2 = true;
+        p.score = p2CarryScore;
+        p.onHurt = onPlayerHurt;
+        return p;
+    }
+
+    function applyCoopScaling() {
+        if (coopScaledLevel) return;
+        coopScaledLevel = true;
+        for (const e of enemies) {
+            if (e.dead) continue;
+            e.maxHealth = Math.round(e.maxHealth * 1.35);
+            e.health = Math.round(e.health * 1.35);
+        }
+        if (boss && !boss.dead) { boss.maxHealth = Math.round(boss.maxHealth * 1.5); boss.health = Math.round(boss.health * 1.5); }
+    }
+
+    // 2P 手柄按任意键加入（合作模式开启时）
+    function joinP2() {
+        if (!coopMode || player2 || !player || !levelData || state !== 'playing') return false;
+        p2Joined = true;
+        player2 = createP2(player.x - 50, player.y - 20);
+        player2.invincibleTimer = 2;
+        applyCoopScaling();
+        FX.shockwave(player2.x, player2.y - 26, 120, '255,140,220', 6, 0.5);
+        FX.banner('2P 加入战斗', { sub: '敌人变强了 · 倒地的队友靠近即可救起', color: '#ffc8f0', glow: '#ff4fbf', size: 40, life: 1.8, channel: 'sector' });
+        Audio.play('upgrade');
+        return true;
+    }
+
+    function revivePlayer(p, x, y, hpRatio) {
+        p.dead = false; p.deathTimer = 0; p._deathFx = false;
+        p.health = Math.max(1, Math.round(p.maxHealth * hpRatio));
+        p.x = x; p.y = y; p.vx = 0; p.vy = 0;
+        p.invincibleTimer = 2.5; p.stagnationTimer = 0; p.overdriveTimer = 0; p.groundPounding = false;
+        p._reviveProgress = 0; p._downTime = 0;
+        FX.shockwave(x, y - 26, 110, '124,231,255', 6, 0.5);
+        Particles.spawnAmmoText(x, y - 70, p.isP2 ? '2P 复活！' : '1P 复活！', '#9be7ff');
+        Audio.play('upgrade');
+    }
+
+    // 合作：倒地的队友，另一人靠近站 1.8 秒救起；12 秒没人救就在队友身边自动复活
+    function updateCoopRevive(dt) {
+        if (!player2) return;
+        for (const d of allPlayers()) {
+            if (!d.dead) { d._reviveProgress = 0; d._downTime = 0; continue; }
+            const mate = d === player ? player2 : player;
+            if (mate.dead) { d._reviveProgress = 0; continue; }
+            d._downTime = (d._downTime || 0) + dt;
+            const near = Math.abs(mate.x - d.x) < 70 && Math.abs(mate.y - d.y) < 90;
+            d._reviveProgress = near ? (d._reviveProgress || 0) + dt : Math.max(0, (d._reviveProgress || 0) - dt * 0.5);
+            if (d._reviveProgress >= 1.8) revivePlayer(d, d.x, d.y, 0.5);
+            else if (d._downTime >= 12) revivePlayer(d, mate.x - mate.facing * 40, mate.y - 10, 0.35);
+        }
+    }
+
     function cloneLevelWithDifficulty(rawLevel, difficulty) {
         const config = DIFFICULTY_CONFIG[difficulty] || DIFFICULTY_CONFIG.normal;
 
@@ -997,6 +1092,26 @@ const Game = (() => {
             desc.textContent = `为「${levelName}」选择合适的难度等级。`;
         }
         showMenu('difficulty-select-menu');
+        renderModeToggle();
+    }
+
+    // ---- 单人 / 双人合作 切换 ----
+    function setCoop(v) {
+        coopMode = !!v;
+        try { localStorage.setItem('stickman_coop', coopMode ? '1' : '0'); } catch (e) { /* ignore */ }
+        renderModeToggle();
+        Audio.play('switch');
+    }
+    function renderModeToggle() {
+        const solo = $('mode-solo'), coop = $('mode-coop'), hint = $('mode-hint');
+        if (!solo) return;
+        solo.classList.toggle('is-on', !coopMode);
+        coop.classList.toggle('is-on', coopMode);
+        let pads = 0;
+        try { pads = Array.from(navigator.getGamepads ? navigator.getGamepads() : []).filter(Boolean).length; } catch (e) { /* ignore */ }
+        hint.textContent = !coopMode ? '一个人玩；想和家人一起玩就选「双人合作」'
+            : pads ? `已检测到 ${pads} 个手柄 · 1P 键盘鼠标，2P 手柄（开局后 2P 按任意键加入）`
+            : '1P 键盘鼠标，2P 用手柄：连上手柄后在游戏里按任意键加入';
     }
 
     function hideDifficultySelect() {
@@ -1052,9 +1167,32 @@ const Game = (() => {
         setTimeout(() => el.classList.remove('pop'), 450);
     }
 
+    // 2P 小血条：合作模式下显示；还没加入时提示“按手柄任意键加入”
+    let p2HudKey = '';
+    function updateP2Hud() {
+        const box = $('p2-hud');
+        if (!box) return;
+        if (!coopMode) { if (p2HudKey !== 'off') { box.classList.add('hidden'); p2HudKey = 'off'; } return; }
+        box.classList.remove('hidden');
+        const st = $('p2-status');
+        if (!player2) {
+            box.classList.add('is-waiting');
+            if (p2HudKey !== 'wait') { st.textContent = '手柄按任意键加入'; p2HudKey = 'wait'; }
+            return;
+        }
+        box.classList.remove('is-waiting');
+        $('p2-hp-fill').style.width = Math.max(0, player2.health / player2.maxHealth * 100) + '%';
+        $('p2-rage-fill').style.width = (player2.overdriveTimer > 0 ? 100 : player2.rage) + '%';
+        const txt = player2.dead ? '倒地 · 去救！' : player2.overdriveTimer > 0 ? '狂暴中' : player2.rage >= 100 ? '怒气满 · LB' : (player2.weapon ? player2.weapon.name || '' : '');
+        if (st.textContent !== txt) st.textContent = txt;
+        box.classList.toggle('is-down', player2.dead);
+        p2HudKey = 'on';
+    }
+
     function updateHUD() {
         if (!player) return;
         ensureUIRefs();
+        updateP2Hud();
 
         if (levelData && ui.routeFill) {
             const progress = Utils.clamp(player.x / (levelData.levelWidth - 100), 0, 1);
@@ -1285,6 +1423,13 @@ const Game = (() => {
         arenaSweepDone = false;
         continuesUsed = 0;
         drops = levelData.weaponDrops.map(drop => new WeaponDrop(drop.x, drop.y, drop.type));
+        coopScaledLevel = false;
+        player2 = null;
+        Input.p2.reset();
+        if (coopMode && p2Joined) {
+            player2 = createP2(levelData.playerStart.x - 50, levelData.playerStart.y);
+            applyCoopScaling();
+        }
 
         Particles.clear();
         FX.clear();
@@ -1313,14 +1458,13 @@ const Game = (() => {
     }
 
     // 手机瞄准：拖动右摇杆按方向瞄准；只按住不拖时自动锁定最近的敌人，没有敌人就朝移动方向
-    let touchAimTarget = null;
     function updateTouchAim() {
         const ox = player.x, oy = player.y - (player.crouching ? 14 : 30);
         const aim = Input.getTouchAim();
         let tx, ty;
         if (aim.vec) {
             tx = ox + aim.vec.x * 420; ty = oy + aim.vec.y * 420;
-            touchAimTarget = null;
+            player._aimTarget = null;
         } else {
             const moveDir = Input.isDown('KeyA') ? -1 : Input.isDown('KeyD') ? 1 : 0;
             const viewW = Renderer.width(), viewH = Renderer.height();
@@ -1334,12 +1478,12 @@ const Game = (() => {
                 if (Math.abs(dx) > 760 || Math.abs(dy) > 420) return;
                 let score = Math.hypot(dx, dy * 1.4) * w;
                 if (moveDir && Math.sign(dx) !== moveDir) score += 260;          // 优先前进方向
-                if (e === touchAimTarget) score *= 0.7;                          // 锁定粘滞，避免来回跳
+                if (e === player._aimTarget) score *= 0.7;                          // 锁定粘滞，避免来回跳
                 if (score < bestScore) { bestScore = score; best = e; }
             };
             for (const e of enemies) consider(e, 1);
             if (boss) consider(boss, 0.9);
-            touchAimTarget = best;
+            player._aimTarget = best;
             if (best) { tx = best.x; ty = best.y - (best.h || 60) / 2; }
             else { const dir = moveDir || player.facing || 1; tx = ox + dir * 420; ty = oy; }
         }
@@ -1400,6 +1544,7 @@ const Game = (() => {
         Input.update(dt);
 
         // ---- 狂暴 / 连击计时 ----
+        eachPlayer(() => {
         if ((Input.wasPressed('KeyV') || Input.wasPressed('KeyX')) && player && !player.dead) {
             if (player.rage >= 100) activateOverdrive();
             else if (player.overdriveTimer <= 0) Particles.spawnAmmoText(player.x, player.y - 50, `怒气 ${Math.floor(player.rage)}%`, '#ffb347');
@@ -1410,10 +1555,11 @@ const Game = (() => {
             if (Math.random() < 0.5) Particles.spray(player.x + Utils.rand(-10, 10), player.y - Utils.rand(0, 50), 1, '#ffb347', -Math.PI / 2, 0.6, 60, 160, 0.4, 2);
             if (player.overdriveTimer <= 0) {
                 player.overdriveTimer = 0;
-                FX.setTint('255,120,30', 0);
+                if (!allPlayers().some(q => q.overdriveTimer > 0)) FX.setTint('255,120,30', 0);
                 Particles.spawnAmmoText(player.x, player.y - 50, '狂暴结束', '#ffb347');
             }
         }
+        });
         if (comboTimer > 0) {
             comboTimer -= dt;
             if (comboTimer <= 0) {
@@ -1450,7 +1596,9 @@ const Game = (() => {
         }
 
         // 玩家更新
-        if (Input.isTouch() || Input.gamepadActive()) updateTouchAim();
+        // 双人时逐人处理：移动、下砸
+        eachPlayer(p => {
+        if (p === player2 || Input.isTouch() || Input.gamepadActive()) updateTouchAim();
         else Input.setAimOverride(null);
         player.update(dt, levelData.platforms);
         // 关卡左右边界（修复：冲刺/走出关卡尽头会掉出地图直接死亡）
@@ -1501,6 +1649,7 @@ const Game = (() => {
                 }
             }
         }
+        });
 
         // 反弹子弹伤害敌人
         for (const enemy of enemies) {
@@ -1534,33 +1683,51 @@ const Game = (() => {
         }
 
         // 浣庤閲忓績璺?+ 鍋滄粸璀﹀憡闊虫晥
-        Audio.updateLowHealth(dt, player.health / player.maxHealth);
-        Audio.updateWarning(dt, player.stagnationTimer);
+        const focus = alivePlayers()[0] || player;
+        Audio.updateLowHealth(dt, focus.health / focus.maxHealth);
+        Audio.updateWarning(dt, focus.stagnationTimer);
+        updateCoopRevive(dt);
 
         // 相机
-        const targetX = player.x - Renderer.width() * 0.35;
+        // 双人时看两人中点，并把两人限制在同一屏内
+        const camPlayers = alivePlayers().length ? alivePlayers() : allPlayers();
+        const camX = camPlayers.reduce((a, q) => a + q.x, 0) / camPlayers.length;
+        const camY = camPlayers.reduce((a, q) => a + q.y, 0) / camPlayers.length;
+        const targetX = camX - Renderer.width() * (player2 ? 0.5 : 0.35);
         const smoothX = 1 - Math.pow(0.02, dt);
         Utils.camera.x = Utils.lerp(Utils.camera.x, targetX, smoothX);
         const camMax = Math.max(levelData.cameraBounds.minX, Math.min(levelData.cameraBounds.maxX, levelData._rightEdge - Renderer.width() + 60));
         Utils.camera.x = Utils.clamp(Utils.camera.x, levelData.cameraBounds.minX, camMax);
-        const targetY = player.y - Renderer.height() * 0.55;
+        const targetY = camY - Renderer.height() * 0.55;
         const smoothY = 1 - Math.pow(0.03, dt);
         Utils.camera.y = Utils.lerp(Utils.camera.y, Utils.clamp(targetY, -200, 200), smoothY);
+        if (player2) {
+            // 以两人中点为中心限制间距（不超过一屏），不依赖还在追赶的镜头位置
+            const half = Renderer.width() / 2 - 18;
+            const left = camX - half, right = camX + half;
+            for (const q of alivePlayers()) {
+                if (q.x < left) { q.x = left; if (q.vx < 0) q.vx = 0; }
+                if (q.x > right) { q.x = right; if (q.vx > 0) q.vx = 0; }
+            }
+        }
 
         // 敌人
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
             if (!enemy.dead && !enemy.activated) {
-                if (Math.abs(enemy.x - player.x) > Math.max(900, enemy.aggroRange + 100)) continue;
+                const near = alivePlayers().some(q => Math.abs(enemy.x - q.x) <= Math.max(900, enemy.aggroRange + 100));
+                if (!near) continue;
                 enemy.activated = true;
             }
-            const alive = enemy.update(dt, levelData.platforms, player.x, player.y, enemies);
+            const tgt = nearestAlive(enemy.x, enemy.y);
+            const alive = enemy.update(dt, levelData.platforms, tgt.x, tgt.y, enemies);
             if (!alive) {
                 const last = enemies.pop();
                 if (i < enemies.length) enemies[i] = last;
             }
         }
 
+        eachPlayer(() => {
         for (const t of player.thrown) {
             if (t.type === 'grenade' && t.exploded && !t.dead) {
                 explodeAt(t.x, t.y, t.radius, t.damage, { scale: t.radius / 110 });
@@ -1609,11 +1776,13 @@ const Game = (() => {
                 }
             }
         }
+        });
 
         // Boss 鐢熸垚閫昏緫锛氬綋鎵€鏈夊皬鎬娑堢伃鍚庯紝鏄剧ず璀﹀憡骞剁敓鎴?Boss
         // 进入决战区：远远落在后方的掉队敌人（悬停飞行兵、卡在断层的步兵等）直接撤离，
         // 否则玩家必须折返上万像素去找它们，首领永远不出现。
-        if (!bossSpawned && !arenaSweepDone && levelData.arenaStart && player.x >= levelData.arenaStart - 180) {
+        const leadX = Math.max(-Infinity, ...alivePlayers().map(q => q.x));
+        if (!bossSpawned && !arenaSweepDone && levelData.arenaStart && leadX >= levelData.arenaStart - 180) {
             arenaSweepDone = true;
             let retreated = 0;
             for (const e of enemies) {
@@ -1624,7 +1793,7 @@ const Game = (() => {
             }
             if (retreated) FX.banner('残敌撤退', { sub: `${retreated} 名掉队敌人已撤离 · 首领即将现身`, color: '#d9e9ee', glow: '#5f9aa7', size: 36, life: 1.8, channel: 'sector' });
         }
-        if (!bossSpawned && enemies.length === 0 && !player.dead && player.x >= (levelData.arenaStart || 0) - 180) {
+        if (!bossSpawned && enemies.length === 0 && alivePlayers().length && leadX >= (levelData.arenaStart || 0) - 180) {
             if (bossWarningTimer === 0) {
                 FX.setLetterbox(true);
                 FX.banner('区域清空', { sub: '强敌正在逼近…', color: '#ffffff', glow: '#a83035', size: 40, y: 0.2, life: 1.6 });
@@ -1644,6 +1813,7 @@ const Game = (() => {
             if (bossWarningTimer >= 2) {
                 boss = new Boss(levelData.boss.x, levelData.boss.y, { ...levelData.boss });
                 bossSpawned = true;
+                if (player2) { boss.maxHealth = Math.round(boss.maxHealth * 1.5); boss.health = Math.round(boss.health * 1.5); }
                 bossAnnounceTimer = 3; // 显示3秒Boss出现提示
                 lastBossPhase = 0;
                 bossChipPct = 100;
@@ -1658,7 +1828,8 @@ const Game = (() => {
 
         // Boss
         if (boss) {
-            const bossAlive = boss.update(dt, levelData.platforms, player.x, player.y);
+            const btgt = nearestAlive(boss.x, boss.y);
+            const bossAlive = boss.update(dt, levelData.platforms, btgt.x, btgt.y);
             if (boss.phase > lastBossPhase && !boss.dead) {
                 lastBossPhase = boss.phase;
                 FX.hitStop(0.15);
@@ -1709,15 +1880,16 @@ const Game = (() => {
 
         // 武器掉落更新
         for (let i = drops.length - 1; i >= 0; i--) {
-            const distToPlayer = player ? Utils.dist(player.x, player.y, drops[i].x, drops[i].y) : Infinity;
+            const np = nearestAlive(drops[i].x, drops[i].y);
+            const distToPlayer = np ? Utils.dist(np.x, np.y, drops[i].x, drops[i].y) : Infinity;
             drops[i].nearPlayer = distToPlayer < 110;
             drops[i].pickupReady = distToPlayer < 65;
-            drops[i].pickupVector = player
-                ? { x: player.x - drops[i].x, y: player.y - drops[i].y }
+            drops[i].pickupVector = np
+                ? { x: np.x - drops[i].x, y: np.y - drops[i].y }
                 : { x: 0, y: 0 };
             drops[i].update(dt);
-            if (!drops[i].dead && distToPlayer < 38 && !player.dead && player.canAutoPickup(drops[i])) {
-                player.pickupDrop(drops[i]);
+            if (!drops[i].dead && distToPlayer < 38 && !np.dead && np.canAutoPickup(drops[i])) {
+                np.pickupDrop(drops[i]);
                 drops[i].dead = true;
             }
             if (drops[i].dead) {
@@ -1726,8 +1898,9 @@ const Game = (() => {
             }
         }
 
+        eachPlayer(() => {
         // 拾取
-        if (Input.wasPressed('KeyE')) {
+        if (Input.wasPressed('KeyE') && !player.dead) {
             player.tryPickup(drops);
         }
 
@@ -1915,13 +2088,17 @@ const Game = (() => {
             FX.slowMo(0.3, 1.2);
             FX.setTint('255,120,30', 0);
             Renderer.shake(10, 0.4);
-            FX.stickGibs(player.x, player.y, 52, '#9fe8ff', player.facing, 1.1);
+            FX.stickGibs(player.x, player.y, 52, player.isP2 ? '#ffb3e6' : '#9fe8ff', player.facing, 1.1);
+            if (player2 && alivePlayers().length) FX.banner(`${player.isP2 ? '2P' : '1P'} 倒下了`, { sub: '队友靠近站一会儿就能救起', color: '#ffd0d0', glow: '#a83035', size: 34, life: 1.6, channel: 'sector' });
         }
-        if (player.dead && player.deathTimer > 1.5) {
+        });
+        const everyoneDown = allPlayers().every(q => q.dead);
+        const downLong = allPlayers().every(q => q.deathTimer > 1.5);
+        if (everyoneDown && downLong && state === 'playing') {
             FX.setLetterbox(false);
             state = 'dead';
             showMenu('death-menu');
-            const final = calculateFinalScore(player, levelTime, currentLevel);
+            const final = calculateFinalScore(resultSubject(), levelTime, currentLevel);
             recordScore(currentLevel, final);
             const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
             const diffText = final.diffBonus !== 0 ? ` | 难度加成: 基础×${final.baseScoreMul} 奖励×${final.bonusMul} ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
@@ -1931,8 +2108,8 @@ const Game = (() => {
             ui.deathInfo.innerHTML = rewardHTML(deathReward) + `<span class="result-stats">关卡: ${levelData.name}<br>特工: ${currentPlayerName} · ${diffLabel}<br>基础得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br></span><strong style="color:var(--gold)">总积分: ${final.total}</strong>`;
         }
 
-        // 暂停
-        if (Input.wasPressed('Escape')) {
+        // 暂停（2P 手柄的 Start 也能暂停）
+        if (Input.wasPressed('Escape') || Input.p2.pressed('Escape')) {
             if (state === 'playing') {
                 state = 'paused';
                 Audio.play('pause');
@@ -1941,7 +2118,7 @@ const Game = (() => {
         }
 
         // 击杀结算（每个敌人只结算一次）
-        if (player && !player.dead) {
+        if (alivePlayers().length) {
             for (const e of enemies) {
                 if (e.dead && !e._killHandled) handleEnemyKilled(e);
             }
@@ -1949,7 +2126,9 @@ const Game = (() => {
 
         // 粒子 / 特效更新
         Particles.update(dt);
-        FX.update(dt, realDt, levelData.platforms, player, onOrbCollect);
+        // 晶片吸附到活着的玩家
+        const orbTarget = alivePlayers()[0] || player;
+        { const main = player; player = orbTarget; try { FX.update(dt, realDt, levelData.platforms, orbTarget, onOrbCollect); } finally { player = main; } }
 
         // Boss 鍑虹幇鍏憡璁℃椂
         if (bossAnnounceTimer > 0) {
@@ -1974,7 +2153,7 @@ const Game = (() => {
         if (levelData) {
             Renderer.drawBackground(levelData, gameTime);
             Renderer.drawPlatforms(levelData);
-            GameArt.drawWorldDetails(ctx, levelData, enemies, boss, player, gameTime);
+            GameArt.drawWorldDetails(ctx, levelData, player2 ? enemies.concat([player2]) : enemies, boss, player, gameTime);
             FX.drawUnder(ctx);
         }
 
@@ -1983,11 +2162,14 @@ const Game = (() => {
             enemies.forEach(enemy => enemy.draw(ctx));
             if (boss) boss.draw(ctx);
 
+            if (player2) drawP2();
             if (player) {
                 player.draw(ctx);
                 player.bullets.forEach(bullet => bullet.draw(ctx));
                 player.thrown.forEach(thrown => thrown.draw(ctx));
+                if (player2) drawPlayerTag(player, '1P', '#7ce7ff');
             }
+            if (player2) for (const q of allPlayers()) if (q.dead) drawReviveMarker(q);
 
             GameArt.drawForeground(ctx, levelData, gameTime);
             Particles.draw(ctx);
@@ -2013,6 +2195,72 @@ const Game = (() => {
         Renderer.drawAudioPulse();
         Renderer.drawTransition();
         if (shakeApplied) Renderer.endShake();
+    }
+
+    // 2P：粉色围巾/轮廓，头顶“2P”标记，瞄准点画成粉色准星
+    function drawP2() {
+        const main = player;
+        player = player2;
+        Input.useSource(Input.p2.src);
+        try {
+            player2.draw(ctx);
+            player2.bullets.forEach(bullet => bullet.draw(ctx));
+            player2.thrown.forEach(thrown => thrown.draw(ctx));
+            drawPlayerTag(player2, '2P', '#ff8ad8');
+            if (!player2.dead) {
+                const m = Input.getMouse();
+                ctx.save();
+                ctx.strokeStyle = '#ff8ad8';
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = 0.85;
+                ctx.beginPath();
+                ctx.arc(m.x, m.y, 9 + Math.sin(gameTime * 8) * 1.5, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+        } finally {
+            player = main;
+            Input.useSource(null);
+        }
+    }
+
+    function drawPlayerTag(p, text, color) {
+        if (p.dead) return;
+        const sx = p.x - Utils.camera.x, sy = p.y - Utils.camera.y - (p.crouching ? 62 : 84);
+        ctx.save();
+        ctx.font = '900 12px "Orbitron", "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(4, 8, 16, 0.65)';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(sx - 15, sy - 8, 30, 16, 8); else ctx.rect(sx - 15, sy - 8, 30, 16);
+        ctx.fill();
+        ctx.fillStyle = color;
+        ctx.fillText(text, sx, sy + 1);
+        ctx.restore();
+    }
+
+    // 倒地的队友：显示救援圈和进度
+    function drawReviveMarker(p) {
+        const sx = p.x - Utils.camera.x, sy = p.y - Utils.camera.y - 40;
+        const prog = Math.min(1, (p._reviveProgress || 0) / 1.8);
+        const color = p.isP2 ? '#ff8ad8' : '#7ce7ff';
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.arc(sx, sy, 22, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = color;
+        ctx.beginPath(); ctx.arc(sx, sy, 22, -Math.PI / 2, -Math.PI / 2 + prog * Math.PI * 2); ctx.stroke();
+        ctx.font = '900 12px "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = color;
+        ctx.fillText(p.isP2 ? '2P' : '1P', sx, sy + 4);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '700 11px "Microsoft YaHei", sans-serif';
+        const left = Math.max(0, Math.ceil(12 - (p._downTime || 0)));
+        ctx.fillText(prog > 0 ? '救援中…' : `靠近救起 · ${left}s`, sx, sy - 32);
+        ctx.restore();
     }
 
     function drawCrosshair() {
@@ -2178,6 +2426,7 @@ const Game = (() => {
             pendingTransitionTimeout = null;
             if (token !== transitionToken) return;
             carryOverScore = 0;
+            p2CarryScore = 0;
             gameTime = 0;
             loadLevel(currentLevel);
             state = 'playing';
@@ -2221,6 +2470,7 @@ const Game = (() => {
         // 复活代价：本次死亡前的收益已在死亡时结算；评级按“受伤”计入
         player.earned = 0;
         player.damageTaken += player.maxHealth * 0.5;
+        if (player2) { revivePlayer(player2, cp.x - 50, cp.y, 1); player2.earned = 0; player2.bullets = []; }
         rewardGranted = false;
         continuesUsed++;
         // 清掉场上敌方子弹和首领地面攻击，避免复活瞬间被秒
@@ -2248,6 +2498,7 @@ const Game = (() => {
         if (currentLevel < Levels.length - 1) {
             Renderer.startTransition('scanline', 0.9);
             const prevScore = player ? player.score : 0;
+            p2CarryScore = player2 ? player2.score : 0;
             const prevRage = player ? player.rage : 0;
             const nextIdx = currentLevel + 1;
             clearPendingTransition();
@@ -2273,7 +2524,7 @@ const Game = (() => {
         FX.setLetterbox(false);
         showMenu('level-complete-menu');
         ui.levelCompleteTitle.textContent = `${levelData.name} 通过!`;
-        const final = calculateFinalScore(player, levelTime, currentLevel);
+        const final = calculateFinalScore(resultSubject(), levelTime, currentLevel);
         const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
         const diffText = final.diffBonus !== 0 ? ` | 难度加成: 基础×${final.baseScoreMul} 奖励×${final.bonusMul} ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
         const grade = computeGrade();
@@ -2297,7 +2548,7 @@ const Game = (() => {
         Audio.play('victory');
         state = 'victory';
         showMenu('victory-menu');
-        const final = calculateFinalScore(player, levelTime, currentLevel);
+        const final = calculateFinalScore(resultSubject(), levelTime, currentLevel);
         recordScore(currentLevel, final);
         const diffLabel = DIFFICULTY_CONFIG[currentDifficulty]?.label || '普通';
         const diffText = final.diffBonus !== 0 ? ` | 难度加成: 基础×${final.baseScoreMul} 奖励×${final.bonusMul} ${final.diffBonus > 0 ? '(+' + final.diffBonus + ')' : '(' + final.diffBonus + ')'}` : '';
@@ -2315,6 +2566,10 @@ const Game = (() => {
         FX.clear();
         levelData = null; // 清理渲染状态，避免菜单状态下无谓渲染
         player = null;
+        player2 = null;
+        p2Joined = false;
+        p2CarryScore = 0;
+        Input.p2.reset();
         enemies = [];
         boss = null;
         drops = [];
@@ -2385,8 +2640,9 @@ const Game = (() => {
         showPlayerMenu, hidePlayerMenu, addNewPlayer,
         showLeaderboard, hideLeaderboard, chooseUpgrade,
         showGrowth, hideGrowth, buyUpgrade, continueFromCheckpoint,
+        setCoop, joinP2, isCoop: () => coopMode, hasP2: () => !!player2, isPlaying: () => state === 'playing',
         // 调试用（控制台可查看当前状态）
-        _debug: () => ({ player, enemies, boss, state, combo, maxCombo, levelData, currentLevel, levelTime }),
+        _debug: () => ({ player, p2: player2, enemies, boss, state, combo, maxCombo, levelData, currentLevel, levelTime }),
     };
 })();
 

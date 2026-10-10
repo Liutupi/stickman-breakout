@@ -2858,3 +2858,29 @@ body:not(.touch-device) .controls-gamepad-hint { display: block; }
 .settings-pad { flex: 1; font-size: 12px; color: #9fe8ff; font-variant-numeric: tabular-nums; line-height: 1.4; }
 .settings-ver { float: right; opacity: 0.6; }
 @media (max-height: 500px) { #settings-menu .settings-hint { display: block; font-size: 11px; } }
+
+/* ==================== 双人合作 ==================== */
+.mode-toggle { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin: 0 0 14px; }
+.mode-toggle__btn {
+    appearance: none; padding: 8px 20px; border-radius: 18px; cursor: pointer;
+    border: 1px solid var(--panel-line-strong); background: rgba(8, 14, 26, 0.6);
+    color: var(--muted); font: inherit; font-size: 14px; font-weight: 800; letter-spacing: 1px;
+}
+.mode-toggle__btn.is-on { color: #fff; background: rgba(77, 184, 232, 0.24); border-color: var(--cyan); }
+#mode-coop.is-on { background: rgba(255, 110, 200, 0.24); border-color: #ff8ad8; }
+.mode-toggle__hint { flex-basis: 100%; text-align: center; font-size: 12px; color: var(--muted); }
+.hud-card--p2 { align-items: center; gap: 8px; padding: 6px 10px; min-width: 0; }
+.hud-card--p2.hidden { display: none; }
+.p2-tag { font: 900 13px "Orbitron", sans-serif; color: #ff8ad8; letter-spacing: 1px; }
+.p2-bars { display: flex; flex-direction: column; gap: 3px; width: 120px; }
+.p2-hp, .p2-rage { height: 7px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.p2-rage { height: 4px; }
+#p2-hp-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff5fb8, #ffb3e6); transition: width .15s; }
+#p2-rage-fill { height: 100%; width: 0; background: #ffb347; }
+.p2-status { font-size: 11px; color: #ffd0ee; white-space: nowrap; }
+.hud-card--p2.is-waiting .p2-bars { display: none; }
+.hud-card--p2.is-waiting { animation: p2Wait 1.4s ease-in-out infinite; }
+.hud-card--p2.is-down .p2-status { color: #ff8a8a; font-weight: 800; }
+@keyframes p2Wait { 50% { opacity: 0.55; } }
+@media (max-height: 500px) { .p2-bars { width: 80px; } .mode-toggle { margin-bottom: 6px; } .mode-toggle__btn { padding: 5px 14px; font-size: 13px; } }
+body:not(.touch-device) .controls-coop-hint { display: block; }

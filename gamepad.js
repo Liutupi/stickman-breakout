@@ -9,10 +9,15 @@ const PadInput = (() => {
     // 按键 → 模拟的键盘键
     // 跳跃 = 左摇杆上推 / 十字键上（不占按键）；A 也能射击，方便单手玩
     const KEYMAP = { [BTN.B]: 'KeyC', [BTN.X]: 'KeyE', [BTN.LB]: 'KeyV', [BTN.LT]: 'KeyQ', [BTN.R3]: 'KeyF', [BTN.SELECT]: 'KeyR', [BTN.START]: 'Escape', [BTN.L3]: 'ShiftLeft' };
-    let stickJump = false;
+    // 输入“去向”：1P = 全局输入（与键盘鼠标共用），2P = 双人模式下 2P 的独立输入源
+    const SINKS = {
+        p1: { held: {}, stickJump: false, keyDown: c => Input.keyDown(c), keyUp: c => Input.keyUp(c), fire: v => Input.setGamepadFire(v), aim: v => Input.setGamepadAim(v), scroll: n => Input.addScroll(n) },
+        p2: { held: {}, stickJump: false, keyDown: c => Input.p2.keyDown(c), keyUp: c => Input.p2.keyUp(c), fire: v => Input.p2.setFire(v), aim: v => Input.p2.setAim(v), scroll: n => Input.p2.addScroll(n) },
+    };
+    const prevByPad = {};
+    const prevOf = p => prevByPad[p.index] || [];
+    let awake = false;        // 手柄是否已被按过（第一下只用于唤醒，不当确认）
 
-    let prev = [];
-    let held = {};            // 当前由手柄按住的键盘键
     let running = false;
     let menuFocus = null, menuRoot = null, navCooldown = 0, lastT = 0;
     let announced = false;
@@ -23,17 +28,19 @@ const PadInput = (() => {
 
     function pressed(b) { return !!b && (b.pressed || b.value > 0.5); }
 
-    function setKey(code, down) {
-        if (down && !held[code]) { held[code] = true; Input.keyDown(code); }
-        else if (!down && held[code]) { held[code] = false; Input.keyUp(code); }
+    function setKey(sink, code, down) {
+        if (down && !sink.held[code]) { sink.held[code] = true; sink.keyDown(code); }
+        else if (!down && sink.held[code]) { sink.held[code] = false; sink.keyUp(code); }
     }
-    function releaseAll() {
-        for (const code in held) if (held[code]) Input.keyUp(code);
-        held = {};
-        stickJump = false;
-        Input.setGamepadFire(false);
-        Input.setGamepadAim(null);
+    function releaseSink(sink) {
+        for (const code in sink.held) if (sink.held[code]) sink.keyUp(code);
+        sink.held = {};
+        sink.stickJump = false;
+        sink.fire(false);
+        sink.aim(null);
     }
+    function releaseAll() { releaseSink(SINKS.p1); releaseSink(SINKS.p2); }
+    function isCoop() { return typeof Game !== 'undefined' && Game.isCoop && Game.isCoop(); }
 
     function toast(text) {
         let el = document.getElementById('gp-toast');
@@ -132,6 +139,7 @@ const PadInput = (() => {
             else moveFocus(items, dx, dy);
             navCooldown = navCooldown < -0.05 ? 0.28 : 0.13;    // 按住时先停顿再连跳
         } else if (!dx && !dy) navCooldown = 0;
+        const prev = prevOf(p);
         const edge = b => pressed(p.buttons[b]) && !prev[b];
         if (edge(BTN.A)) activate(menuFocus);
         if (edge(BTN.B)) back(root);
@@ -157,7 +165,7 @@ const PadInput = (() => {
         return null;
     }
 
-    function playStep(p) {
+    function playStep(p, sink) {
         const ax = p.axes[0] || 0, ay = p.axes[1] || 0;
         const b = p.buttons.slice();
         const hat = hatDirs(p);
@@ -167,19 +175,19 @@ const PadInput = (() => {
             if (hat.left) b[BTN.LEFT] = { pressed: true, value: 1 };
             if (hat.right) b[BTN.RIGHT] = { pressed: true, value: 1 };
         }
-        setKey('KeyA', ax < -DEAD || pressed(b[BTN.LEFT]));
-        setKey('KeyD', ax > DEAD || pressed(b[BTN.RIGHT]));
-        setKey('KeyS', ay > 0.6 || pressed(b[BTN.DOWN]));
+        setKey(sink, 'KeyA', ax < -DEAD || pressed(b[BTN.LEFT]));
+        setKey(sink, 'KeyD', ax > DEAD || pressed(b[BTN.RIGHT]));
+        setKey(sink, 'KeyS', ay > 0.6 || pressed(b[BTN.DOWN]));
         // 左摇杆明显上推 = 跳；回到中间附近才算松开，再推一次就是二段跳
-        if (!stickJump && ay < -0.55 && -ay > Math.abs(ax) * 0.6) stickJump = true;
-        else if (stickJump && ay > -0.3) stickJump = false;
-        setKey('Space', stickJump || pressed(b[BTN.UP]));
-        for (const k in KEYMAP) setKey(KEYMAP[k], pressed(b[k]));
-        if (pressed(b[BTN.Y]) && !prev[BTN.Y]) Input.addScroll(1);
-        Input.setGamepadFire(pressed(b[BTN.A]) || pressed(b[BTN.RT]) || pressed(b[BTN.RB]));
+        if (!sink.stickJump && ay < -0.55 && -ay > Math.abs(ax) * 0.6) sink.stickJump = true;
+        else if (sink.stickJump && ay > -0.3) sink.stickJump = false;
+        setKey(sink, 'Space', sink.stickJump || pressed(b[BTN.UP]));
+        for (const k in KEYMAP) setKey(sink, KEYMAP[k], pressed(b[k]));
+        if (pressed(b[BTN.Y]) && !prevOf(p)[BTN.Y]) sink.scroll(1);
+        sink.fire(pressed(b[BTN.A]) || pressed(b[BTN.RT]) || pressed(b[BTN.RB]));
         const rx = p.axes[2] || 0, ry = p.axes[3] || 0;
         const m = Math.hypot(rx, ry);
-        Input.setGamepadAim(m > 0.35 ? { x: rx / m, y: ry / m } : null);
+        sink.aim(m > 0.35 ? { x: rx / m, y: ry / m } : null);
     }
 
     function anyInput(p) {
@@ -194,29 +202,53 @@ const PadInput = (() => {
         lastT = now;
         const list = pads();
         if (!list.length) return;
-        const p = list.find(anyInput) || list[0];
-        if (anyInput(p) && !Input.gamepadActive()) {
-            Input.setGamepadActive(true);
-            if (!announced) { announced = true; toast('手柄已连接 · 摇杆上推跳 / A 或 RT 射击 / 右摇杆瞄准'); }
+        const savePrev = () => { for (const q of list) prevByPad[q.index] = q.buttons.map(pressed); };
+        const coop = isCoop();
+        const active = list.find(anyInput);
+
+        // 第一下只用于唤醒
+        if (active && !awake) {
+            awake = true;
+            if (!coop) Input.setGamepadActive(true);
+            if (!announced) { announced = true; toast(coop ? '手柄已连接 · 双人模式下此手柄为 2P' : '手柄已连接 · 摇杆上推跳 / A 或 RT 射击 / 右摇杆瞄准'); }
             try { Audio.init(); } catch (e) { /* ignore */ }
-            prev = p.buttons.map(pressed);      // 唤醒用的这一下不当作确认，避免误触开局
+            savePrev();
             return;
         }
-        if (!Input.gamepadActive()) { prev = p.buttons.map(pressed); return; }
+        if (!awake) { savePrev(); return; }
 
         const root = visibleMenu();
         const rotate = document.getElementById('rotate-hint');
         const rotateOn = rotate && getComputedStyle(rotate).display !== 'none';
         if (root && !rotateOn) {
             releaseAll();
-            // Start 在暂停菜单里也要能直接继续（交给游戏的 Escape 逻辑之外处理）
-            menuStep(p, now, dt, root);
+            // 菜单：任何一个手柄都能操作
+            menuStep(active || list[0], now, dt, root);
         } else {
             if (menuFocus) setFocus(null);
             menuRoot = null;
-            playStep(p);
+            if (coop) {
+                // 双人：只有 1 个手柄 → 给 2P；2 个手柄 → 第 1 个给 1P，第 2 个给 2P
+                const p2pad = list.length >= 2 ? list[1] : list[0];
+                const p1pad = list.length >= 2 ? list[0] : null;
+                if (p1pad) {
+                    if (anyInput(p1pad) && !Input.gamepadActive()) Input.setGamepadActive(true);
+                    if (Input.gamepadActive()) playStep(p1pad, SINKS.p1);
+                } else if (Input.gamepadActive()) { releaseSink(SINKS.p1); Input.setGamepadActive(false); }
+                if (!Game.hasP2()) {
+                    releaseSink(SINKS.p2);
+                    if (anyInput(p2pad) && Game.isPlaying && Game.isPlaying()) { Game.joinP2(); savePrev(); return; }
+                } else {
+                    playStep(p2pad, SINKS.p2);
+                }
+            } else {
+                releaseSink(SINKS.p2);
+                const p = active || list[0];
+                if (active && !Input.gamepadActive()) Input.setGamepadActive(true);
+                if (Input.gamepadActive()) playStep(p, SINKS.p1);
+            }
         }
-        prev = p.buttons.map(pressed);
+        savePrev();
     }
 
     function start() {
@@ -228,13 +260,14 @@ const PadInput = (() => {
 
     // 震动反馈（支持的手柄才会震）
     function rumble(strength, ms) {
-        if (!Input.gamepadActive()) return;
-        const p = pads()[0];
-        const act = p && p.vibrationActuator;
-        if (!act || !act.playEffect) return;
-        try {
-            act.playEffect('dual-rumble', { duration: Math.min(400, ms || 120), strongMagnitude: Math.min(1, strength), weakMagnitude: Math.min(1, strength * 0.7) }).catch(() => {});
-        } catch (e) { /* ignore */ }
+        if (!Input.gamepadActive() && !isCoop()) return;
+        for (const p of pads()) {
+            const act = p && p.vibrationActuator;
+            if (!act || !act.playEffect) continue;
+            try {
+                act.playEffect('dual-rumble', { duration: Math.min(400, ms || 120), strongMagnitude: Math.min(1, strength), weakMagnitude: Math.min(1, strength * 0.7) }).catch(() => {});
+            } catch (e) { /* ignore */ }
+        }
     }
 
     window.addEventListener('gamepadconnected', e => { toast(`已检测到手柄：按任意键开始使用`); start(); });

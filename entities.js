@@ -1042,7 +1042,9 @@ class Player {
         for (let i = 1; i < n; i++) {
             const a = this.scarf[i - 1], b = this.scarf[i];
             const t = i / n;
-            ctx.strokeStyle = od ? `rgba(255,${200 - t * 120},60,${1 - t * 0.5})` : `rgba(${112 + t * 55},${212 + t * 25},255,${1 - t * 0.35})`;
+            ctx.strokeStyle = od ? `rgba(255,${200 - t * 120},60,${1 - t * 0.5})`
+                : this.isP2 ? `rgba(255,${110 + t * 70},${200 + t * 30},${1 - t * 0.35})`   // 2P：粉色围巾
+                : `rgba(${112 + t * 55},${212 + t * 25},255,${1 - t * 0.35})`;
             ctx.lineWidth = 5 + (this.appearance ? this.appearance.index * 0.3 : 0) - t * 2.6;
             ctx.beginPath();
             ctx.moveTo(a.x - cx, a.y - cy);
@@ -1057,11 +1059,11 @@ class Player {
         const crouch = this.crouching;
         const isFlashing = this.invincibleTimer > 0 && this.invincibleTimer < 0.5 && Math.sin(this.invincibleTimer * 30) > 0;
         const od = this.overdriveTimer > 0;
-        const bodyColor = isFlashing ? '#ff6b6b' : '#f4f8ff';
-        const rimColor = od ? 'rgba(255,170,60,0.55)' : 'rgba(110,210,255,0.35)';
+        const bodyColor = isFlashing ? '#ff6b6b' : this.isP2 ? '#ffe6f6' : '#f4f8ff';
+        const rimColor = od ? 'rgba(255,170,60,0.55)' : this.isP2 ? 'rgba(255,120,210,0.5)' : 'rgba(110,210,255,0.35)';
         const appearance = this.appearance || HeroAppearance.TIERS[0];
         const armor = appearance.armor;
-        const armorLine = od ? '#ffb347' : appearance.accent;
+        const armorLine = od ? '#ffb347' : this.isP2 ? '#ff8ad8' : appearance.accent;
 
         // 姿态参数
         const moveRatio = Utils.clamp(Math.abs(this.vx) / this.speed, 0, 1.6);

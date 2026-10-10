@@ -273,19 +273,36 @@ const Input = (() => {
         delete keyHoldTime[code];
     }
 
-    function isDown(code) { return !!keys[code]; }
-    function wasPressed(code) { return justPressed.has(code); }
+    // ---- 双人：2P 的独立输入源（由 2P 手柄写入）；更新 2P 时用 useSource 切换，所有查询自动读 2P 的状态 ----
+    function makeSource() { return { keys: {}, just: new Set(), hold: {}, fire: false, fireJust: false, scroll: 0, aimVec: null, aimOverride: null }; }
+    const p2src = makeSource();
+    let cur = null;
+    function useSource(src) { cur = src || null; }
+    const p2 = {
+        src: p2src,
+        keyDown(code) { if (!p2src.keys[code]) { p2src.just.add(code); p2src.hold[code] = 0; } p2src.keys[code] = true; },
+        keyUp(code) { p2src.keys[code] = false; delete p2src.hold[code]; },
+        setFire(v) { if (v && !p2src.fire) p2src.fireJust = true; p2src.fire = !!v; },
+        setAim(v) { p2src.aimVec = v; },
+        addScroll(n) { p2src.scroll += n; },
+        pressed(code) { return p2src.just.has(code); },
+        reset() { p2src.keys = {}; p2src.just.clear(); p2src.hold = {}; p2src.fire = false; p2src.fireJust = false; p2src.scroll = 0; p2src.aimVec = null; p2src.aimOverride = null; },
+    };
+
+    function isDown(code) { return cur ? !!cur.keys[code] : !!keys[code]; }
+    function wasPressed(code) { return cur ? cur.just.has(code) : justPressed.has(code); }
     // 画面在矮屏上会整体缩放，这里把屏幕坐标换算成画布逻辑坐标
     function getMouse() {
+        if (cur) return cur.aimOverride ? { x: cur.aimOverride.x, y: cur.aimOverride.y } : { x: 0, y: 0 };
         if (aimOverride) return { x: aimOverride.x, y: aimOverride.y };
         const s = (typeof Renderer !== 'undefined' && Renderer.viewScale) ? Renderer.viewScale() : 1;
         return { x: mouseX / s, y: mouseY / s };
     }
-    function isMouseDown() { return mouseDown || gp.fire; }
-    function wasMousePressed() { return mouseJustPressed; }
-    function getScrollDelta() { return scrollDelta; }
-    function clearScrollDelta() { scrollDelta = 0; }
-    function getHoldTime(code) { return keyHoldTime[code] || 0; }
+    function isMouseDown() { return cur ? cur.fire : (mouseDown || gp.fire); }
+    function wasMousePressed() { return cur ? cur.fireJust : mouseJustPressed; }
+    function getScrollDelta() { return cur ? cur.scroll : scrollDelta; }
+    function clearScrollDelta() { if (cur) cur.scroll = 0; else scrollDelta = 0; }
+    function getHoldTime(code) { return cur ? (cur.hold[code] || 0) : (keyHoldTime[code] || 0); }
 
     function update(dt) {
         for (const code in keyHoldTime) {
@@ -293,12 +310,16 @@ const Input = (() => {
                 keyHoldTime[code] += dt;
             }
         }
+        for (const code in p2src.hold) if (p2src.keys[code]) p2src.hold[code] += dt;
     }
 
     function endFrame() {
         justPressed.clear();
         mouseJustPressed = false;
         scrollDelta = 0;
+        p2src.just.clear();
+        p2src.fireJust = false;
+        p2src.scroll = 0;
     }
 
     // ---- 手柄（由 gamepad.js 写入） ----
@@ -317,10 +338,11 @@ const Input = (() => {
     function gamepadActive() { return gp.active; }
 
     function getTouchAim() {
+        if (cur) return { active: cur.fire, vec: cur.aimVec };
         if (gp.active && touchAimId === null) return { active: gp.fire, vec: gp.aimVec };
         return { active: touchAimId !== null, vec: aimVec };
     }
-    function setAimOverride(p) { aimOverride = p; }
+    function setAimOverride(p) { if (cur) cur.aimOverride = p; else aimOverride = p; }
     function isTouch() { return document.body.classList.contains('touch-device'); }
 
     // 页面一加载就标记触屏设备（之前要等开局才加，导致菜单里的手机样式不生效）
@@ -328,5 +350,5 @@ const Input = (() => {
         if (('ontouchstart' in window || navigator.maxTouchPoints > 0) && document.body) document.body.classList.add('touch-device');
     } catch (e) { /* ignore */ }
 
-    return { setGamepadActive, setGamepadFire, setGamepadAim, addScroll, gamepadActive, keyDown: simulateKeyDown, keyUp: simulateKeyUp, getTouchAim, setAimOverride, isTouch, init, isDown, wasPressed, getMouse, isMouseDown, wasMousePressed, getScrollDelta, getHoldTime, update, endFrame, _getJustPressed: () => justPressed };
+    return { useSource, p2, setGamepadActive, setGamepadFire, setGamepadAim, addScroll, gamepadActive, keyDown: simulateKeyDown, keyUp: simulateKeyUp, getTouchAim, setAimOverride, isTouch, init, isDown, wasPressed, getMouse, isMouseDown, wasMousePressed, getScrollDelta, getHoldTime, update, endFrame, _getJustPressed: () => justPressed };
 })();
