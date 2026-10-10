@@ -1340,6 +1340,8 @@ const Game = (() => {
             if (player.weapon.level < player.weapon.maxLevel) {
                 ui.upgradeHint.classList.remove('hidden');
                 ui.upgradeCost.textContent = player.weapon.getUpgradeCost();
+                const uk = $('upgrade-key');
+                if (uk) { const k = Input.gamepadActive() ? 'Select（视图键）' : 'R'; if (uk.textContent !== k) uk.textContent = k; }
             } else {
                 ui.upgradeHint.classList.add('hidden');
             }

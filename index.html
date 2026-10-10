@@ -17,7 +17,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=19">
+    <link rel="stylesheet" href="style.css?v=20">
 </head>
 <body>
     <div id="boot-screen" class="boot-screen hidden" aria-hidden="true" onclick="Game.bootStart()">
@@ -132,7 +132,7 @@
                         <div class="control-item"><span class="key">LT（按住）</span><span>投掷瞄准，松开扔出</span></div>
                         <div class="control-item"><span class="key">RB（或按下右摇杆）</span><span>切换手雷 / 燃烧瓶</span></div>
                         <div class="control-item"><span class="key">L3（按左摇杆）</span><span>开启护盾</span></div>
-                        <div class="control-item"><span class="key">Select / 视图键</span><span>升级武器</span></div>
+                        <div class="control-item"><span class="key">Select / 视图键</span><span>升级武器（Xbox：中间左边的“两个小方框”键；PS：Share/创建键；Switch：“−”键）</span></div>
                         <div class="control-item"><span class="key">Start / 菜单键</span><span>暂停</span></div>
                         <div class="control-item"><span class="key">菜单里</span><span>摇杆选择，A 确认，B 返回</span></div>
                     </div>
@@ -423,7 +423,7 @@
             <div id="weapon-level-display" class="hud-card hud-card--upgrade">
                 <span class="hud-label">武器状态</span>
                 <span id="current-weapon-level">Lv.1</span>
-                <span id="upgrade-hint" class="hidden">按 R 升级，需要 <span id="upgrade-cost">500</span> 分</span>
+                <span id="upgrade-hint" class="hidden">按 <b id="upgrade-key">R</b> 升级，需要 <span id="upgrade-cost">500</span> 分</span>
             </div>
 
             <div id="thrown-weapons" class="hud-card hud-card--throwables">
@@ -488,25 +488,25 @@
         <button class="m-btn m-btn-pause" id="m-btn-pause">⏸</button>
     </div>
 
-    <script src="utils.js?v=19"></script>
-    <script src="audio.js?v=19"></script>
-    <script src="input.js?v=19"></script>
-    <script src="particles.js?v=19"></script>
-    <script src="fx.js?v=19"></script>
-    <script src="weapons.js?v=19"></script>
-    <script src="boss-motion.js?v=19"></script>
-    <script src="art.js?v=19"></script>
-    <script src="enemy-types.js?v=19"></script>
-    <script src="hero-appearance.js?v=19"></script>
-    <script src="entities.js?v=19"></script>
-    <script src="levels.js?v=19"></script>
-    <script src="campaign.js?v=19"></script>
-    <script src="progression.js?v=19"></script>
-    <script src="renderer.js?v=19"></script>
-    <script src="settings.js?v=19"></script>
-    <script src="install.js?v=19"></script>
-    <script src="gamepad.js?v=19"></script>
-    <script src="game.js?v=19"></script>
+    <script src="utils.js?v=20"></script>
+    <script src="audio.js?v=20"></script>
+    <script src="input.js?v=20"></script>
+    <script src="particles.js?v=20"></script>
+    <script src="fx.js?v=20"></script>
+    <script src="weapons.js?v=20"></script>
+    <script src="boss-motion.js?v=20"></script>
+    <script src="art.js?v=20"></script>
+    <script src="enemy-types.js?v=20"></script>
+    <script src="hero-appearance.js?v=20"></script>
+    <script src="entities.js?v=20"></script>
+    <script src="levels.js?v=20"></script>
+    <script src="campaign.js?v=20"></script>
+    <script src="progression.js?v=20"></script>
+    <script src="renderer.js?v=20"></script>
+    <script src="settings.js?v=20"></script>
+    <script src="install.js?v=20"></script>
+    <script src="gamepad.js?v=20"></script>
+    <script src="game.js?v=20"></script>
     <script>
     (function() {
         const scene = document.querySelector('.title-scene');

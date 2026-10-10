@@ -1,7 +1,7 @@
 // ==================== 设置与画质 ====================
 // 音乐 / 音效分开调、震屏强度、画质（自动 / 高 / 中 / 低），保存在本机 localStorage。
 // 自动画质：战斗中持续数秒低于 45 帧时逐级降档，并提示玩家。
-const GAME_VERSION = '2026.10.10-g';
+const GAME_VERSION = '2026.10.10-h';
 const Settings = (() => {
     const KEY = 'stickman_settings';
     const QUALITY = {
