@@ -2808,3 +2808,37 @@ body.quality-low .hud-card, body.quality-low .aim-area, body.quality-low .stick-
     body.touch-device .m-context { bottom: 58px; }
     body.touch-device .m-pill { padding: 0 8px; letter-spacing: 0; }
 }
+
+/* ==================== 添加到桌面 ==================== */
+.menu-btn--install { border-color: rgba(124, 231, 255, 0.45) !important; color: #9be7ff !important; }
+.menu-btn.hidden { display: none !important; }
+.install-guide { position: fixed; inset: 0; z-index: 9500; display: flex; align-items: center; justify-content: center; padding: 12px; background: rgba(3, 6, 12, 0.78); }
+.install-guide.hidden { display: none; }
+.install-guide__card {
+    width: min(420px, 100%); max-height: calc(100vh - 24px); overflow-y: auto;
+    padding: 20px 22px 18px; border-radius: 14px; text-align: center;
+    border: 1px solid var(--panel-line-strong); background: linear-gradient(180deg, rgba(14, 23, 38, 0.98), rgba(7, 13, 24, 0.98));
+    box-shadow: var(--shadow); color: var(--text);
+}
+.install-guide__icon { width: 64px; height: 64px; border-radius: 14px; box-shadow: 0 0 20px rgba(77, 184, 232, 0.35); }
+.install-guide__title { font-size: 20px; font-weight: 900; margin: 10px 0 8px; letter-spacing: 1px; }
+.install-guide__steps { text-align: left; font-size: 14px; line-height: 1.6; color: #c9d6e6; margin-bottom: 14px; }
+.install-guide__steps p { margin: 6px 0; }
+.install-guide__steps b { color: #ffd36b; }
+@media (max-height: 500px) {
+    .install-guide__card { display: grid; grid-template-columns: 64px 1fr; column-gap: 16px; align-items: start; text-align: left; padding: 14px 18px; width: min(560px, 100%); }
+    .install-guide__icon { grid-row: span 3; width: 56px; height: 56px; }
+    .install-guide__title { margin: 0 0 4px; font-size: 17px; }
+    .install-guide__steps { font-size: 13px; margin-bottom: 8px; }
+    .install-guide__steps p { margin: 3px 0; }
+    .install-guide__card .menu-btn { justify-self: start; padding: 8px 18px; min-width: 0; }
+}
+/* 从桌面图标打开（全屏）时不再需要横屏全屏请求提示等 */
+@media (display-mode: fullscreen), (display-mode: standalone) {
+    .menu-btn--install { display: none !important; }
+}
+/* 竖屏手机标题页：次要按钮两两一行，避免内容超出屏幕顶部 */
+@media (orientation: portrait) and (max-width: 720px) {
+    .hero-actions--secondary { display: grid !important; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .hero-actions--secondary .menu-btn { width: 100%; min-width: 0; padding-left: 8px; padding-right: 8px; }
+}

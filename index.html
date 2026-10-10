@@ -10,10 +10,14 @@
     <meta name="theme-color" content="#0a101a">
     <title>火柴人：突围行动</title>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="assets/icons/icon-180.png">
+    <meta name="apple-mobile-web-app-title" content="火柴人突围">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=11">
+    <link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
     <div id="boot-screen" class="boot-screen hidden" aria-hidden="true" onclick="Game.bootStart()">
@@ -63,10 +67,11 @@
                         <button class="player-bar__btn" onclick="Game.showPlayerMenu()">切换</button>
                     </div>
 
-                    <div class="hero-actions hero-actions--title" style="margin-top: 14px;">
+                    <div class="hero-actions hero-actions--title hero-actions--secondary" style="margin-top: 14px;">
                         <button class="menu-btn secondary" onclick="Game.showControls()">查看操作</button>
                         <button class="menu-btn secondary" onclick="Game.showLeaderboard()">作战排行榜</button>
                         <button class="menu-btn secondary" onclick="Settings.show('start-menu')">设置</button>
+                        <button id="install-btn" class="menu-btn secondary menu-btn--install hidden" onclick="Install.prompt()">添加到桌面</button>
                     </div>
 
                     <div class="title-footnote">建议佩戴耳机体验开机音乐与环境音</div>
@@ -378,6 +383,15 @@
     </div>
 
     <!-- 移动端虚拟控制 -->
+    <div id="install-guide" class="install-guide hidden" onclick="if (event.target === this) Install.hide()">
+        <div class="install-guide__card">
+            <img src="assets/icons/icon-192.png" alt="" class="install-guide__icon">
+            <div class="install-guide__title">添加到桌面</div>
+            <div class="install-guide__steps"></div>
+            <button class="menu-btn" onclick="Install.hide()">知道了</button>
+        </div>
+    </div>
+
     <div id="rotate-hint" aria-live="polite">
         <div class="rotate-hint__phone"><span></span></div>
         <div class="rotate-hint__title">请把手机横过来</div>
@@ -413,23 +427,24 @@
         <button class="m-btn m-btn-pause" id="m-btn-pause">⏸</button>
     </div>
 
-    <script src="utils.js?v=11"></script>
-    <script src="audio.js?v=11"></script>
-    <script src="input.js?v=11"></script>
-    <script src="particles.js?v=11"></script>
-    <script src="fx.js?v=11"></script>
-    <script src="weapons.js?v=11"></script>
-    <script src="boss-motion.js?v=11"></script>
-    <script src="art.js?v=11"></script>
-    <script src="enemy-types.js?v=11"></script>
-    <script src="hero-appearance.js?v=11"></script>
-    <script src="entities.js?v=11"></script>
-    <script src="levels.js?v=11"></script>
-    <script src="campaign.js?v=11"></script>
-    <script src="progression.js?v=11"></script>
-    <script src="renderer.js?v=11"></script>
-    <script src="settings.js?v=11"></script>
-    <script src="game.js?v=11"></script>
+    <script src="utils.js?v=12"></script>
+    <script src="audio.js?v=12"></script>
+    <script src="input.js?v=12"></script>
+    <script src="particles.js?v=12"></script>
+    <script src="fx.js?v=12"></script>
+    <script src="weapons.js?v=12"></script>
+    <script src="boss-motion.js?v=12"></script>
+    <script src="art.js?v=12"></script>
+    <script src="enemy-types.js?v=12"></script>
+    <script src="hero-appearance.js?v=12"></script>
+    <script src="entities.js?v=12"></script>
+    <script src="levels.js?v=12"></script>
+    <script src="campaign.js?v=12"></script>
+    <script src="progression.js?v=12"></script>
+    <script src="renderer.js?v=12"></script>
+    <script src="settings.js?v=12"></script>
+    <script src="install.js?v=12"></script>
+    <script src="game.js?v=12"></script>
     <script>
     (function() {
         const scene = document.querySelector('.title-scene');
