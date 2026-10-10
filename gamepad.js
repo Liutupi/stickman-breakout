@@ -1,13 +1,15 @@
 // ==================== 手柄支持（蓝牙 / 有线，标准布局：Xbox / PS / Switch Pro / 多数安卓手柄） ====================
-// 战斗：左摇杆/十字键移动，A 跳，B 冲刺，X 拾取，Y 切枪，RT/RB 射击，LT 投掷，LB 切换手雷/燃烧瓶，
-//       右摇杆瞄准（不推则自动瞄准最近敌人），R3/十字键上 狂暴，L3 护盾，Select 升级武器，Start 暂停。
+// 战斗：左摇杆/十字键移动，摇杆上推/十字键上 跳（二段跳再推一次），摇杆下 蹲；A/RT/RB 射击，右摇杆瞄准（不推则自动瞄准）；
+//       B 冲刺，X 拾取，Y 切枪，LB 狂暴，LT 投掷，R3 切换手雷/燃烧瓶，L3 护盾，Select 升级武器，Start 暂停。
 // 菜单：摇杆/十字键移动选择，A 确认，B 返回。
 const PadInput = (() => {
     const DEAD = 0.28;
     // 标准按键编号
     const BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, SELECT: 8, START: 9, L3: 10, R3: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
     // 按键 → 模拟的键盘键
-    const KEYMAP = { [BTN.A]: 'Space', [BTN.B]: 'KeyC', [BTN.X]: 'KeyE', [BTN.LB]: 'KeyF', [BTN.LT]: 'KeyQ', [BTN.SELECT]: 'KeyR', [BTN.START]: 'Escape', [BTN.L3]: 'ShiftLeft', [BTN.R3]: 'KeyV', [BTN.UP]: 'KeyV' };
+    // 跳跃 = 左摇杆上推 / 十字键上（不占按键）；A 也能射击，方便单手玩
+    const KEYMAP = { [BTN.B]: 'KeyC', [BTN.X]: 'KeyE', [BTN.LB]: 'KeyV', [BTN.LT]: 'KeyQ', [BTN.R3]: 'KeyF', [BTN.SELECT]: 'KeyR', [BTN.START]: 'Escape', [BTN.L3]: 'ShiftLeft' };
+    let stickJump = false;
 
     let prev = [];
     let held = {};            // 当前由手柄按住的键盘键
@@ -28,6 +30,7 @@ const PadInput = (() => {
     function releaseAll() {
         for (const code in held) if (held[code]) Input.keyUp(code);
         held = {};
+        stickJump = false;
         Input.setGamepadFire(false);
         Input.setGamepadAim(null);
     }
@@ -142,14 +145,13 @@ const PadInput = (() => {
         setKey('KeyA', ax < -DEAD || pressed(b[BTN.LEFT]));
         setKey('KeyD', ax > DEAD || pressed(b[BTN.RIGHT]));
         setKey('KeyS', ay > 0.6 || pressed(b[BTN.DOWN]));
-        for (const k in KEYMAP) {
-            const code = KEYMAP[k];
-            if (code === 'KeyV') continue;
-            setKey(code, pressed(b[k]));
-        }
-        setKey('KeyV', pressed(b[BTN.R3]) || pressed(b[BTN.UP]));
+        // 左摇杆明显上推 = 跳；回到中间附近才算松开，再推一次就是二段跳
+        if (!stickJump && ay < -0.55 && -ay > Math.abs(ax) * 0.6) stickJump = true;
+        else if (stickJump && ay > -0.3) stickJump = false;
+        setKey('Space', stickJump || pressed(b[BTN.UP]));
+        for (const k in KEYMAP) setKey(KEYMAP[k], pressed(b[k]));
         if (pressed(b[BTN.Y]) && !prev[BTN.Y]) Input.addScroll(1);
-        Input.setGamepadFire(pressed(b[BTN.RT]) || pressed(b[BTN.RB]));
+        Input.setGamepadFire(pressed(b[BTN.A]) || pressed(b[BTN.RT]) || pressed(b[BTN.RB]));
         const rx = p.axes[2] || 0, ry = p.axes[3] || 0;
         const m = Math.hypot(rx, ry);
         Input.setGamepadAim(m > 0.35 ? { x: rx / m, y: ry / m } : null);
@@ -170,7 +172,7 @@ const PadInput = (() => {
         const p = list.find(anyInput) || list[0];
         if (anyInput(p) && !Input.gamepadActive()) {
             Input.setGamepadActive(true);
-            if (!announced) { announced = true; toast('手柄已连接 · A 跳 / RT 射击 / 右摇杆瞄准'); }
+            if (!announced) { announced = true; toast('手柄已连接 · 摇杆上推跳 / A 或 RT 射击 / 右摇杆瞄准'); }
             try { Audio.init(); } catch (e) { /* ignore */ }
             prev = p.buttons.map(pressed);      // 唤醒用的这一下不当作确认，避免误触开局
             return;
