@@ -1,7 +1,7 @@
 // ==================== 设置与画质 ====================
 // 音乐 / 音效分开调、震屏强度、画质（自动 / 高 / 中 / 低），保存在本机 localStorage。
 // 自动画质：战斗中持续数秒低于 45 帧时逐级降档，并提示玩家。
-const GAME_VERSION = '2026.10.10-e';
+const GAME_VERSION = '2026.10.10-f';
 const Settings = (() => {
     const KEY = 'stickman_settings';
     const QUALITY = {
@@ -149,3 +149,36 @@ const Settings = (() => {
 })();
 
 try { Settings.apply(); } catch (e) { console.warn('设置应用失败', e); }
+
+// ==================== 新版本提示 ====================
+// 浏览器/CDN 可能缓存旧文件几分钟。启动时向服务器要最新版本号（绕过缓存），
+// 和当前运行的版本不一致就在顶部提示，点一下清掉缓存并重新加载。
+(function checkForUpdate() {
+    if (location.protocol === 'file:') return;
+    function forceReload() {
+        const done = () => location.replace(location.pathname + '?v=' + Date.now());
+        const jobs = [];
+        try { if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister())))); } catch (e) { /* ignore */ }
+        try { if (window.caches) jobs.push(caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k))))); } catch (e) { /* ignore */ }
+        Promise.all(jobs).then(done, done);
+    }
+    function show(ver) {
+        let el = document.getElementById('update-bar');
+        if (!el) {
+            el = document.createElement('button');
+            el.id = 'update-bar';
+            el.onclick = forceReload;
+            document.body.appendChild(el);
+        }
+        el.textContent = `有新版本 ${ver}（当前 ${GAME_VERSION}）· 点这里更新`;
+    }
+    function check() {
+        fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
+            .then(r => r.ok ? r.json() : null)
+            .then(j => { if (j && j.version && j.version !== GAME_VERSION) show(j.version); })
+            .catch(() => {});
+    }
+    setTimeout(check, 1500);
+    // 切回页面时也查一次（手机上常常是切后台再回来）
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+})();

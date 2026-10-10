@@ -134,3 +134,14 @@ test('九个 Boss 的完整技能循环、阶段切换、护盾计时和落地�
         if(b.shieldActive)return false;
     }return true;})()`));
 });
+
+// 发布检查：version.json 必须和 settings.js 里的 GAME_VERSION 一致，否则玩家会一直看到“有新版本”提示
+test('version.json 与 GAME_VERSION 一致', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const root = path.resolve(__dirname, '..');
+    const src = fs.readFileSync(path.join(root, 'settings.js'), 'utf8');
+    const m = src.match(/const GAME_VERSION = '([^']+)'/);
+    const json = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'));
+    assert.equal(json.version, m && m[1]);
+});
