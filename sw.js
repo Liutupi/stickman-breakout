@@ -1,7 +1,7 @@
 // 火柴人：突围行动 · 离线缓存
 // 策略：页面 / 脚本 / 样式“联网优先”，保证每次都拿到最新版；断网时用缓存。
 // 图片“缓存优先 + 后台更新”。音乐（mp3）按需流式加载，不进缓存。
-const CACHE = 'stickman-v1';
+const CACHE = 'stickman-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './assets/icons/icon-192.png', './assets/title-key-art-guomu.webp'];
 
 self.addEventListener('install', e => {
@@ -32,8 +32,9 @@ self.addEventListener('fetch', e => {
         return;
     }
 
+    // no-cache：每次都向服务器确认是否有新版（有 ETag 时没变化只传很少数据），发布后立刻生效
     e.respondWith(
-        fetch(req).then(res => {
+        fetch(req, { cache: 'no-cache' }).then(res => {
             if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
             return res;
         }).catch(() => caches.match(req, { ignoreSearch: req.mode === 'navigate' }).then(r => r || caches.match('./index.html')))

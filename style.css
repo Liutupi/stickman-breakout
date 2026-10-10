@@ -2855,3 +2855,6 @@ body:not(.touch-device) .controls-gamepad-hint { display: block; }
     pointer-events: none; transition: transform .3s cubic-bezier(.2,1.2,.4,1);
 }
 #gp-toast.is-on { transform: translate(-50%, 0); }
+.settings-pad { flex: 1; font-size: 12px; color: #9fe8ff; font-variant-numeric: tabular-nums; line-height: 1.4; }
+.settings-ver { float: right; opacity: 0.6; }
+@media (max-height: 500px) { #settings-menu .settings-hint { display: block; font-size: 11px; } }

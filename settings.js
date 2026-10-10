@@ -1,6 +1,7 @@
 // ==================== 设置与画质 ====================
 // 音乐 / 音效分开调、震屏强度、画质（自动 / 高 / 中 / 低），保存在本机 localStorage。
 // 自动画质：战斗中持续数秒低于 45 帧时逐级降档，并提示玩家。
+const GAME_VERSION = '2026.10.10-c';
 const Settings = (() => {
     const KEY = 'stickman_settings';
     const QUALITY = {
@@ -105,7 +106,31 @@ const Settings = (() => {
                 <span class="settings-row__label">画质</span>
                 <div class="settings-seg">${qOpts.map(([k, l]) => `<button class="${cfg.quality === k ? 'is-on' : ''}" onclick="Settings.set('quality', '${k}')">${l}</button>`).join('')}</div>
             </div>
-            <p class="settings-hint">手机卡顿时选“自动”或“低”；低画质会关闭部分光晕并减少粒子。</p>`;
+            <div class="settings-row settings-row--pad">
+                <span class="settings-row__label">手柄测试</span>
+                <span class="settings-pad" id="set-pad">未检测到手柄：连上后按任意键</span>
+            </div>
+            <p class="settings-hint">手机卡顿时选“自动”或“低”；低画质会关闭部分光晕并减少粒子。<span class="settings-ver">版本 ${GAME_VERSION}</span></p>`;
+        startPadMonitor();
+    }
+
+    // 手柄测试：实时显示摇杆和按键，方便确认手柄是否被识别、方向是否正确
+    let padTimer = null;
+    function startPadMonitor() {
+        if (padTimer) return;
+        const names = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'Select', 'Start', 'L3', 'R3', '上', '下', '左', '右'];
+        padTimer = setInterval(() => {
+            const el = $('set-pad');
+            const menu = $('settings-menu');
+            if (!el || !menu || menu.classList.contains('hidden')) { clearInterval(padTimer); padTimer = null; return; }
+            let p = null;
+            try { p = Array.from(navigator.getGamepads ? navigator.getGamepads() : []).find(Boolean); } catch (e) { /* ignore */ }
+            if (!p) { el.textContent = '未检测到手柄：连上后按任意键'; return; }
+            const ax = (p.axes[0] || 0).toFixed(1), ay = (p.axes[1] || 0).toFixed(1);
+            const down = p.buttons.map((b, i) => (b && (b.pressed || b.value > 0.5)) ? (names[i] || '#' + i) : null).filter(Boolean);
+            const dir = ay < -0.55 ? '↑跳' : ay > 0.6 ? '↓蹲' : ax < -0.3 ? '←' : ax > 0.3 ? '→' : '·';
+            el.textContent = `${p.mapping === 'standard' ? '标准' : '非标准'}布局 · 左摇杆 ${ax}, ${ay} ${dir} · 按下: ${down.join(' ') || '无'}`;
+        }, 100);
     }
 
     function set(key, value) {

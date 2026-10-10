@@ -139,9 +139,34 @@ const PadInput = (() => {
     }
 
     // ---------- 战斗 ----------
+    // 非标准布局（很多手柄的 D-input 模式）：十字键常以“帽子开关”报在某个轴上（上≈-1，右≈-0.43，下≈0.14，左≈0.71）
+    function hatDirs(p) {
+        if (p.mapping === 'standard') return null;
+        // 只看第 10 个轴（Chrome 在 Windows 上报告帽子开关的位置），避免把扳机的静止值 -1 误当成“上”
+        {
+            const v = p.axes[9];
+            if (v === undefined || v > 1.05 || v < -1.05) return null;
+            const near = t => Math.abs(v - t) < 0.12;
+            if (near(-1) || near(-0.71) || near(1)) return { up: true, right: near(-0.71), left: near(1), down: false };
+            if (near(-0.43)) return { right: true };
+            if (near(-0.14)) return { right: true, down: true };
+            if (near(0.14)) return { down: true };
+            if (near(0.43)) return { down: true, left: true };
+            if (near(0.71)) return { left: true };
+        }
+        return null;
+    }
+
     function playStep(p) {
         const ax = p.axes[0] || 0, ay = p.axes[1] || 0;
-        const b = p.buttons;
+        const b = p.buttons.slice();
+        const hat = hatDirs(p);
+        if (hat) {
+            if (hat.up) b[BTN.UP] = { pressed: true, value: 1 };
+            if (hat.down) b[BTN.DOWN] = { pressed: true, value: 1 };
+            if (hat.left) b[BTN.LEFT] = { pressed: true, value: 1 };
+            if (hat.right) b[BTN.RIGHT] = { pressed: true, value: 1 };
+        }
         setKey('KeyA', ax < -DEAD || pressed(b[BTN.LEFT]));
         setKey('KeyD', ax > DEAD || pressed(b[BTN.RIGHT]));
         setKey('KeyS', ay > 0.6 || pressed(b[BTN.DOWN]));
