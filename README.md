@@ -13,6 +13,7 @@ npm start
 
 ## 本次更新
 
+- 第七至第十关加入各自的 Boss 结算录音和同句字幕：「我还会回来检查你作业的」「终于，我还是被你打败了」「最终，我还是败给了你们」「难道你就是传说中的火柴人」。录音结束后正常进入关卡结算或最终结局。
 - 补齐 8 连杀「无人能挡」、12 连杀「主宰战场」、16 连杀「无双」录音，并在开启狂暴、Boss 进入下一阶段和大招蓄力开始时播放对应录音。危险预警优先于普通战斗播报，首领结算语音保持最高优先级；大招提示至少间隔 8 秒，重开/换关后重新计时。
 - 去掉底部居中的新版本提示条，统一设置界面与服务器版本号；保留联网优先更新和离线缓存。
 - 一至四连杀同步显示「一杀 / 二杀 / 三杀 / 四杀」并播放对应录音；连杀间隔沿用 3.2 秒窗口。快速连续击杀时最新播报替换上一句，避免多人声重叠；五连杀及以上保留原来的战斗提示。
@@ -49,7 +50,7 @@ npm start
 - `art.js`：图集、视差、阴影与立体平台材质；素材失败时保留原矢量后备画面。
 - `hero-appearance.js`：外观等级和附着在原 IK 动画上的装甲。
 - `assets/generated/`：已接入项目的生图素材。
-- `assets/audio/`：第六至第十关配乐、连杀与第六关结算录音；对应原文件与曲目见 [音频素材记录](docs/AUDIO-ASSETS.json)。`scripts/prepare-audio.py` 可从普通 MP3 重新导入并统一响度。
+- `assets/audio/`：第六至第十关配乐、连杀、战斗提示与首领结算录音；对应原文件与曲目见 [音频素材记录](docs/AUDIO-ASSETS.json)。`scripts/prepare-audio.py` 可从普通 MP3 重新导入并统一响度。
 - [素材生成提示词](docs/ASSET-PROMPTS.md)：内置 image_gen 的完整提示词及用途；九套动作图的原始输出、项目路径和逐张完整提示词见 `docs/BOSS-MOTION-ASSETS.json`。
 - [空中机群素材记录](docs/AERIAL-ART-ASSETS.json)：八套独立设计的完整生图提示词、原始 PNG 输出与运行时 WebP 路径。
 - [第十关素材记录](docs/LEVEL10-ASSETS.json)：内置 image_gen 生成的星环全景与星环主宰 16 姿态图，包含完整提示词、原始输出、PNG 后备与 WebP 路径。
@@ -61,6 +62,7 @@ npm test
 npm run test:browser
 npm run test:audio
 npm run test:combat-audio
+npm run test:boss-settlement
 npm run test:aerial
 npm run test:coop
 ```
@@ -74,3 +76,5 @@ npm run test:coop
 `test:audio` 验证新增 MP3 的实际浏览器解码、十关换曲、真实击杀的连杀字幕与播报、第六关首领结算，以及静音换关、后台暂停、音量更新、语音失败和旧回调取消。自动化验证不替代实际扬声器上的听感检查。
 
 `test:combat-audio` 验证六条新增录音的解码，以及高阶连杀、狂暴开启、Boss 阶段切换和大招前摇的真实触发、预警优先级、冷却和底部更新提示隐藏。
+
+`test:boss-settlement` 验证第七至第十关真实首领死亡后的专属录音、字幕、正常结算和最终结局，并检查静音、拒播和重开时的回调处理。

@@ -49,8 +49,12 @@
     { "combo": 16, "text": "无双", "source_file": "无双.mp3", "file": "assets/audio/voices/kill-16.mp3" },
     { "event": "overdrive-start", "text": "开启狂暴", "source_file": "开启狂暴.mp3", "file": "assets/audio/voices/overdrive-start.mp3" },
     { "event": "boss-phase", "text": "boss进入下一阶段", "source_file": "boss进入下一阶段.mp3", "file": "assets/audio/voices/boss-phase.mp3" },
-    { "event": "boss-charge", "text": "boss大招蓄力", "source_file": "boss大招蓄力.mp3", "file": "assets/audio/voices/boss-charge.mp3" }
+    { "event": "boss-charge", "text": "boss大招蓄力", "source_file": "boss大招蓄力.mp3", "file": "assets/audio/voices/boss-charge.mp3" },
+    { "level": 7, "text": "我还会回来检查你作业的", "source_file": "我还会回来检查你作业的.mp3", "file": "assets/audio/voices/boss-07-settlement.mp3" },
+    { "level": 8, "text": "终于，我还是被你打败了", "source_file": "终于，我还是被你打败了.mp3", "file": "assets/audio/voices/boss-08-settlement.mp3" },
+    { "level": 9, "text": "最终，我还是败给了你们", "source_file": "最终我还是败给了你们.mp3", "file": "assets/audio/voices/boss-09-settlement.mp3" },
+    { "level": 10, "text": "难道你就是传说中的火柴人", "source_file": "难道你就是传说中的火柴人.mp3", "file": "assets/audio/voices/boss-10-settlement.mp3" }
   ],
   "processing": "Audio-only MP3 assets, embedded artwork removed; loudness target about -16 LUFS",
-  "verification": "Full FFmpeg decode and browser AudioContext.decodeAudioData; runtime playback and game integration tested by tests/audio.cjs and tests/combat-audio.cjs"
+  "verification": "Full FFmpeg decode and browser AudioContext.decodeAudioData; runtime playback and game integration tested by tests/audio.cjs, tests/combat-audio.cjs and tests/boss-settlement.cjs"
 }

@@ -2000,17 +2000,24 @@ const Game = (() => {
                 boss = null;
                 player.addScore(Math.round(levelData.boss.score * comboMultiplier()));
                 Audio.play('levelup');
-                // Boss 击败音效映射表
-                const BOSS_SOUNDS = {
-                    0: 'bossExplode', 1: 'bossLaugh', 2: 'bossLuck',
-                    3: 'bossRespect', 4: 'bossBad', 5: 'bossChubby', 6: 'bossLaugh', 7: 'bossRespect', 8: 'bossSurrender'
+                // 关卡使用从 0 开始的索引，结算录音与字幕保持同一映射。
+                const BOSS_SETTLEMENTS = {
+                    0: { sound: 'bossExplode' }, 1: { sound: 'bossLaugh' }, 2: { sound: 'bossLuck' },
+                    3: { sound: 'bossRespect' }, 4: { sound: 'bossBad' },
+                    5: { sound: 'bossChubby', text: '你的胆子真是肥嘟嘟的' },
+                    6: { sound: 'bossHomework', text: '我还会回来检查你作业的', life: 6 },
+                    7: { sound: 'bossDefeated', text: '终于，我还是被你打败了', life: 5 },
+                    8: { sound: 'bossDefeatedTogether', text: '最终，我还是败给了你们', life: 6 },
+                    9: { sound: 'bossLegend', text: '难道你就是传说中的火柴人', life: 8 },
                 };
-                const bossSound = BOSS_SOUNDS[currentLevel];
+                const settlement = BOSS_SETTLEMENTS[currentLevel];
+                const bossSound = settlement && settlement.sound;
                 Audio.stopBgm();
                 if (bossSound) {
                     const voiceToken = transitionToken;
-                    if (currentLevel === 5) {
-                        FX.banner('你的胆子真是肥嘟嘟的', { sub: '第六关首领已击破', color: '#ffe14a', glow: '#ff7a1f', size: 44, life: 4.2, y: 0.32, channel: 'boss' });
+                    if (settlement.text) {
+                        const subtitleSize = Math.min(44, (Renderer.width() - 100) / (settlement.text.length * 1.1));
+                        FX.banner(settlement.text, { sub: `第 ${currentLevel + 1} 关首领已击破`, color: '#ffe14a', glow: '#ff7a1f', size: subtitleSize, life: settlement.life || 4.2, y: 0.32, channel: 'boss' });
                     }
                     // 不再放大音效母线（之前会让击杀 Boss 时所有音效突然变成 3 倍响）
                     // 台词登场：低频重击 + 震屏闪光，台词本身加大厅混响

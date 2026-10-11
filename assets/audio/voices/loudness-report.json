@@ -147,5 +147,61 @@
     "before_true_peak_dbtp": -6.73,
     "after_lufs": -16.26,
     "after_true_peak_dbtp": -5.71
+  },
+  {
+    "source": "我还会回来检查你作业的.mp3",
+    "file": "boss-07-settlement.mp3",
+    "duration": "00:00:05.69",
+    "full_decode": "passed",
+    "target_lufs": -16,
+    "maximum_decoded_true_peak_dbtp": -1.5,
+    "encoding_ceiling_dbtp": -2,
+    "transient_limiter": false,
+    "before_lufs": -14.91,
+    "before_true_peak_dbtp": -0.23,
+    "after_lufs": -16.33,
+    "after_true_peak_dbtp": -2.22
+  },
+  {
+    "source": "终于，我还是被你打败了.mp3",
+    "file": "boss-08-settlement.mp3",
+    "duration": "00:00:04.68",
+    "full_decode": "passed",
+    "target_lufs": -16,
+    "maximum_decoded_true_peak_dbtp": -1.5,
+    "encoding_ceiling_dbtp": -2,
+    "transient_limiter": false,
+    "before_lufs": -15.59,
+    "before_true_peak_dbtp": -0.42,
+    "after_lufs": -16.47,
+    "after_true_peak_dbtp": -2.16
+  },
+  {
+    "source": "最终我还是败给了你们.mp3",
+    "file": "boss-09-settlement.mp3",
+    "duration": "00:00:05.46",
+    "full_decode": "passed",
+    "target_lufs": -16,
+    "maximum_decoded_true_peak_dbtp": -1.5,
+    "encoding_ceiling_dbtp": -2,
+    "transient_limiter": false,
+    "before_lufs": -16.79,
+    "before_true_peak_dbtp": -0.72,
+    "after_lufs": -16.53,
+    "after_true_peak_dbtp": -2.26
+  },
+  {
+    "source": "难道你就是传说中的火柴人.mp3",
+    "file": "boss-10-settlement.mp3",
+    "duration": "00:00:07.60",
+    "full_decode": "passed",
+    "target_lufs": -16,
+    "maximum_decoded_true_peak_dbtp": -1.5,
+    "encoding_ceiling_dbtp": -2,
+    "transient_limiter": false,
+    "before_lufs": -15.12,
+    "before_true_peak_dbtp": -4.69,
+    "after_lufs": -16.25,
+    "after_true_peak_dbtp": -5.31
   }
 ]

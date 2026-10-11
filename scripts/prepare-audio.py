@@ -37,6 +37,10 @@ VOICES = [
     ("开启狂暴.mp3", "voices/overdrive-start.mp3"),
     ("boss进入下一阶段.mp3", "voices/boss-phase.mp3"),
     ("boss大招蓄力.mp3", "voices/boss-charge.mp3"),
+    ("我还会回来检查你作业的.mp3", "voices/boss-07-settlement.mp3"),
+    ("终于，我还是被你打败了.mp3", "voices/boss-08-settlement.mp3"),
+    ("最终我还是败给了你们.mp3", "voices/boss-09-settlement.mp3"),
+    ("难道你就是传说中的火柴人.mp3", "voices/boss-10-settlement.mp3"),
 ]
 
 

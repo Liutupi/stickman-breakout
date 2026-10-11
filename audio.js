@@ -672,6 +672,10 @@ const Audio = (() => {
             loadMp3('killVoice' + count, 'assets/audio/voices/kill-' + count + '.mp3');
         }
         loadMp3('bossChubby', 'assets/audio/voices/boss-06-settlement.mp3');
+        loadMp3('bossHomework', 'assets/audio/voices/boss-07-settlement.mp3');
+        loadMp3('bossDefeated', 'assets/audio/voices/boss-08-settlement.mp3');
+        loadMp3('bossDefeatedTogether', 'assets/audio/voices/boss-09-settlement.mp3');
+        loadMp3('bossLegend', 'assets/audio/voices/boss-10-settlement.mp3');
         for (const count of [8, 12, 16]) {
             loadMp3('killVoice' + count, 'assets/audio/voices/kill-' + count + '.mp3');
         }
