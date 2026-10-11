@@ -233,7 +233,7 @@ const Ending = (() => {
         const block = c => `<div class="ending-credit"><div class="ending-role">${c.role}</div>${c.names.map(n => `<div class="ending-name">${n}</div>`).join('')}</div>`;
         const tracks = (typeof Game !== 'undefined' && Game.bgmList) ? Game.bgmList() : [];
         const music = (typeof Levels !== 'undefined') ? Levels.map((l, i) => tracks[i] ? `<div class="ending-small">${l.name} — 《${tracks[i]}》</div>` : '').join('')
-            + (Game.bgmTitle ? `<div class="ending-small">结局 — 《${Game.bgmTitle('bgm_level2')}》</div>` : '') : '';
+            + (Game.bgmTitle ? `<div class="ending-small">结局 — 《${Game.bgmTitle('bgm_level10')}》</div>` : '') : '';
         const bosses = (typeof Levels !== 'undefined') ? Levels.map((l, i) => `<div class="ending-small">第 ${i + 1} 关 · ${l.boss.name}</div>`).join('') : '';
         $('ending-roll').innerHTML = `
             <div class="ending-logo">火柴人：突围行动</div>
@@ -266,7 +266,7 @@ const Ending = (() => {
             show('ending-video');
             try { Audio.stopBgm(); } catch (e) { /* ignore */ }
             const v = $('ending-video-el');
-            if (!v.src) v.src = 'assets/video/promo.mp4';
+            if (!v.src) v.src = 'assets/video/promo.mp4?v=3';
             v.currentTime = 0;
             v.play().catch(() => {});
         }
@@ -306,7 +306,7 @@ const Ending = (() => {
         renderResults(opts.stats || {});
         root.classList.remove('hidden');
         document.body.classList.add('ending-on');
-        try { Audio.playBgm('bgm_level2'); } catch (e) { /* ignore */ }
+        try { Audio.playBgm('bgm_level10'); } catch (e) { /* ignore */ }
         setPhase(opts.stats ? 'results' : 'enemies');
         last = 0;
         cancelAnimationFrame(raf);
