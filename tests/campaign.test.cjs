@@ -15,14 +15,14 @@ function runtime() {
     return code => vm.runInContext(code, c);
 }
 
-test('九关新路线、补给、敌人和 Boss 全部位于有效地图内', () => {
+test('十关新路线、补给、敌人和 Boss 全部位于有效地图内', () => {
     const run = runtime();
     const rows = run(`Levels.map(l => ({ width:l.levelWidth, old:l.originalWidth, sectors:l.sectors.length,
         arena:l.arenaStart, end:l.boss.x, bossFloor:l.platforms.some(p => l.boss.x > p.x && l.boss.x < p.x+p.w && p.y === l.boss.y),
         variants:[...new Set(l.enemies.filter(e=>e.x>l.originalWidth).map(e=>e.type))],
         invalid:l.enemies.some(e=>e.x<0 || e.x>l.levelWidth), supply:l.supplyBeacons.length,
         oldEnd:Math.max(...l.platforms.filter(p=>p.x<l.originalWidth-220).map(p=>p.x+p.w)) }))`);
-    assert.equal(rows.length, 9);
+    assert.equal(rows.length, 10);
     for (const row of rows) {
         assert.ok(row.width > row.old * 2.6); assert.equal(row.sectors, 8);
         assert.equal(row.supply, 6); assert.ok(row.bossFloor); assert.ok(row.end > row.arena);
@@ -129,7 +129,7 @@ test('Boss 冲锋不随玩家掉头，收招停止滑动，闪现也受决战场
     })()`));
 });
 
-test('九个 Boss 的完整技能循环、阶段切换、护盾计时和落地物理持续有效', () => {
+test('全部 Boss 的完整技能循环、阶段切换、护盾计时和落地物理持续有效', () => {
     const run=runtime();
     assert.ok(run(`(() => {for(const level of Levels){const b=new Boss(level.boss.x,500,level.boss);
         b.entranceDone=true;b.onGround=true;const f=[{x:level.arenaStart,y:500,w:1600,h:100}];
@@ -140,6 +140,73 @@ test('九个 Boss 的完整技能循环、阶段切换、护盾计时和落地�
         b.shieldTimer=.1;b.shieldActive=true;BossMotion.recover(b,1);b.update(.2,f,b.x-100,500);
         if(b.shieldActive)return false;
     }return true;})()`));
+});
+
+test('星环主宰按三阶段组合出招，裁决蓄力可读、闪现受边界约束且有反击窗口', () => {
+    const run = runtime();
+    assert.equal(run(`Levels[9].boss.archetype`), 'astral_regent');
+    assert.equal(run(`Levels[9].artIndex`), 9);
+    assert.equal(run(`Levels[9].previewArt`), 'assets/generated/level10-starcore.webp');
+    assert.ok(run(`(() => {
+        const b=new Boss(700,500,{...Levels[9].boss,arenaMin:0,arenaMax:1600});
+        b.entranceDone=true;b.onGround=true;
+        const pools=[];
+        for(let phase=0;phase<3;phase++){
+            b.phase=phase;pools.push(new Set(b.getAttackPool()));
+            if(!['leap_slam','teleport','laser_sweep','homing_orb'].every(type=>pools[phase].has(type)))return false;
+        }
+        if(pools[0].has('portal_barrage') || pools[0].has('special') || !pools[1].has('portal_barrage') || pools[1].has('special') || !pools[2].has('special'))return false;
+        b.phase=0;b.attackPattern=b.getAttackPool().indexOf('laser_sweep');b.executeAttack(1000,500,300);
+        if(b.windup.type!=='laser_sweep' || b.windup.duration<1.2)return false;
+        const f=[{x:0,y:500,w:1600,h:100}];
+        b.update(.5,f,100,500);
+        if(b.x!==700 || b.facing!==1 || b.bullets.length || b.hazards.length || !b.windup)return false;
+        b.windup=null;b.facing=1;b.performAttack({type:'teleport',x:2000,y:500});
+        b.update(.2,f,100,500);if(b.x!==700)return false;
+        b.update(.05,f,100,500);
+        if(b.x>1600-b.w/2 || b.x< b.w/2)return false;
+        b.update(.36,f,100,500);
+        return b.action.kind==='recover' && b.action.duration>=.8 && b.isVulnerable();
+    })()`));
+});
+
+test('星环跃击锁定起跳目标，落地发出两道冲击波并留足收招时间', () => {
+    const run=runtime();
+    assert.ok(run(`(() => {
+        const b=new Boss(600,500,{...Levels[9].boss,arenaMin:0,arenaMax:1600});
+        b.entranceDone=true;b.onGround=true;b.attackCooldown=100;
+        const f=[{x:0,y:500,w:1600,h:100}];b.performAttack({type:'leap_slam',x:1000,y:500});
+        if(b.action.landingX!==1000 || b.vy>=0 || b.bullets.length)return false;
+        let minY=500,landed=false;
+        for(let i=0;i<110;i++){
+            b.update(1/60,f,50,500);minY=Math.min(minY,b.y);
+            if(b.action?.kind==='land'){landed=true;break;}
+            if(b.bullets.length)return false;
+        }
+        if(!landed || minY>=320 || Math.abs(b.x-1000)>12 || b.bullets.length!==2 || b.vulnerableTimer<1.2)return false;
+        const x=b.x;for(let i=0;i<20;i++)b.update(1/60,f,50,500);
+        return b.x===x && b.y===500 && b.action.kind==='recover' && b.action.duration>=1 && b.isVulnerable();
+    })()`));
+});
+
+test('星环跃击的预警圈与实际落点一致，远距和空中目标不会误导玩家', () => {
+    const run=runtime();
+    assert.ok(run(`(() => {
+        Utils.camera.x=250;Utils.camera.y=40;
+        for(const mark of [{x:5000,y:180},{x:-1000,y:260},{x:950,y:140}]){
+            const b=new Boss(600,500,{...Levels[9].boss,arenaMin:300,arenaMax:1200});
+            b.windup={...mark,type:'leap_slam',timer:.5,duration:1};
+            const ellipses=[];
+            const ctx=new Proxy({}, {get:(target,key)=>key==='ellipse'
+                ? (...args)=>ellipses.push(args) : ()=>{}});
+            b.drawWindup(ctx);b.performAttack(b.windup);
+            if(ellipses.length!==1)return false;
+            const [x,y]=ellipses[0];
+            if(x+Utils.camera.x!==b.action.landingX || y+Utils.camera.y!==b.action.landingY)return false;
+            if(b.action.landingX<300+b.w/2 || b.action.landingX>1200-b.w/2 || b.action.landingY!==500)return false;
+        }
+        return true;
+    })()`));
 });
 
 // 发布检查：version.json 必须和 settings.js 里的 GAME_VERSION 一致，否则玩家会一直看到“有新版本”提示

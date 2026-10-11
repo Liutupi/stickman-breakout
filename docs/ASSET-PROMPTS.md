@@ -1,5 +1,7 @@
 # Generated art prompts
 
+第十关「星环中枢」新增素材使用内置 image_gen 于 2026-10-11 生成。完整提示词、参考图、原始输出与项目内 PNG / WebP 路径见 [LEVEL10-ASSETS.json](LEVEL10-ASSETS.json)。背景独立全景叠加代码视差层；星环主宰动作图为透明 4 × 4 图集，共 16 姿态。旧九关图集保持不变。
+
 Generated with the built-in image_gen tool on 2026-10-09. Assets are project-local files; the game does not depend on a generation service at runtime. Original outputs are retained in Codex generated_images.
 
 | Asset | Runtime use |

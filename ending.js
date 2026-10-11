@@ -88,7 +88,7 @@ const Ending = (() => {
                     ${row('作战用时', fmtTime(st.time))}
                     ${row('获得金币', `+${st.coins || 0}`)}
                 </div>
-                <div class="ending-sub">九关最佳评级</div>
+                <div class="ending-sub">${levelNames.length} 关最佳评级</div>
                 <div class="ending-grades">${badges}</div>
                 <div class="ending-tip">接下来：全体怪兽登场 · 制作人员 · 宣传片</div>
             </div>`;
@@ -240,7 +240,7 @@ const Ending = (() => {
             <div class="ending-tag">STICKMAN · BREAKOUT</div>
             ${CREDITS.map(block).join('')}
             <div class="ending-credit"><div class="ending-role">背景音乐</div>${music}</div>
-            <div class="ending-credit"><div class="ending-role">九位首领</div>${bosses}</div>
+            <div class="ending-credit"><div class="ending-role">${typeof Levels !== 'undefined' ? Levels.length : 0} 位首领</div>${bosses}</div>
             <div class="ending-credit"><div class="ending-role">特别感谢</div><div class="ending-name">每一位玩家</div></div>
             <div class="ending-final">果沐兄弟 出品</div>
             <div class="ending-thanks">感谢游玩！</div>`;

@@ -932,7 +932,8 @@ const Game = (() => {
             { desc: '终极关卡，混沌融合，全浮动平台，终极考验。', boss: '混沌之源·创世者' },
             { desc: '雨夜屋顶跑酷，新敌人「持盾兵」「狙击手」登场。', boss: '霓虹刺客·影刃' },
             { desc: '风沙废墟，断层与石柱，巨石从天而降。', boss: '沙暴巨像·法老之怒' },
-            { desc: '终章：云海之上的浮空要塞，最强 Boss 等你挑战。', boss: '天穹审判者·终焉战舰' },
+            { desc: '突破云海之上的浮空要塞，迎战天穹审判者。', boss: '天穹审判者·终焉战舰' },
+            { desc: '终章：穿越轨道栈桥与引力环，攻入星环中枢，迎战轨道裁决者。', boss: '星环主宰·轨道裁决者' },
         ];
         
         const bestGrades = getBestGrades();
@@ -949,9 +950,12 @@ const Game = (() => {
             if (!unlocked) card.classList.add('locked');
             
             const desc = levelDescs[index] || { desc: '未知关卡', boss: '未知Boss' };
+            const sceneStyle = level.previewArt
+                ? `background-image: url('${level.previewArt}'); background-size: cover; background-position: center`
+                : `background-position: ${index % 3 * 50}% ${Math.floor(index / 3) * 50}%`;
             
             card.innerHTML = `
-                <div class="level-card__scene" style="background-position: ${index % 3 * 50}% ${Math.floor(index / 3) * 50}%"></div>
+                <div class="level-card__scene" style="${sceneStyle}"></div>
                 <div class="level-card__number">${index + 1}</div>
                 ${!unlocked ? '<div class="level-card__lock">通关上一关解锁</div>' : ''}
                 ${bestGrades[index] ? `<div class="level-card__grade grade--${bestGrades[index]}">${bestGrades[index]}</div>` : ''}
@@ -1091,8 +1095,11 @@ const Game = (() => {
     };
     // 开局时左下角显示“♪ 正在播放：曲名”
     function showNowPlaying(title) {
-        if (!title) return;
         let el = document.getElementById('now-playing');
+        if (!title) {
+            if (el) { clearTimeout(el._t); el.classList.remove('is-on'); }
+            return;
+        }
         if (!el) {
             el = document.createElement('div');
             el.id = 'now-playing';
@@ -1556,6 +1563,7 @@ const Game = (() => {
             showNowPlaying(BGM_TITLES[bgmMap[index]]);
         } else {
             Audio.stopBgm();
+            showNowPlaying(null);
         }
 
         typewriterLevelName(levelData.name);

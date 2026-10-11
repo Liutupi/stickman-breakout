@@ -10,6 +10,7 @@
         ['雨幕天桥', '高架轨道', '广告塔群', '安保中枢', '空中连廊', '霓虹核心'],
         ['沙海石道', '流沙断桥', '王陵列柱', '禁卫营地', '悬空墓道', '太阳祭坛'],
         ['云端船坞', '浮空舰桥', '风暴长廊', '苍穹哨站', '云海断层', '天穹核心'],
+        ['星港接驳', '引力栈桥', '光束阵列', '轨道卫城', '星环外缘', '中枢反应炉'],
     ];
     const variants = {
         lancer: { health: 48, speed: 85, damage: 18, score: 110, color: '#ffbd69', aggroRange: 460, attackRate: 2.4 },
@@ -47,6 +48,7 @@
         { theme: '狙击街区', ground: ['shielder', 'runner', 'shooter'], elite: ['sniper', 'medic', 'lancer', 'sentinel'], air: ['drone', 'swarm', 'diver'], heavy: ['gunship'] },
         { theme: '沙暴围猎', ground: ['jumper', 'shielder', 'kamikaze'], elite: ['sniper', 'missile', 'scattergun', 'medic'], air: ['bomber', 'swooper', 'diver', 'swarm'], heavy: ['gunship'] },
         { theme: '天空要塞', airBonus: 1, ground: ['shielder', 'kamikaze'], elite: ['sniper', 'medic', 'sentinel', 'lancer', 'missile'], air: ['diver', 'swarm', 'drone', 'swooper', 'bomber'], heavy: ['gunship'] },
+        { theme: '星环防御阵列', airBonus: 2, ground: ['walker', 'shielder', 'jumper', 'runner'], elite: ['medic', 'sentinel', 'sniper', 'scattergun', 'lancer', 'turret', 'missile'], air: ['swarm', 'diver', 'flyer', 'drone', 'bomber'], heavy: ['gunship'] },
     ];
     const AIR_Y = { swarm: 170, gunship: 250, diver: 280, flyer: 150, drone: 160, bomber: 240, swooper: 230, sentinel: 180 };
     const AIR_TYPES = ['sentinel', 'swarm', 'gunship', 'diver', 'flyer', 'drone', 'bomber', 'swooper'];

@@ -7,13 +7,15 @@ const GameArt = (() => {
     }
     const backgrounds = new Image();
     loadArt(backgrounds, 'assets/generated/environments-v2');
+    const starcore = new Image();
+    loadArt(starcore, 'assets/generated/level10-starcore');
     const bosses = new Image();
     const infantry = new Image();
     const enemyOrder = ['walker', 'runner', 'shooter', 'jumper', 'missile', 'kamikaze',
         'flyer', 'bomber', 'swooper', 'drone', 'turret', 'shielder',
         'sniper', 'lancer', 'scattergun', 'medic', 'sentinel'];
     const bossFrames = [], enemyFrames = [];
-    const colors = ['#f4b267', '#7ce7b1', '#ff864d', '#b1e9ff', '#c29aff', '#ff677b', '#6ee9ff', '#f5cb7c', '#b1ddff'];
+    const colors = ['#f4b267', '#7ce7b1', '#ff864d', '#b1e9ff', '#c29aff', '#ff677b', '#6ee9ff', '#f5cb7c', '#b1ddff', '#bba5ff'];
     // 在浏览器内读取各格的 alpha 边界，统一脚底位置，避免图集留白导致悬空。
     function measureAtlas(img, cols, rows, frames, count) {
         const buffer = document.createElement('canvas');
@@ -39,8 +41,8 @@ const GameArt = (() => {
     loadArt(bosses, 'assets/generated/bosses-v2');
     loadArt(infantry, 'assets/generated/enemies-v2');
     const motionNames = ['steel-guardian','shadow-king','inferno-demon','frost-beast','void-lord',
-        'chaos-creator','neon-assassin','sand-colossus','sky-judicator'];
-    // 九张 Boss 动作图（每张解码后约 6MB 显存）不再开局全部下载：进入关卡时只加载本关 Boss。
+        'chaos-creator','neon-assassin','sand-colossus','sky-judicator','astral-regent'];
+    // Boss 动作图不在开局全部下载：进入关卡时只加载本关 Boss。
     const motions = motionNames.map(name => ({ img: new Image(), frames: [], name, requested: false }));
     function requestMotion(index) {
         const sheet = motions[index];
@@ -118,10 +120,11 @@ const GameArt = (() => {
     }
 
     function drawEnvironment(ctx, level, time, width, height) {
-        if (!backgrounds.complete || !backgrounds.naturalWidth) return false;
         const index = level.artIndex || 0;
-        const cellW = backgrounds.naturalWidth / 3, cellH = backgrounds.naturalHeight / 3;
-        const srcX = index % 3 * cellW + 1, srcY = Math.floor(index / 3) * cellH + 1;
+        const panorama = index === 9 ? starcore : backgrounds;
+        if (!panorama.complete || !panorama.naturalWidth) return false;
+        const cellW = panorama.naturalWidth / (index === 9 ? 1 : 3), cellH = panorama.naturalHeight / (index === 9 ? 1 : 3);
+        const srcX = index === 9 ? 1 : index % 3 * cellW + 1, srcY = index === 9 ? 1 : Math.floor(index / 3) * cellH + 1;
         const drawH = Math.max(height + 150, width * 0.64), drawW = drawH * cellW / cellH;
         const offset = Utils.camera.x * 0.12;
         // 镜像接续的全景远层，接缝始终连续；镜头纵移幅度小于战斗层。
@@ -131,7 +134,7 @@ const GameArt = (() => {
         for (let n = tile; n <= tile + Math.ceil(width / drawW) + 1; n++) {
             const x = n * drawW - offset;
             ctx.save(); ctx.translate(x + (n % 2 ? drawW : 0), top); ctx.scale(n % 2 ? -1 : 1, 1);
-            ctx.drawImage(backgrounds, srcX, srcY, cellW - 2, cellH - 2, 0, 0, drawW, drawH); ctx.restore();
+            ctx.drawImage(panorama, srcX, srcY, cellW - 2, cellH - 2, 0, 0, drawW, drawH); ctx.restore();
         }
         const shade = ctx.createLinearGradient(0, 0, 0, height);
         shade.addColorStop(0, 'rgba(4,10,21,0.24)'); shade.addColorStop(0.52, 'rgba(4,10,21,0.12)'); shade.addColorStop(1, 'rgba(4,10,21,0.62)');
@@ -170,6 +173,19 @@ const GameArt = (() => {
             } else if ([2, 3, 4, 5].includes(index)) {
                 polygon(ctx, [[-50, 50], [-34, -size * 0.6], [-5, -size * 1.5], [15, -size * 0.8], [48, 50]], ctx.fillStyle, colors[index] + '40');
                 polygon(ctx, [[-5, -size * 1.5], [4, -size * 0.65], [48, 50], [15, -size * 0.8]], colors[index] + '28');
+            } else if (index === 9) {
+                // 轨道肋架与悬浮星核在独立视差层移动，强化空间纵深。
+                polygon(ctx, [[-42, 65], [-34, -size * 1.35], [-18, -size * 1.55], [10, -size * 1.55],
+                    [36, -size * 1.28], [44, 65]], ctx.fillStyle, '#bba5ff35');
+                polygon(ctx, [[10, -size * 1.55], [36, -size * 1.28], [44, 65], [20, 65]], '#302c4a');
+                ctx.fillStyle = '#b6f6ff70'; ctx.fillRect(-20, -size * 1.25, 4, size * 1.1);
+                ctx.strokeStyle = '#edd9aa55'; ctx.lineWidth = foreground ? 4 : 2;
+                ctx.beginPath(); ctx.ellipse(0, -size * 0.85, size * 0.62, size * 0.2, -0.28, 0, Math.PI * 2); ctx.stroke();
+                if (!foreground) {
+                    const floatY = -size * 1.8 + Math.sin(time * 0.7 + i) * 9;
+                    ctx.fillStyle = '#b6f6ff'; ctx.beginPath(); ctx.arc(0, floatY, 3, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#bba5ff70'; ctx.beginPath(); ctx.ellipse(0, floatY, 21, 8, time * 0.08 + i, 0, Math.PI * 2); ctx.stroke();
+                }
             } else if (index === 7) {
                 polygon(ctx, [[-32, 50], [-24, -size], [0, -size - 30], [24, -size], [32, 50]], ctx.fillStyle);
                 ctx.fillStyle = colors[index] + '44'; ctx.fillRect(-4, -size + 14, 5, size - 30);
@@ -221,7 +237,7 @@ const GameArt = (() => {
         ctx.save(); ctx.beginPath(); ctx.rect(p.x - Utils.camera.x, y + 10, p.w, Renderer.height()); ctx.clip();
         for (let wx = start; wx < end; wx += 220) {
             const x = wx - Utils.camera.x;
-            if ([0, 6, 8].includes(index)) {
+            if ([0, 6, 8, 9].includes(index)) {
                 const metal = ctx.createLinearGradient(x, y + 20, x, y + 180);
                 metal.addColorStop(0, '#101d2b80'); metal.addColorStop(1, '#060e1a20');
                 polygon(ctx, [[x + 8, y + 22], [x + 193, y + 22], [x + 193, y + 166], [x + 8, y + 166]], metal, '#86b4ca18');
@@ -279,7 +295,8 @@ const GameArt = (() => {
         ctx.save();
         if(boss.flashTimer>0)ctx.filter='brightness(1.7)';
         if(boss.action?.kind==='blink') {
-            const k=Math.abs(boss.action.elapsed-.23)/.23;
+            const a=boss.action;
+            const k=Utils.clamp(a.elapsed<=.23 ? 1-a.elapsed/.23 : (a.elapsed-.23)/Math.max(.01,a.duration-.23),0,1);
             ctx.globalAlpha*=Utils.clamp(k,.08,1);ctx.scale(.35+k*.65,1);
         }
         paint(BossMotion.frame(boss),boss.facing);
@@ -313,7 +330,7 @@ const GameArt = (() => {
     return { drawEnvironment, drawPlatformDepth, drawPlatformFace, drawEnemy, drawBoss, drawWorldDetails, drawForeground,
         prepareLevel, preloadAllMotions,
         // bossMotion：所有“已请求”的动作图都已就绪（未请求的不阻塞）
-        ready: () => ({ backgrounds: !!backgrounds.naturalWidth, bosses: bossFrames.length === 9, enemies: enemyFrames.length === 17,
+        ready: () => ({ backgrounds: !!backgrounds.naturalWidth && !!starcore.naturalWidth, bosses: bossFrames.length === 9, enemies: enemyFrames.length === 17,
             aerial: typeof AerialArt!=='undefined' && AerialArt.ready(),
             bossMotion: motions.every(s => !s.requested || s.frames.length === 16) }) };
 })();

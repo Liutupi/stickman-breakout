@@ -21,6 +21,9 @@ const BossMotion = (() => {
     function targetX(b, x) {
         return Utils.clamp(x, b.arenaMin + b.w / 2, b.arenaMax - b.w / 2);
     }
+    function leapTarget(b, mark) {
+        return { x: targetX(b, Utils.clamp(mark.x, b.x - 520, b.x + 520)), y: b.y };
+    }
     function attack(b, mark) {
         b.vx = 0;
         if (mark.type === 'charge') {
@@ -29,18 +32,18 @@ const BossMotion = (() => {
             action(b, 'charge', mark.type, b.chargeTimer);
             Audio.play('bossSpecial');
         } else if (mark.type === 'leap_slam') {
-            const flight = 1.1;
-            const landingX = targetX(b, Utils.clamp(mark.x, b.x - 520, b.x + 520));
+            const flight = b.archetype === 'astral_regent' ? 1.18 : 1.1;
+            const landing = leapTarget(b, mark);
             // 弹道在起跳时确定；玩家离开标记后不会被空中追踪。
-            b.vx = (landingX - b.x) / flight;
+            b.vx = (landing.x - b.x) / flight;
             b.vy = -b.gravity * flight / 2;
             b.onGround = false;
-            action(b, 'leap', mark.type, 2, { landingX, landingY: b.y });
+            action(b, 'leap', mark.type, 2, { landingX: landing.x, landingY: landing.y });
             Audio.play('bossSpecial');
         } else if (mark.type === 'teleport') {
-            action(b, 'blink', mark.type, 0.46, { mark, released: false });
+            action(b, 'blink', mark.type, b.archetype === 'astral_regent' ? 0.6 : 0.46, { mark, released: false });
         } else {
-            action(b, physical.has(mark.type) ? 'strike' : 'cast', mark.type, 0.52,
+            action(b, physical.has(mark.type) ? 'strike' : 'cast', mark.type, b.archetype === 'astral_regent' ? 0.66 : 0.52,
                 { mark, released: false });
         }
     }
@@ -66,17 +69,17 @@ const BossMotion = (() => {
                 Particles.spawn(b.x, b.y - b.h / 2, 18, b.accentColor, 200, 0.45);
                 Audio.play('dash');
             }
-            if (a.elapsed >= a.duration) recover(b, 0.55);
+            if (a.elapsed >= a.duration) recover(b, b.archetype === 'astral_regent' ? 0.8 : 0.55);
         } else if (a.kind === 'strike' || a.kind === 'cast') {
             b.vx = 0;
             if (!a.released && a.elapsed >= 0.17) {
                 a.released = true;
                 b.releaseAttack(a.mark, a.mark.x, a.mark.y);
             }
-            if (a.elapsed >= a.duration) recover(b, 0.55 - b.phase * 0.06);
+            if (a.elapsed >= a.duration) recover(b, b.archetype === 'astral_regent' ? 0.8 - b.phase * 0.04 : 0.55 - b.phase * 0.06);
         } else if (a.kind === 'land') {
             b.vx = 0;
-            if (a.elapsed >= a.duration) recover(b, 0.85);
+            if (a.elapsed >= a.duration) recover(b, b.archetype === 'astral_regent' ? 1.05 : 0.85);
         } else if (a.kind === 'recover') {
             b.vx = 0;
             if (a.elapsed >= a.duration) b.action = null;
@@ -90,9 +93,9 @@ const BossMotion = (() => {
         b.vx = 0; b.vy = 0;
         b.spawnShockwave(-1); b.spawnShockwave(1);
         action(b, 'land', 'leap_slam', 0.24);
-        b.vulnerableTimer = 1.09;
+        b.vulnerableTimer = b.archetype === 'astral_regent' ? 1.29 : 1.09;
         Particles.spawn(b.x, b.y - 4, 22, b.accentColor, 260, 0.5, 4);
-        FX.shockwave(b.x, b.y, 150, '255,200,130', 7, 0.4);
+        FX.shockwave(b.x, b.y, 150, b.archetype === 'astral_regent' ? '157,239,255' : '255,200,130', 7, 0.4);
         Renderer.shake(9, 0.24); Audio.play('slam');
     }
     function update(b, dt, platforms, px, py) {
@@ -199,5 +202,5 @@ const BossMotion = (() => {
             ctx.beginPath(); ctx.ellipse(0,0,70,12,0,0,Math.PI*2); ctx.fill(); ctx.stroke(); ctx.restore();
         }
     }
-    return { init, update, attack, frame, drawEffects, recover };
+    return { init, update, attack, frame, drawEffects, recover, leapTarget };
 })();

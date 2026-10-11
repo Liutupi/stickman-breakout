@@ -19,6 +19,7 @@ const Renderer = (() => {
         { color: '#9fd8ff', kind: 'rain', theme: 'neon' },     // 霓虹都市：夜雨
         { color: '#f0c070', kind: 'sand', theme: 'desert' },   // 沙暴遗迹：风沙
         { color: '#ffffff', kind: 'dust', theme: 'sky' },      // 天空要塞：高空气流
+        { color: '#bba5ff', kind: 'firefly', theme: 'starcore' }, // 星环中枢：漂浮能量粒子
     ];
 
     function setAmbient(index) {
@@ -353,6 +354,14 @@ const Renderer = (() => {
                 { par: 0.3, amp: 0, lift: 0, color: '#ffffff', seed: 6.1, deco: 'clouds' },
             ],
             fog: 'rgba(255, 190, 150, 0.10)',
+        },
+        starcore: {
+            ridges: [
+                { par: 0.05, amp: 0, lift: 0, color: '#272343', seed: 1.8, deco: 'tower' },
+                { par: 0.15, amp: 0, lift: 0, color: '#1b1d37', seed: 3.2, deco: 'fortress' },
+                { par: 0.34, amp: 0, lift: 0, color: '#10172c', seed: 6.4, deco: 'tower' },
+            ],
+            fog: 'rgba(150, 180, 255, 0.10)',
         },
         chaos: {
             ridges: [

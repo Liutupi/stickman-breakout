@@ -3055,6 +3055,15 @@ class Boss {
     }
 
     getAttackPool() {
+        if (this.archetype === 'astral_regent') {
+            // 每轮先用实体跃击改变站位，再组合远程技能；闪现本身留出反击时间。
+            const phases = [
+                ['leap_slam', 'homing_orb', 'teleport', 'laser_sweep'],
+                ['leap_slam', 'portal_barrage', 'teleport', 'laser_sweep', 'homing_orb'],
+                ['leap_slam', 'portal_barrage', 'teleport', 'laser_sweep', 'special', 'homing_orb'],
+            ];
+            return [...phases[Math.min(2, this.phase)]];
+        }
         const pools = {
             steel_guardian: ['charge', 'shockwave', 'shield', 'leap_slam'],
             shadow_king: ['teleport', 'melee', 'shadow_burst', 'shoot'],
@@ -3096,7 +3105,12 @@ class Boss {
         const durations = { melee:.5, charge:.75, shockwave:.65, shield:.45, teleport:.5,
             shadow_burst:.65, fire_pillar:.85, leap_slam:.8, ice_wall:.55, ice_spikes:.75,
             portal_barrage:.75, laser_sweep:1, boulder_rain:.75, homing_orb:.65, shoot:.45, spread:.6, special:.8 };
-        this.startWindup(pattern, px, py, Math.max(.35, (durations[pattern] || .65) - this.phase*.06));
+        const astralDurations = { leap_slam:1.05, teleport:.8, laser_sweep:1.25,
+            portal_barrage:1, homing_orb:.9, special:1.15 };
+        const duration = this.archetype === 'astral_regent'
+            ? (astralDurations[pattern] || .9) - this.phase * .04
+            : (durations[pattern] || .65) - this.phase * .06;
+        this.startWindup(pattern, px, py, Math.max(.35, duration));
         if (pattern === 'laser_sweep') Audio.play('laserCharge');
     }
 
@@ -3184,7 +3198,7 @@ class Boss {
                     damage: this.damage * 0.5, health: 1, color: this.accentColor });
                 Audio.play('beam');
                 Renderer.shake(6, 0.25);
-                FX.light(this.x, attack.y - 30, 500, '255,80,140', 0.4, 0.6);
+                FX.light(this.x, attack.y - 30, 500, this.archetype === 'astral_regent' ? '157,239,255' : '255,80,140', 0.4, 0.6);
                 break;
             case 'boulder_rain': {
                 const n = 4 + this.phase;
@@ -3239,7 +3253,7 @@ class Boss {
             damage: this.damage * 0.45,
             life: 5,
             size: 7,
-            color: '#d44dff',
+            color: this.archetype === 'astral_regent' ? '#bc9dff' : '#d44dff',
             homing: true,
             turnRate: 2.4,
         });
@@ -3262,7 +3276,7 @@ class Boss {
                     damage: this.damage * 0.34,
                     life: 3.5,
                     size: 4,
-                    color: '#ff4dff',
+                    color: this.archetype === 'astral_regent' ? '#9defff' : '#ff4dff',
                 });
             }
         }
@@ -3311,7 +3325,7 @@ class Boss {
                 vy: Math.sin(a) * 250,
                 damage: this.damage * 0.3,
                 life: 4, size: 4,
-                color: '#e03030',
+                color: this.archetype === 'astral_regent' ? '#f6dca3' : '#e03030',
             });
         }
         Audio.play('explode');
@@ -3371,12 +3385,13 @@ class Boss {
             } else if (h.type === 'laser_beam') {
                 const t = h.life / (h.maxLife || 0.45);
                 const W = Renderer.width();
+                const beamRGB = this.archetype === 'astral_regent' ? '157,239,255' : '255,90,170';
                 ctx.globalCompositeOperation = 'lighter';
                 const thick = 22 * t + 6;
                 const g = ctx.createLinearGradient(0, sy - thick, 0, sy + thick);
-                g.addColorStop(0, 'rgba(255,60,140,0)');
-                g.addColorStop(0.5, `rgba(255,90,170,${0.85 * t})`);
-                g.addColorStop(1, 'rgba(255,60,140,0)');
+                g.addColorStop(0, `rgba(${beamRGB},0)`);
+                g.addColorStop(0.5, `rgba(${beamRGB},${0.85 * t})`);
+                g.addColorStop(1, `rgba(${beamRGB},0)`);
                 ctx.fillStyle = g;
                 ctx.fillRect(0, sy - thick, W, thick * 2);
                 ctx.fillStyle = `rgba(255,255,255,${0.9 * t})`;
@@ -3426,6 +3441,11 @@ class Boss {
         const sx = this.windup.x - Utils.camera.x;
         const sy = this.windup.y - Utils.camera.y;
         ctx.save();
+        if (this.archetype === 'astral_regent') {
+            this.drawAstralWindup(ctx, t, sx, sy);
+            ctx.restore();
+            return;
+        }
         ctx.globalAlpha = 0.35 + t * 0.45;
         ctx.strokeStyle = this.accentColor;
         ctx.fillStyle = this.accentColor + '22';
@@ -3461,6 +3481,75 @@ class Boss {
             ctx.stroke();
         }
         ctx.restore();
+    }
+
+    drawAstralWindup(ctx, t, sx, sy) {
+        const type = this.windup.type;
+        const bx = this.x - Utils.camera.x;
+        const by = this.y - Utils.camera.y;
+        const labels = { leap_slam:'轨道跃击 · 离开落点', teleport:'折跃换位 · 留意残影',
+            laser_sweep:'星环横扫 · 跳跃或冲刺', portal_barrage:'星门连射 · 保持移动',
+            homing_orb:'追踪星核 · 拉开距离', special:'环形裁决 · 寻找弹隙' };
+        ctx.globalAlpha = .45 + t * .5;
+        ctx.strokeStyle = '#9defff';
+        ctx.fillStyle = '#9defff22';
+        ctx.lineWidth = 2 + t * 2;
+        let labelX = bx, labelY = by - this.h - 55;
+        if (type === 'laser_sweep') {
+            const ly = sy - 30;
+            ctx.setLineDash([16, 9]);
+            ctx.lineDashOffset = -t * 75;
+            ctx.beginPath(); ctx.moveTo(0, ly); ctx.lineTo(Renderer.width(), ly); ctx.stroke();
+            ctx.setLineDash([]);
+            labelX = Renderer.width() / 2; labelY = ly - 18;
+        } else if (type === 'leap_slam' || type === 'teleport') {
+            const landing = type === 'leap_slam' ? BossMotion.leapTarget(this, this.windup) : null;
+            const x = type === 'teleport'
+                ? Utils.clamp(this.windup.x + this.facing * 165, this.arenaMin + this.w / 2, this.arenaMax - this.w / 2) - Utils.camera.x
+                : landing.x - Utils.camera.x;
+            const y = type === 'teleport' ? by : landing.y - Utils.camera.y;
+            ctx.beginPath(); ctx.ellipse(x, y, 70, 13, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            ctx.strokeStyle = '#f6dca3';
+            ctx.beginPath(); ctx.moveTo(x - 22, y); ctx.lineTo(x + 22, y);
+            ctx.moveTo(x, y - 7); ctx.lineTo(x, y + 7); ctx.stroke();
+            if (type === 'leap_slam') {
+                ctx.setLineDash([6, 6]);
+                ctx.beginPath(); ctx.moveTo(x, y - 105); ctx.lineTo(x, y - 19); ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.beginPath(); ctx.moveTo(x - 8, y - 30); ctx.lineTo(x, y - 19); ctx.lineTo(x + 8, y - 30); ctx.stroke();
+            } else {
+                ctx.globalAlpha *= .5;
+                ctx.beginPath(); ctx.arc(x, y - this.h + 18, 16, 0, Math.PI * 2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(x, y - this.h + 34); ctx.lineTo(x, y - 30);
+                ctx.moveTo(x - 15, y - 6); ctx.lineTo(x, y - 30); ctx.lineTo(x + 15, y - 6); ctx.stroke();
+            }
+            labelX = x; labelY = y - 120;
+        } else if (type === 'portal_barrage') {
+            for (const side of [-1, 1]) {
+                const x = bx + side * 140, y = by - this.h - (side < 0 ? 40 : 10);
+                ctx.beginPath(); ctx.ellipse(x, y, 20 + t * 12, 10 + t * 6, side * .4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.setLineDash([5, 10]);
+                ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(sx, sy); ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            labelY -= 25;
+        } else {
+            const cy = by - this.h / 2;
+            const radius = type === 'special' ? 48 + t * 30 : 17 + t * 13;
+            ctx.strokeStyle = type === 'special' ? '#f6dca3' : '#bc9dff';
+            ctx.beginPath(); ctx.arc(bx, cy, radius, 0, Math.PI * 2); ctx.stroke();
+            const count = type === 'special' ? 12 + this.phase * 4 : 3;
+            for (let i = 0; i < count; i++) {
+                const angle = i / count * Math.PI * 2 + (type === 'special' ? 0 : this.animTime * 2);
+                ctx.beginPath(); ctx.moveTo(bx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
+                ctx.lineTo(bx + Math.cos(angle) * (radius + 11), cy + Math.sin(angle) * (radius + 11)); ctx.stroke();
+            }
+        }
+        ctx.globalAlpha = .7 + t * .3;
+        ctx.font = '700 14px "Noto Sans SC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#e8faff';
+        ctx.fillText(labels[type] || '星环蓄能', Utils.clamp(labelX, 110, Renderer.width() - 110), Math.max(24, labelY));
     }
 
     drawArchetypeDetails(ctx, bodyColor) {
@@ -3548,6 +3637,31 @@ class Boss {
                     ctx.stroke();
                 }
             }
+        } else if (this.archetype === 'astral_regent') {
+            // 即使图集尚未加载，圆头、细肢、轨道冠与悬浮刃翼也能辨认。
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.strokeStyle = `rgba(246, 220, 163, ${pulse})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.ellipse(0, -this.h - 12, 40, 10, -.15, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = `rgba(188, 157, 255, ${.45 + pulse * .4})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.ellipse(0, -this.h * .64, 56, 74, Math.sin(this.animTime * .9) * .25, -.8, Math.PI + .8); ctx.stroke();
+            for (const side of [-1, 1]) {
+                ctx.fillStyle = '#6661a055';
+                ctx.strokeStyle = '#bc9dff';
+                ctx.beginPath(); ctx.moveTo(side * 12, -this.h + 35);
+                ctx.lineTo(side * 32, -this.h + 26); ctx.lineTo(side * 39, -this.h + 52);
+                ctx.lineTo(side * 16, -this.h + 47); ctx.closePath(); ctx.fill(); ctx.stroke();
+                for (let i = 0; i < 3; i++) {
+                    const x = side * (43 + i * 10), y = -this.h + 18 + i * 24 + Math.sin(this.animTime * 2 + i) * 4;
+                    ctx.strokeStyle = i === 1 ? '#f6dca3' : '#9defff';
+                    ctx.beginPath(); ctx.moveTo(x, y + 16); ctx.lineTo(x + side * 13, y - 13); ctx.stroke();
+                }
+            }
+            ctx.fillStyle = '#9defff';
+            ctx.fillRect(-13, -this.h + 10, 26, 4);
+            ctx.fillStyle = '#f6dca3';
+            ctx.beginPath(); ctx.arc(0, -this.h + 40, 5, 0, Math.PI * 2); ctx.fill();
         } else if (this.archetype === 'chaos_creator') {
             ctx.strokeStyle = `rgba(255, 220, 90, ${pulse})`;
             ctx.lineWidth = 2;

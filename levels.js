@@ -821,7 +821,7 @@ const Levels = [
 
 ];
 
-// ==================== 扩展关卡（第七 ~ 第九关）====================
+// ==================== 扩展关卡（第七 ~ 第十关）====================
 // 用紧凑数据描述：地面屋顶段 / 浮空平台 / 敌人列表，敌人 y 坐标自动落在脚下平台上
 (function addExpansionLevels() {
     const BASE = {
@@ -838,6 +838,13 @@ const Levels = [
         turret:   { health: 140, speed: 0,   canShoot: true, attackRate: 0.32, aggroRange: 720, damage: 14, score: 420, color: '#ff00ff' },
         shielder: { health: 150, speed: 85,  damage: 18, score: 420, color: '#4db8e8', shieldHP: 150, aggroRange: 640 },
         sniper:   { health: 95,  speed: 60,  canShoot: true, attackRate: 2.6, aggroRange: 950, bulletSpeed: 1150, damage: 40, score: 450, color: '#ff3b5c' },
+        lancer:   { health: 125, speed: 95,  damage: 22, attackRate: 2.4, aggroRange: 540, score: 400, color: '#ffbd69' },
+        scattergun: { health: 110, speed: 70, damage: 16, attackRate: 2.6, aggroRange: 480, bulletSpeed: 320, score: 410, color: '#ff7394' },
+        medic:    { health: 100, speed: 70,  damage: 10, attackRate: 3.2, aggroRange: 460, score: 440, color: '#67efbb' },
+        sentinel: { health: 95,  speed: 80,  damage: 12, attackRate: 2.8, aggroRange: 560, bulletSpeed: 330, score: 420, color: '#c9a2ff', w: 38, h: 48 },
+        swarm:    { health: 20,  speed: 155, damage: 10, attackRate: 2.6, aggroRange: 540, score: 100, color: '#ffd166', w: 20, h: 18 },
+        gunship:  { health: 180, speed: 80,  damage: 14, attackRate: 2.3, aggroRange: 660, bulletSpeed: 320, score: 650, color: '#7cc4ff', w: 76, h: 40 },
+        diver:    { health: 65,  speed: 140, damage: 20, attackRate: 3.4, aggroRange: 660, score: 350, color: '#ff7a7a', w: 36, h: 26 },
     };
 
     function build(cfg) {
@@ -853,7 +860,7 @@ const Levels = [
             const g = hits.find(p => p.h > 50) || hits[0];
             return g ? g.y : 500;
         };
-        const flying = ['flyer', 'bomber', 'swooper', 'drone'];
+        const flying = ['flyer', 'bomber', 'swooper', 'drone', 'sentinel', 'swarm', 'gunship', 'diver'];
         const enemies = cfg.enemies.map(([x, type, mul = 1, extra = {}]) => {
             const b = BASE[type];
             const e = { x, type, ...b, ...extra };
@@ -867,7 +874,7 @@ const Levels = [
             }
             return e;
         });
-        const weaponDrops = cfg.drops.map(([x, type]) => ({ x, y: surfaceAt(x) - 4, type }));
+        const weaponDrops = cfg.drops.map(([x, type, y]) => ({ x, y: y ?? (surfaceAt(x) - 4), type }));
         return { platforms, enemies, weaponDrops };
     }
 
@@ -941,7 +948,7 @@ const Levels = [
         levelWidth: 8000,
     });
 
-    // ---- 第九关：天空要塞（终章）----
+    // ---- 第九关：天空要塞（突破云海防线）----
     const sky = build({
         hpMul: 1.3, scoreMul: 1.25,
         ground: [[0, 600, 500], [1500, 520, 480], [3300, 600, 500], [5200, 520, 470], [7300, 1300, 500]],
@@ -974,5 +981,48 @@ const Levels = [
             color: '#7ce7ff', accentColor: '#ffd36b', archetype: 'sky_judicator', level: 9, score: 9000,
         },
         levelWidth: 8600,
+    });
+
+    // ---- 第十关：星环中枢（轨道平台 + 中枢防御阵列）----
+    // 主路由宽阔甲板和 120 像素断口构成，升降平台提供补给支路。
+    const starcore = build({
+        hpMul: 1.4, scoreMul: 1.4,
+        ground: [[0, 880, 500], [1000, 780, 480], [1900, 880, 500], [2900, 760, 460], [3780, 900, 500],
+                 [4800, 760, 480], [5680, 900, 500], [6700, 780, 470], [7600, 1400, 500]],
+        floats: [[350, 395, 160], [885, 420, 110], [1320, 355, 150], [1785, 410, 110],
+                 [2250, 375, 160], [2785, 405, 110], [3200, 340, 160, { ampY: 24, speedY: 1.5 }], [3665, 405, 110],
+                 [4100, 380, 170], [4685, 420, 110], [5050, 350, 160, { ampY: 28, speedY: 1.6 }], [5565, 410, 110],
+                 [6000, 365, 170], [6585, 410, 110], [7000, 345, 160, { ampY: 24, speedY: 1.7 }], [7485, 410, 110],
+                 [7900, 375, 180], [8350, 355, 170], [8650, 405, 150]],
+        enemies: [[450, 'shielder'], [660, 'shooter'], [1100, 'walker'], [1280, 'medic'], [1500, 'sentinel', 1, { baseY: 265 }],
+                  [2040, 'lancer'], [2230, 'scattergun'], [2500, 'drone'], [2670, 'jumper'],
+                  [3030, 'sniper'], [3320, 'runner'], [3460, 'flyer'], [3550, 'kamikaze'],
+                  [3910, 'shielder'], [4090, 'medic'], [4350, 'missile'], [4550, 'diver', 1, { baseY: 220 }],
+                  [4920, 'turret'], [5160, 'jumper'], [5340, 'bomber'],
+                  [5800, 'lancer'], [6040, 'scattergun'], [6240, 'swooper'], [6420, 'runner'],
+                  [6830, 'shielder'], [7040, 'sentinel', 1, { baseY: 250 }], [7250, 'gunship', 1, { baseY: 210 }],
+                  [7750, 'sniper'], [8000, 'walker', 1.2], [8180, 'medic'], [8450, 'missile']],
+        drops: [[220, 'laser'], [820, 'health'], [1250, 'shotgun'], [1720, 'health'], [2180, 'grenade'],
+                [2700, 'rocket'], [3000, 'health'], [3270, 'smg', 336], [3890, 'health'], [4420, 'laser'], [4640, 'grenade'],
+                [4900, 'health'], [5120, 'laser', 346], [5380, 'rocket'], [5800, 'health'], [6330, 'shotgun'], [6500, 'grenade'],
+                [6850, 'health'], [7070, 'rocket', 341], [7380, 'laser'], [7770, 'rocket'], [8300, 'health'], [8420, 'grenade', 351], [8700, 'health']],
+    });
+    Levels.push({
+        name: '第十关 · 星环中枢',
+        previewArt: 'assets/generated/level10-starcore.webp',
+        bgGradient: (ctx, w, h) => {
+            const g = ctx.createLinearGradient(0, 0, 0, h);
+            g.addColorStop(0, '#070b24'); g.addColorStop(0.4, '#20294f'); g.addColorStop(0.75, '#494477'); g.addColorStop(1, '#131a35');
+            return g;
+        },
+        groundColor: '#20263e', groundDetail: '#394669', platformColor: '#48577b', platformDetail: '#91a9c9',
+        playerStart: { x: 100, y: 400 },
+        cameraBounds: { minX: 0, maxX: 9000 },
+        ...starcore,
+        boss: {
+            x: 8500, y: 496, name: '星环主宰·轨道裁决者', health: 8500, damage: 62, speed: 155, w: 100, h: 125,
+            color: '#b8a0ff', accentColor: '#ffe4a0', archetype: 'astral_regent', level: 10, score: 10000,
+        },
+        levelWidth: 9000,
     });
 })();
