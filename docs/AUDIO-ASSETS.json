@@ -43,8 +43,14 @@
     { "text": "二杀", "source_file": "二杀.mp3", "file": "assets/audio/voices/kill-2.mp3" },
     { "text": "三杀", "source_file": "三杀.mp3", "file": "assets/audio/voices/kill-3.mp3" },
     { "text": "四杀", "source_file": "四杀.mp3", "file": "assets/audio/voices/kill-4.mp3" },
-    { "level": 6, "text": "你的胆子真是肥嘟嘟的", "source_file": "你的胆子真是肥嘟嘟的.mp3", "file": "assets/audio/voices/boss-06-settlement.mp3" }
+    { "level": 6, "text": "你的胆子真是肥嘟嘟的", "source_file": "你的胆子真是肥嘟嘟的.mp3", "file": "assets/audio/voices/boss-06-settlement.mp3" },
+    { "combo": 8, "text": "无人能挡", "source_file": "无人能挡.mp3", "file": "assets/audio/voices/kill-8.mp3" },
+    { "combo": 12, "text": "主宰战场", "source_file": "主宰战场.mp3", "file": "assets/audio/voices/kill-12.mp3" },
+    { "combo": 16, "text": "无双", "source_file": "无双.mp3", "file": "assets/audio/voices/kill-16.mp3" },
+    { "event": "overdrive-start", "text": "开启狂暴", "source_file": "开启狂暴.mp3", "file": "assets/audio/voices/overdrive-start.mp3" },
+    { "event": "boss-phase", "text": "boss进入下一阶段", "source_file": "boss进入下一阶段.mp3", "file": "assets/audio/voices/boss-phase.mp3" },
+    { "event": "boss-charge", "text": "boss大招蓄力", "source_file": "boss大招蓄力.mp3", "file": "assets/audio/voices/boss-charge.mp3" }
   ],
   "processing": "Audio-only MP3 assets, embedded artwork removed; loudness target about -16 LUFS",
-  "verification": "Full FFmpeg decode and browser AudioContext.decodeAudioData; runtime playback and game integration tested by tests/audio.cjs"
+  "verification": "Full FFmpeg decode and browser AudioContext.decodeAudioData; runtime playback and game integration tested by tests/audio.cjs and tests/combat-audio.cjs"
 }

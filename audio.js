@@ -453,10 +453,13 @@ const Audio = (() => {
         if (activeVoice) activeVoice.cancel();
     }
 
-    function playMp3WithCallback(name, vol, onEnd) {
+    // 危险预警优先于战斗播报；首领结算始终优先，不能被后续音效取消。
+    function playMp3WithCallback(name, vol, onEnd, options = {}) {
+        const priority = options.priority ?? 100;
+        if (activeVoice && activeVoice.priority > priority) return false;
         stopVoices();
         const audio = mp3Audios[name];
-        if (muted || pageHidden || !audio || sfxLevel === 0) { if (onEnd) onEnd(); return; }
+        if (muted || pageHidden || !audio || sfxLevel === 0) { if (onEnd) onEnd(); return false; }
         const voiceVolume = vol !== undefined ? vol : 1;
         let finished = false;
         let timer;
@@ -475,7 +478,7 @@ const Audio = (() => {
             return true;
         }
         function finish() { if (cleanup() && onEnd) onEnd(); }
-        activeVoice = { audio, volume: voiceVolume, finish, cancel: cleanup };
+        activeVoice = { audio, volume: voiceVolume, priority, finish, cancel: cleanup };
         audio.currentTime = 0;
         audio.volume = Math.max(0, Math.min(1, voiceVolume * sfxLevel));
         if (voiceOutput && voiceRoutes.has(audio)) voiceOutput.gain.value = 1;
@@ -485,12 +488,37 @@ const Audio = (() => {
         timer = setTimeout(finish, 20000);
         setBgmVolume(0.28);
         audio.play().catch(finish);
+        return true;
+    }
+
+    const COMBAT_VOICES = {
+        killVoice1: { priority: 10 }, killVoice2: { priority: 10 },
+        killVoice3: { priority: 10 }, killVoice4: { priority: 10 },
+        killVoice8: { priority: 15 }, killVoice12: { priority: 15 }, killVoice16: { priority: 15 },
+        overdriveStart: { priority: 30 }, bossPhaseVoice: { priority: 40 },
+        bossChargeVoice: { priority: 50, cooldown: 8 },
+    };
+    const combatVoiceTimes = new Map();
+    function playCombatVoice(name, options = {}) {
+        const config = COMBAT_VOICES[name];
+        if (!config || !Number.isFinite(config.priority)) return false;
+        const cooldown = Number.isFinite(options.cooldown) ? Math.max(0, options.cooldown) : (config.cooldown ?? 0);
+        const requestedPriority = Number.isFinite(options.priority) ? options.priority : config.priority;
+        const priority = Math.max(0, Math.min(99, requestedPriority));
+        const now = performance.now() / 1000;
+        if (combatVoiceTimes.has(name) && now - combatVoiceTimes.get(name) < cooldown) return false;
+        const played = playMp3WithCallback(name, 1, null, { priority });
+        if (played) combatVoiceTimes.set(name, now);
+        return played;
+    }
+
+    function resetCombatVoices() {
+        stopVoices();
+        combatVoiceTimes.clear();
     }
 
     function playKillVoice(count) {
-        if (Number.isInteger(count) && count >= 1 && count <= 4) {
-            playMp3WithCallback('killVoice' + count, 1);
-        }
+        return Number.isInteger(count) ? playCombatVoice('killVoice' + count) : false;
     }
 
     // 首领台词“大厅混响”：台词走 Web Audio，加 2 秒大空间混响 + 低频加厚，听起来更震撼。
@@ -644,6 +672,12 @@ const Audio = (() => {
             loadMp3('killVoice' + count, 'assets/audio/voices/kill-' + count + '.mp3');
         }
         loadMp3('bossChubby', 'assets/audio/voices/boss-06-settlement.mp3');
+        for (const count of [8, 12, 16]) {
+            loadMp3('killVoice' + count, 'assets/audio/voices/kill-' + count + '.mp3');
+        }
+        loadMp3('overdriveStart', 'assets/audio/voices/overdrive-start.mp3');
+        loadMp3('bossPhaseVoice', 'assets/audio/voices/boss-phase.mp3');
+        loadMp3('bossChargeVoice', 'assets/audio/voices/boss-charge.mp3');
         loadMp3('bossLaugh', '气笑的一天.mp3?v=2');
         loadMp3('bossLuck', '下次就没那么好运啦.mp3?v=2');
         loadMp3('bossRespect', '有两下子.mp3?v=2');
@@ -1126,7 +1160,8 @@ const Audio = (() => {
     }
 
     return {
-        init, play, playMp3, playMp3WithCallback, playVoiceEpic, playKillVoice, stopVoices, playBgm, stopBgm,
+        init, play, playMp3, playMp3WithCallback, playVoiceEpic, playKillVoice, playCombatVoice,
+        stopVoices, resetCombatVoices, playBgm, stopBgm,
         setBgmVolume, restoreBgmVolume, setMusicLevel, setSfxLevel, getLevels,
         setVolume, toggleMute, getMuted, getVolume,
         startAmbient, stopAmbient, updateLowHealth, updateWarning,

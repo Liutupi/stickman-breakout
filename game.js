@@ -54,6 +54,8 @@ const Game = (() => {
     let bossChipPct = 100;
     let rageReadyAnnounced = false;
     const COMBO_CALLS = { 1: '一杀', 2: '二杀', 3: '三杀', 4: '四杀', 5: '暴走', 8: '无人能挡', 12: '主宰战场', 16: '无双', 20: '超神' };
+    const BOSS_HEAVY_ATTACKS = new Set(['charge', 'shockwave', 'shadow_burst', 'fire_pillar',
+        'leap_slam', 'ice_spikes', 'portal_barrage', 'laser_sweep', 'boulder_rain', 'homing_orb', 'special']);
 
     const DIFFICULTY_CONFIG = {
         easy: {
@@ -423,7 +425,7 @@ const Game = (() => {
 
     function clearPendingTransition() {
         transitionToken++;
-        Audio.stopVoices();
+        Audio.resetCombatVoices();
         if (pendingTransitionTimeout) {
             clearTimeout(pendingTransitionTimeout);
             pendingTransitionTimeout = null;
@@ -690,7 +692,7 @@ const Game = (() => {
                 channel: 'combo',
             });
             Audio.play('combo', Math.min(8, Math.floor(combo / 2)));
-            if (combo <= 4) Audio.playKillVoice(combo);
+            Audio.playKillVoice(combo);
             if (combo >= 5) FX.slowMo(0.45, 0.18);
         }
     }
@@ -805,6 +807,7 @@ const Game = (() => {
         Renderer.shake(12, 0.4);
         Renderer.addFlash('rgba(255, 170, 60, 0.45)', 0.9, 0.25);
         Audio.play('overdrive');
+        Audio.playCombatVoice('overdriveStart');
         FX.banner('狂暴模式', { sub: '伤害 ×1.5 · 攻速翻倍 · 子弹穿透 · 无限弹药', color: '#ffe14a', glow: '#ff3b1f', size: 64, life: 1.8, channel: 'rage' });
         Particles.spray(player.x, player.y - 26, 40, '#ffb347', 0, Math.PI * 2, 300, 800, 0.5, 2.6);
         // 释放瞬间震退并伤害周围敌人
@@ -1961,9 +1964,15 @@ const Game = (() => {
         // Boss
         if (boss) {
             const btgt = nearestAlive(boss.x, boss.y);
+            const previousWindup = boss.windup;
             const bossAlive = boss.update(dt, levelData.platforms, btgt.x, btgt.y);
+            if (!boss.dead && boss.windup && boss.windup !== previousWindup && BOSS_HEAVY_ATTACKS.has(boss.windup.type)) {
+                // 前摇创建当帧提示一次，普通攻击不播；同一台词至少间隔 8 秒。
+                Audio.playCombatVoice('bossChargeVoice');
+            }
             if (boss.phase > lastBossPhase && !boss.dead) {
                 lastBossPhase = boss.phase;
+                Audio.playCombatVoice('bossPhaseVoice');
                 FX.hitStop(0.15);
                 FX.slowMo(0.4, 0.5);
                 FX.shockwave(boss.x, boss.y - boss.h / 2, 320, '255,60,60', 12, 0.5);

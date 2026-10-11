@@ -7,6 +7,7 @@
     "test": "node --test tests/campaign.test.cjs",
     "test:browser": "node tests/browser.cjs",
     "test:audio": "node tests/audio.cjs",
+    "test:combat-audio": "node tests/combat-audio.cjs",
     "test:aerial": "node tests/aerial-art.cjs",
     "test:coop": "node tests/coop-input.cjs"
   }
