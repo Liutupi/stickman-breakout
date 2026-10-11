@@ -789,7 +789,7 @@ const Game = (() => {
             if (d < radius + boss.w * 0.5) {
                 let dmg = damage * (d < radius * 0.5 ? 1 : 0.6) * (opts.bossMul || 1);
                 if (boss.isVulnerable && boss.isVulnerable()) dmg *= player.upgradeStats.bossWeakDamageMul;
-                boss.takeDamage(dmg);
+                dmg = boss.takeDamage(dmg) || 0;
                 Particles.spawnDamageNum(boss.x, boss.y - boss.h, dmg);
             }
         }
@@ -2172,7 +2172,7 @@ const Game = (() => {
                     let bossDamage = b.damage * (crit ? 2 : 1);
                     const weak = boss.isVulnerable && boss.isVulnerable();
                     if (weak) bossDamage *= player.upgradeStats.bossWeakDamageMul;
-                    boss.takeDamage(bossDamage);
+                    bossDamage = boss.takeDamage(bossDamage) || 0;
                     player.stagnationTimer = Math.min(player.stagnationTimer, 0.5);   // 原地交火打中目标不算“停滞”
                     Particles.spawnHitImpact(b.x, b.y, bAngle + Math.PI);
                     Particles.spawnDamageNum(b.x, b.y - 15, bossDamage, { crit, weak });

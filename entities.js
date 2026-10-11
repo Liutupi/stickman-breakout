@@ -3034,6 +3034,10 @@ class Boss {
         this.chargeTimer = 0;
         this.chargeDir = 0;
         this.hazards = [];
+        // 护甲：持续火力超过“每秒最大血量 / armorSeconds”后，超出部分只吃 20% 伤害；收招破绽期间护甲失效
+        this.armorSeconds = config.armorSeconds || (35 + 4 * (this.level - 1));
+        this.burstDmg = 0;
+        this.armorTimer = 0;
         BossMotion.init(this, config);
     }
 
@@ -3480,8 +3484,21 @@ class Boss {
     takeDamage(amount) {
         if (this.dead) return 0;
         if (this.shieldActive) amount *= 0.2;
+        this.recentDmg = (this.recentDmg || 0) + amount;           // 原始火力压力：用于闪避判断
+        const cap = this.maxHealth / this.armorSeconds * 1.4;
+        if (!this.isVulnerable() && this.entranceDone && this.burstDmg > cap) {
+            amount *= 0.2;
+            if (this.armorTimer <= 0) {
+                this.armorTimer = 0.25;
+                Particles.spawn(this.x, this.y - this.h * 0.6, 5, '#bfe6ff', 160, 0.25);
+            }
+            if (!this._armorHinted && typeof FX !== 'undefined' && FX.banner) {
+                this._armorHinted = true;
+                FX.banner('首领护甲', { sub: '持续猛攻伤害会被削弱 · 趁它收招露出破绽时输出', color: '#bfe6ff', glow: '#2f7bd6', size: 34, y: 0.24, life: 2.4, channel: 'quality' });
+            }
+        }
+        this.burstDmg += amount;
         this.health -= amount;
-        this.recentDmg = (this.recentDmg || 0) + amount;
         this.flashTimer = 0.1;
         Particles.spawnBlood(this.x, this.y - this.h / 2, 3);
         if (this.health <= 0) {

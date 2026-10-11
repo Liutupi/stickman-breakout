@@ -294,7 +294,9 @@
         level.platforms.push({ x: cursor, y: 500, w: 1600, h: 100 });
         level.weaponDrops.push({ x: cursor + 120, y: 496, type: 'health' });
         level.weaponDrops.push({ x: cursor + 220, y: 496, type: 'rocket' });
-        level.boss = { ...level.boss, x: cursor + 950, y: 500,
+        // Boss 血量：第一关 ×3，逐关递减到第十关 ×2（武器升级后伤害很高，原血量几秒就被打死）
+        const bossHpMul = 3 - index * 0.11;
+        level.boss = { ...level.boss, x: cursor + 950, y: 500, health: Math.round(level.boss.health * bossHpMul),
             w: Math.max(level.boss.w, 64), h: Math.max(Math.round(level.boss.h * 1.3), 154), artIndex: index,
             arenaMin: cursor + 60, arenaMax: cursor + 1540 };
         level.levelWidth = cursor + 1600;

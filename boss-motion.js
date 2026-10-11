@@ -422,6 +422,8 @@ const BossMotion = (() => {
         b.evadeCd = Math.max(0, b.evadeCd - dt);
         b.repelCd = Math.max(0, b.repelCd - dt);
         b.recentDmg *= Math.exp(-dt / 1.4);
+        b.burstDmg = (b.burstDmg || 0) * Math.exp(-dt / 1.4);
+        b.armorTimer = Math.max(0, (b.armorTimer || 0) - dt);
         b.attackTimer += dt;
         b.updateHazards(dt); b.updateBossBullets(dt, px, py);
         b.motionTrail = b.motionTrail.filter(t => (t.life -= dt) > 0);
