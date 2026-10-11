@@ -1083,6 +1083,29 @@ const Game = (() => {
         Particles.spawnAmmoText(e.x, e.y - e.h - 24, '新！', '#ffd36b');
     }
 
+    // ---- 背景音乐（每关曲目与原曲名，结局制作人员名单也会列出） ----
+    const BGM_MAP = ['bgm_level1', 'bgm_level2', 'bgm_level3', 'bgm_level4', 'bgm_level5', 'bgm_level5', 'bgm_level3', 'bgm_level2', 'bgm_level5'];
+    const BGM_TITLES = {
+        bgm_level1: '三角洲典狱长进行曲', bgm_level2: '威龙进行曲', bgm_level3: '猛攻小曲',
+        bgm_level4: 'Underground', bgm_level5: '决斗小曲',
+    };
+    // 开局时左下角显示“♪ 正在播放：曲名”
+    function showNowPlaying(title) {
+        if (!title) return;
+        let el = document.getElementById('now-playing');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'now-playing';
+            document.body.appendChild(el);
+        }
+        el.innerHTML = `<span class="np-note">♪</span><span class="np-label">正在播放</span><b>${title}</b>`;
+        el.classList.remove('is-on');
+        void el.offsetWidth;
+        el.classList.add('is-on');
+        clearTimeout(el._t);
+        el._t = setTimeout(() => el.classList.remove('is-on'), 4200);
+    }
+
     function cloneLevelWithDifficulty(rawLevel, difficulty) {
         const config = DIFFICULTY_CONFIG[difficulty] || DIFFICULTY_CONFIG.normal;
 
@@ -1527,9 +1550,10 @@ const Game = (() => {
         Audio.startAmbient(index);
 
         // BGM 映射表
-        const bgmMap = ['bgm_level1', 'bgm_level2', 'bgm_level3', 'bgm_level4', 'bgm_level5', 'bgm_level5', 'bgm_level3', 'bgm_level2', 'bgm_level5'];
+        const bgmMap = BGM_MAP;
         if (bgmMap[index]) {
             Audio.playBgm(bgmMap[index]);
+            showNowPlaying(BGM_TITLES[bgmMap[index]]);
         } else {
             Audio.stopBgm();
         }
@@ -2756,7 +2780,9 @@ const Game = (() => {
         showPlayerMenu, hidePlayerMenu, addNewPlayer,
         showLeaderboard, hideLeaderboard, chooseUpgrade,
         showGrowth, hideGrowth, buyUpgrade, continueFromCheckpoint,
-        enemyInfo: () => ENEMY_INFO, bestGrades: () => getBestGrades(),
+        enemyInfo: () => ENEMY_INFO,
+        bgmList: () => BGM_MAP.map(k => BGM_TITLES[k]),
+        bgmTitle: (k) => BGM_TITLES[k], bestGrades: () => getBestGrades(),
         watchEnding: () => { if (typeof Ending !== 'undefined') Ending.start({ stats: lastRunStats }); },
         showCredits: () => { if (typeof Ending !== 'undefined') Ending.start({}); },
         setCoop, joinP2, isCoop: () => coopMode, hasP2: () => !!player2, isPlaying: () => state === 'playing',

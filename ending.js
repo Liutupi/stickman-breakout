@@ -231,11 +231,15 @@ const Ending = (() => {
     // ---------- 3. 制作人员 ----------
     function renderCredits() {
         const block = c => `<div class="ending-credit"><div class="ending-role">${c.role}</div>${c.names.map(n => `<div class="ending-name">${n}</div>`).join('')}</div>`;
+        const tracks = (typeof Game !== 'undefined' && Game.bgmList) ? Game.bgmList() : [];
+        const music = (typeof Levels !== 'undefined') ? Levels.map((l, i) => tracks[i] ? `<div class="ending-small">${l.name} — 《${tracks[i]}》</div>` : '').join('')
+            + (Game.bgmTitle ? `<div class="ending-small">结局 — 《${Game.bgmTitle('bgm_level2')}》</div>` : '') : '';
         const bosses = (typeof Levels !== 'undefined') ? Levels.map((l, i) => `<div class="ending-small">第 ${i + 1} 关 · ${l.boss.name}</div>`).join('') : '';
         $('ending-roll').innerHTML = `
             <div class="ending-logo">火柴人：突围行动</div>
             <div class="ending-tag">STICKMAN · BREAKOUT</div>
             ${CREDITS.map(block).join('')}
+            <div class="ending-credit"><div class="ending-role">背景音乐</div>${music}</div>
             <div class="ending-credit"><div class="ending-role">九位首领</div>${bosses}</div>
             <div class="ending-credit"><div class="ending-role">特别感谢</div><div class="ending-name">每一位玩家</div></div>
             <div class="ending-final">果沐兄弟 出品</div>

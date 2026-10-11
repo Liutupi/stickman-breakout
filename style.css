@@ -2977,3 +2977,15 @@ body.ending-on #mobile-controls, body.ending-on #hud { display: none !important;
 }
 @media (max-width: 700px) { .ending-grades { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 @media (max-height: 500px) { .ending-skip { top: 8px; bottom: auto; right: 8px; } .ending-parade-title { top: 4%; } }
+/* 开局“正在播放”曲名 */
+#now-playing {
+    position: fixed; left: 18px; bottom: 120px; z-index: 40; display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-radius: 18px; border: 1px solid rgba(124, 231, 255, 0.35);
+    background: rgba(6, 12, 22, 0.78); color: #dff6ff; font-size: 13px; pointer-events: none;
+    opacity: 0; transform: translateX(-30px); transition: opacity .4s, transform .4s cubic-bezier(.2,1.2,.4,1);
+}
+#now-playing.is-on { opacity: 1; transform: none; }
+#now-playing .np-note { color: #ffd36b; font-size: 16px; }
+#now-playing .np-label { color: var(--muted); font-size: 11px; }
+#now-playing b { font-weight: 800; }
+body.touch-device #now-playing { bottom: auto; top: 54px; left: 8px; font-size: 12px; padding: 5px 10px; }
