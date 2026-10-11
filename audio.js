@@ -418,6 +418,8 @@ const Audio = (() => {
     // ---- MP3 音效（使用 HTML5 Audio 元素）----
     // 短语音（几十 KB）预加载；BGM（每首 2-4MB）只在真正播放时才下载
     function loadMp3(name, url) {
+        // init 也会由键鼠/手柄唤醒调用，复用已创建的元素与 Web Audio 路由。
+        if (mp3Audios[name]) return;
         try {
             const isBgm = name.startsWith('bgm_');
             const audio = new window.Audio();
@@ -445,38 +447,74 @@ const Audio = (() => {
         audio.play().catch(function() {});
     }
 
+    // 播报共用一个通道：快速多杀只保留最新一句，文字和声音不会叠在一起。
+    let activeVoice = null;
+    function stopVoices() {
+        if (activeVoice) activeVoice.cancel();
+    }
+
     function playMp3WithCallback(name, vol, onEnd) {
-        if (muted || pageHidden) { if (onEnd) onEnd(); return; }
+        stopVoices();
         const audio = mp3Audios[name];
-        if (!audio) { if (onEnd) onEnd(); return; }
+        if (muted || pageHidden || !audio || sfxLevel === 0) { if (onEnd) onEnd(); return; }
+        const voiceVolume = vol !== undefined ? vol : 1;
+        let finished = false;
+        let timer;
+        function cleanup() {
+            if (finished) return false;
+            finished = true;
+            clearTimeout(timer);
+            audio.removeEventListener('ended', finish);
+            audio.removeEventListener('error', finish);
+            audio.pause();
+            audio.currentTime = 0;
+            // 混响也走独立出口，取消/静音后不留下首领台词的尾音。
+            if (voiceOutput) voiceOutput.gain.value = 0;
+            activeVoice = null;
+            restoreBgmVolume();
+            return true;
+        }
+        function finish() { if (cleanup() && onEnd) onEnd(); }
+        activeVoice = { audio, volume: voiceVolume, finish, cancel: cleanup };
         audio.currentTime = 0;
-        audio.volume = Math.max(0, Math.min(1, (vol !== undefined ? vol : 1) * sfxLevel));
-        audio.onended = function() {
-            audio.onended = null;
-            if (onEnd) onEnd();
-        };
-        audio.play().catch(function() { if (onEnd) onEnd(); });
+        audio.volume = Math.max(0, Math.min(1, voiceVolume * sfxLevel));
+        if (voiceOutput && voiceRoutes.has(audio)) voiceOutput.gain.value = 1;
+        audio.addEventListener('ended', finish);
+        audio.addEventListener('error', finish);
+        // 网络断流/设备拒播都不能卡住首领结算；取消播放则不运行旧关卡的回调。
+        timer = setTimeout(finish, 20000);
+        setBgmVolume(0.28);
+        audio.play().catch(finish);
+    }
+
+    function playKillVoice(count) {
+        if (Number.isInteger(count) && count >= 1 && count <= 4) {
+            playMp3WithCallback('killVoice' + count, 1);
+        }
     }
 
     // 首领台词“大厅混响”：台词走 Web Audio，加 2 秒大空间混响 + 低频加厚，听起来更震撼。
     // 只在音频引擎已运行时接管（接管后元素只能经由 Web Audio 出声）；否则按普通方式播放。
     const voiceRoutes = new Map();
     let voiceHall = null;
+    let voiceOutput = null;
     function routeVoice(audio) {
         if (voiceRoutes.has(audio)) return true;
         if (!ctx || ctx.state !== 'running') return false;
         try {
             if (!voiceHall) {
+                voiceOutput = ctx.createGain();
+                voiceOutput.connect(ctx.destination);
                 const conv = ctx.createConvolver();
                 conv.buffer = makeImpulse(2.2, 2.4);
                 const wet = ctx.createGain(); wet.gain.value = 0.32;
-                conv.connect(wet); wet.connect(ctx.destination);
+                conv.connect(wet); wet.connect(voiceOutput);
                 voiceHall = conv;
             }
             const src = ctx.createMediaElementSource(audio);
             const body = ctx.createBiquadFilter(); body.type = 'lowshelf'; body.frequency.value = 160; body.gain.value = 3;
             const dry = ctx.createGain(); dry.gain.value = 1;
-            src.connect(body); body.connect(dry); dry.connect(ctx.destination);
+            src.connect(body); body.connect(dry); dry.connect(voiceOutput);
             body.connect(voiceHall);
             voiceRoutes.set(audio, true);
             return true;
@@ -531,7 +569,7 @@ const Audio = (() => {
 
     let pendingBgm = null;   // 静音期间请求的曲目，取消静音后接着放
     function playBgm(name) {
-        if (muted) { pendingBgm = name; return; }
+        if (muted) { stopBgm(); pendingBgm = name; return; }
         pendingBgm = null;
         stopBgm();
         const audio = mp3Audios[name];
@@ -566,6 +604,10 @@ const Audio = (() => {
     function setBackgroundPaused(hidden) {
         pageHidden = hidden;
         if (hidden) {
+            if (activeVoice) activeVoice.finish();
+            for (const name of Object.keys(mp3Audios)) {
+                if (!name.startsWith('bgm_')) mp3Audios[name].pause();
+            }
             if (currentBgm) currentBgm.pause();
             if (ctx && ctx.state === 'running') ctx.suspend().catch(function() {});
             return;
@@ -593,6 +635,15 @@ const Audio = (() => {
         loadMp3('bgm_level3', '猛攻小曲.mp3');
         loadMp3('bgm_level4', 'Underground.mp3');
         loadMp3('bgm_level5', '决斗小曲.mp3');
+        loadMp3('bgm_level6', 'assets/audio/bgm/level-06-eternal-rave.mp3');
+        loadMp3('bgm_level7', 'assets/audio/bgm/level-07-babydoll.mp3');
+        loadMp3('bgm_level8', 'assets/audio/bgm/level-08-agudo-magklco.mp3');
+        loadMp3('bgm_level9', 'assets/audio/bgm/level-09-sea-of-tranquility.mp3');
+        loadMp3('bgm_level10', 'assets/audio/bgm/level-10-revenge-super-slowed.mp3');
+        for (let count = 1; count <= 4; count++) {
+            loadMp3('killVoice' + count, 'assets/audio/voices/kill-' + count + '.mp3');
+        }
+        loadMp3('bossChubby', 'assets/audio/voices/boss-06-settlement.mp3');
         loadMp3('bossLaugh', '气笑的一天.mp3?v=2');
         loadMp3('bossLuck', '下次就没那么好运啦.mp3?v=2');
         loadMp3('bossRespect', '有两下子.mp3?v=2');
@@ -631,6 +682,7 @@ const Audio = (() => {
 
     function setSfxLevel(v) {
         sfxLevel = Math.max(0, Math.min(1, v));
+        if (activeVoice) activeVoice.audio.volume = Math.max(0, Math.min(1, activeVoice.volume * sfxLevel));
         if (!muted && masterGain && ctx) {
             masterGain.gain.cancelScheduledValues(ctx.currentTime);
             masterGain.gain.setValueAtTime(sfxGain(), ctx.currentTime);
@@ -645,6 +697,12 @@ const Audio = (() => {
 
     function toggleMute() {
         muted = !muted;
+        if (muted) {
+            if (activeVoice) activeVoice.finish();
+            for (const name of Object.keys(mp3Audios)) {
+                if (!name.startsWith('bgm_')) mp3Audios[name].pause();
+            }
+        }
         if (masterGain) {
             masterGain.gain.cancelScheduledValues(ctx.currentTime);
             masterGain.gain.setValueAtTime(muted ? 0 : sfxGain(), ctx.currentTime);
@@ -1068,7 +1126,7 @@ const Audio = (() => {
     }
 
     return {
-        init, play, playMp3, playMp3WithCallback, playVoiceEpic, playBgm, stopBgm,
+        init, play, playMp3, playMp3WithCallback, playVoiceEpic, playKillVoice, stopVoices, playBgm, stopBgm,
         setBgmVolume, restoreBgmVolume, setMusicLevel, setSfxLevel, getLevels,
         setVolume, toggleMute, getMuted, getVolume,
         startAmbient, stopAmbient, updateLowHealth, updateWarning,

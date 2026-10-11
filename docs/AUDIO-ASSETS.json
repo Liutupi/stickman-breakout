@@ -1,0 +1,50 @@
+{
+  "updated": "2026-10-11",
+  "source": "User-provided local audio files; originals preserved",
+  "encoding": "MP3, 44100 Hz, stereo, 192 kbps",
+  "music": [
+    {
+      "level": 6,
+      "title": "Fyex, DJ Samir - Eternal Rave",
+      "source_file": "Fyex,DJ Samir - Eternal Rave.ncm",
+      "container_audio_format": "mp3",
+      "file": "assets/audio/bgm/level-06-eternal-rave.mp3"
+    },
+    {
+      "level": 7,
+      "title": "SEVENOP, MIRBRO - BABYDOLL (Phonk)",
+      "source_file": "SEVENOP,MIRBRO - BABYDOLL (Phonk).ncm",
+      "container_audio_format": "mp3",
+      "file": "assets/audio/bgm/level-07-babydoll.mp3"
+    },
+    {
+      "level": 8,
+      "title": "FinalSay - AGUDO MAGKLCO (GHETTO HOUSE)",
+      "source_file": "FinalSay - AGUDO MAGKLCO (GHETTO HOUSE).mp3",
+      "file": "assets/audio/bgm/level-08-agudo-magklco.mp3"
+    },
+    {
+      "level": 9,
+      "title": "BeMax - Sea of Tranquility (Radio Edit)",
+      "source_file": "BeMax - Sea of Tranquility(Radio Edit).ncm",
+      "container_audio_format": "mp3",
+      "file": "assets/audio/bgm/level-09-sea-of-tranquility.mp3"
+    },
+    {
+      "level": 10,
+      "title": "1HXSX, wnorg17 - REVENGE (Super Slowed)",
+      "source_file": "1HXSX,wnorg17 - REVENGE (Super Slowed).ncm",
+      "container_audio_format": "mp3",
+      "file": "assets/audio/bgm/level-10-revenge-super-slowed.mp3"
+    }
+  ],
+  "voices": [
+    { "text": "一杀", "source_file": "一杀.mp3", "file": "assets/audio/voices/kill-1.mp3" },
+    { "text": "二杀", "source_file": "二杀.mp3", "file": "assets/audio/voices/kill-2.mp3" },
+    { "text": "三杀", "source_file": "三杀.mp3", "file": "assets/audio/voices/kill-3.mp3" },
+    { "text": "四杀", "source_file": "四杀.mp3", "file": "assets/audio/voices/kill-4.mp3" },
+    { "level": 6, "text": "你的胆子真是肥嘟嘟的", "source_file": "你的胆子真是肥嘟嘟的.mp3", "file": "assets/audio/voices/boss-06-settlement.mp3" }
+  ],
+  "processing": "Audio-only MP3 assets, embedded artwork removed; loudness target about -16 LUFS",
+  "verification": "Full FFmpeg decode and browser AudioContext.decodeAudioData; runtime playback and game integration tested by tests/audio.cjs"
+}

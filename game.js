@@ -53,7 +53,7 @@ const Game = (() => {
     let lastBossHealthPct = 100;
     let bossChipPct = 100;
     let rageReadyAnnounced = false;
-    const COMBO_CALLS = { 2: '双杀', 3: '三杀', 4: '四杀', 5: '暴走', 8: '无人能挡', 12: '主宰战场', 16: '无双', 20: '超神' };
+    const COMBO_CALLS = { 1: '一杀', 2: '二杀', 3: '三杀', 4: '四杀', 5: '暴走', 8: '无人能挡', 12: '主宰战场', 16: '无双', 20: '超神' };
 
     const DIFFICULTY_CONFIG = {
         easy: {
@@ -423,6 +423,7 @@ const Game = (() => {
 
     function clearPendingTransition() {
         transitionToken++;
+        Audio.stopVoices();
         if (pendingTransitionTimeout) {
             clearTimeout(pendingTransitionTimeout);
             pendingTransitionTimeout = null;
@@ -433,16 +434,22 @@ const Game = (() => {
         clearPendingTransition();
         const token = transitionToken;
 
-        pendingTransitionTimeout = setTimeout(() => {
+        const complete = () => {
             pendingTransitionTimeout = null;
-            if (transitionToken !== token || state !== 'playing' || !player) return;
+            if (transitionToken !== token || !player) return;
+            if (state === 'paused') {
+                pendingTransitionTimeout = setTimeout(complete, 250);
+                return;
+            }
+            if (state !== 'playing') return;
 
             if (currentLevel < Levels.length - 1) {
                 showLevelComplete();
             } else {
                 showVictory();
             }
-        }, 2500);
+        };
+        pendingTransitionTimeout = setTimeout(complete, 2500);
     }
 
     function bulletHitsRect(bullet, rect) {
@@ -683,6 +690,7 @@ const Game = (() => {
                 channel: 'combo',
             });
             Audio.play('combo', Math.min(8, Math.floor(combo / 2)));
+            if (combo <= 4) Audio.playKillVoice(combo);
             if (combo >= 5) FX.slowMo(0.45, 0.18);
         }
     }
@@ -1088,10 +1096,15 @@ const Game = (() => {
     }
 
     // ---- 背景音乐（每关曲目与原曲名，结局制作人员名单也会列出） ----
-    const BGM_MAP = ['bgm_level1', 'bgm_level2', 'bgm_level3', 'bgm_level4', 'bgm_level5', 'bgm_level5', 'bgm_level3', 'bgm_level2', 'bgm_level5'];
+    const BGM_MAP = Array.from({ length: 10 }, (_, index) => 'bgm_level' + (index + 1));
     const BGM_TITLES = {
         bgm_level1: '三角洲典狱长进行曲', bgm_level2: '威龙进行曲', bgm_level3: '猛攻小曲',
         bgm_level4: 'Underground', bgm_level5: '决斗小曲',
+        bgm_level6: 'Fyex, DJ Samir - Eternal Rave',
+        bgm_level7: 'SEVENOP, MIRBRO - BABYDOLL (Phonk)',
+        bgm_level8: 'FinalSay - AGUDO MAGKLCO (GHETTO HOUSE)',
+        bgm_level9: 'BeMax - Sea of Tranquility (Radio Edit)',
+        bgm_level10: '1HXSX, wnorg17 - REVENGE (Super Slowed)',
     };
     // 开局时左下角显示“♪ 正在播放：曲名”
     function showNowPlaying(title) {
@@ -1981,17 +1994,22 @@ const Game = (() => {
                 // Boss 击败音效映射表
                 const BOSS_SOUNDS = {
                     0: 'bossExplode', 1: 'bossLaugh', 2: 'bossLuck',
-                    3: 'bossRespect', 4: 'bossBad', 5: 'bossSurrender', 6: 'bossLaugh', 7: 'bossRespect', 8: 'bossSurrender'
+                    3: 'bossRespect', 4: 'bossBad', 5: 'bossChubby', 6: 'bossLaugh', 7: 'bossRespect', 8: 'bossSurrender'
                 };
                 const bossSound = BOSS_SOUNDS[currentLevel];
+                Audio.stopBgm();
                 if (bossSound) {
-                    Audio.stopBgm();
+                    const voiceToken = transitionToken;
+                    if (currentLevel === 5) {
+                        FX.banner('你的胆子真是肥嘟嘟的', { sub: '第六关首领已击破', color: '#ffe14a', glow: '#ff7a1f', size: 44, life: 4.2, y: 0.32, channel: 'boss' });
+                    }
                     // 不再放大音效母线（之前会让击杀 Boss 时所有音效突然变成 3 倍响）
                     // 台词登场：低频重击 + 震屏闪光，台词本身加大厅混响
                     Audio.play('slam');
                     Renderer.shake(8, 0.35);
                     Renderer.addFlash('rgba(255, 220, 160, 0.25)', 0.8, 0.25);
                     Audio.playVoiceEpic(bossSound, function() {
+                        if (voiceToken !== transitionToken) return;
                         Audio.restoreMasterGain();
                         schedulePostBossTransition();
                     });

@@ -127,8 +127,8 @@ fs.mkdirSync(out, { recursive: true });
         const tenth = await story.evaluate(() => ({ name:Game._debug().levelData.name, artIndex:Game._debug().levelData.artIndex,
             music:__nextMusic, grades:Game.bestGrades() }));
         assert.ok(tenth.name.includes('星环中枢')); assert.equal(tenth.artIndex, 9);
-        assert.ok(tenth.music.some(call => call.stop)); assert.ok(!tenth.music.some(call => call.play), '第十关暂不添加背景音乐');
-        assert.equal(await story.evaluate(() => !!document.querySelector('#now-playing.is-on')), false, '无配乐的第十关不应残留上一关曲名');
+        assert.ok(tenth.music.some(call => call.play === 'bgm_level10'), '第十关应播放独立背景音乐');
+        assert.ok(await story.$eval('#now-playing', el => el.classList.contains('is-on') && el.textContent.includes('REVENGE')), '第十关应展示自己的配乐曲名');
         assert.equal(tenth.grades[9], undefined);
         await enterAndDefeatBoss(story);
         await story.waitForFunction(() => Game._debug().state === 'victory', { timeout: 8000, polling:50 });

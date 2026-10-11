@@ -1,0 +1,67 @@
+[
+  {
+    "source": "一杀.mp3",
+    "file": "kill-1.mp3",
+    "duration": "00:00:01.78",
+    "full_decode": "passed",
+    "target_lufs": -16,
+    "maximum_decoded_true_peak_dbtp": -1.5,
+    "encoding_ceiling_dbtp": -2,
+    "before_lufs": -6.58,
+    "before_true_peak_dbtp": -0.34,
+    "after_lufs": -16.26,
+    "after_true_peak_dbtp": -9.94
+  },
+  {
+    "source": "二杀.mp3",
+    "file": "kill-2.mp3",
+    "duration": "00:00:01.93",
+    "full_decode": "passed",
+    "target_lufs": -16,
+    "maximum_decoded_true_peak_dbtp": -1.5,
+    "encoding_ceiling_dbtp": -2,
+    "before_lufs": -13.4,
+    "before_true_peak_dbtp": -0.75,
+    "after_lufs": -16.22,
+    "after_true_peak_dbtp": -3.69
+  },
+  {
+    "source": "三杀.mp3",
+    "file": "kill-3.mp3",
+    "duration": "00:00:01.93",
+    "full_decode": "passed",
+    "target_lufs": -16,
+    "maximum_decoded_true_peak_dbtp": -1.5,
+    "encoding_ceiling_dbtp": -2,
+    "before_lufs": -13.76,
+    "before_true_peak_dbtp": -2.96,
+    "after_lufs": -16.26,
+    "after_true_peak_dbtp": -5.33
+  },
+  {
+    "source": "四杀.mp3",
+    "file": "kill-4.mp3",
+    "duration": "00:00:01.80",
+    "full_decode": "passed",
+    "target_lufs": -16,
+    "maximum_decoded_true_peak_dbtp": -1.5,
+    "encoding_ceiling_dbtp": -2,
+    "before_lufs": -15.11,
+    "before_true_peak_dbtp": -4.66,
+    "after_lufs": -16.27,
+    "after_true_peak_dbtp": -5.61
+  },
+  {
+    "source": "你的胆子真是肥嘟嘟的.mp3",
+    "file": "boss-06-settlement.mp3",
+    "duration": "00:00:04.65",
+    "full_decode": "passed",
+    "target_lufs": -16,
+    "maximum_decoded_true_peak_dbtp": -1.5,
+    "encoding_ceiling_dbtp": -2,
+    "before_lufs": -16.37,
+    "before_true_peak_dbtp": -1.72,
+    "after_lufs": -16.6,
+    "after_true_peak_dbtp": -2.65
+  }
+]

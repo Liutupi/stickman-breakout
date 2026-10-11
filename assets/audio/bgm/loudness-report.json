@@ -1,0 +1,67 @@
+[
+  {
+    "source": "FinalSay - AGUDO MAGKLCO (GHETTO HOUSE).mp3",
+    "file": "level-08-agudo-magklco.mp3",
+    "duration": "00:01:36.86",
+    "full_decode": "passed",
+    "target_lufs": -16,
+    "maximum_decoded_true_peak_dbtp": -1.5,
+    "encoding_ceiling_dbtp": -1.5,
+    "before_lufs": -5.82,
+    "before_true_peak_dbtp": 1.02,
+    "after_lufs": -16.26,
+    "after_true_peak_dbtp": -9.01
+  },
+  {
+    "source": "Fyex,DJ Samir - Eternal Rave.mp3",
+    "file": "level-06-eternal-rave.mp3",
+    "duration": "00:02:01.94",
+    "full_decode": "passed",
+    "target_lufs": -16,
+    "maximum_decoded_true_peak_dbtp": -1.5,
+    "encoding_ceiling_dbtp": -1.5,
+    "before_lufs": -4.57,
+    "before_true_peak_dbtp": 1.45,
+    "after_lufs": -16.27,
+    "after_true_peak_dbtp": -8.52
+  },
+  {
+    "source": "SEVENOP,MIRBRO - BABYDOLL (Phonk).mp3",
+    "file": "level-07-babydoll.mp3",
+    "duration": "00:01:59.85",
+    "full_decode": "passed",
+    "target_lufs": -16,
+    "maximum_decoded_true_peak_dbtp": -1.5,
+    "encoding_ceiling_dbtp": -1.5,
+    "before_lufs": -6.35,
+    "before_true_peak_dbtp": 1.39,
+    "after_lufs": -16.26,
+    "after_true_peak_dbtp": -7.89
+  },
+  {
+    "source": "BeMax - Sea of Tranquility(Radio Edit).mp3",
+    "file": "level-09-sea-of-tranquility.mp3",
+    "duration": "00:02:04.73",
+    "full_decode": "passed",
+    "target_lufs": -16,
+    "maximum_decoded_true_peak_dbtp": -1.5,
+    "encoding_ceiling_dbtp": -1.5,
+    "before_lufs": -6.17,
+    "before_true_peak_dbtp": 1.22,
+    "after_lufs": -16.26,
+    "after_true_peak_dbtp": -7.06
+  },
+  {
+    "source": "1HXSX,wnorg17 - REVENGE (Super Slowed).mp3",
+    "file": "level-10-revenge-super-slowed.mp3",
+    "duration": "00:02:01.89",
+    "full_decode": "passed",
+    "target_lufs": -16,
+    "maximum_decoded_true_peak_dbtp": -1.5,
+    "encoding_ceiling_dbtp": -1.5,
+    "before_lufs": -5.27,
+    "before_true_peak_dbtp": 1.25,
+    "after_lufs": -16.25,
+    "after_true_peak_dbtp": -9.03
+  }
+]
