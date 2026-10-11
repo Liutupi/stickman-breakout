@@ -11,10 +11,12 @@ const PadInput = (() => {
     const KEYMAP = { [BTN.B]: 'KeyC', [BTN.X]: 'KeyE', [BTN.LB]: 'KeyV', [BTN.LT]: 'KeyQ', [BTN.RB]: 'KeyF', [BTN.R3]: 'KeyF', [BTN.SELECT]: 'KeyR', [BTN.START]: 'Escape', [BTN.L3]: 'ShiftLeft' };
     // 输入“去向”：1P = 全局输入（与键盘鼠标共用），2P = 双人模式下 2P 的独立输入源
     const SINKS = {
-        p1: { held: {}, stickJump: false, keyDown: c => Input.keyDown(c), keyUp: c => Input.keyUp(c), fire: v => Input.setGamepadFire(v), aim: v => Input.setGamepadAim(v), scroll: n => Input.addScroll(n) },
+        p1: { held: {}, stickJump: false, keyDown: c => Input.setGamepadKey(c, true), keyUp: c => Input.setGamepadKey(c, false), fire: v => Input.setGamepadFire(v), aim: v => Input.setGamepadAim(v), scroll: n => Input.addScroll(n) },
         p2: { held: {}, stickJump: false, keyDown: c => Input.p2.keyDown(c), keyUp: c => Input.p2.keyUp(c), fire: v => Input.p2.setFire(v), aim: v => Input.p2.setAim(v), scroll: n => Input.p2.addScroll(n) },
     };
     const prevByPad = {};
+    const prevAxesByPad = {};
+    const aimAnchorByPad = {};
     const prevOf = p => prevByPad[p.index] || [];
     let awake = false;        // 手柄是否已被按过（第一下只用于唤醒，不当确认）
 
@@ -195,8 +197,31 @@ const PadInput = (() => {
     }
 
     function anyInput(p) {
-        if (p.buttons.some(pressed)) return true;
-        return p.axes.some(v => Math.abs(v) > 0.5);
+        if (Object.values(BTN).some(i => pressed(p.buttons[i]))) return true;
+        const ax = p.axes[0] || 0, ay = p.axes[1] || 0;
+        const right = Math.hypot(p.axes[2] || 0, p.axes[3] || 0);
+        // 只读取实际映射的摇杆和帽子开关；未映射的扳机轴常以 -1 静止。
+        return Math.abs(ax) > DEAD || ay < -0.55 || ay > 0.6 || right > 0.35 || !!hatDirs(p);
+    }
+
+    function newBattleInput(p) {
+        const prev = prevOf(p);
+        if (Object.values(BTN).some(i => pressed(p.buttons[i]) && !prev[i])) return true;
+        const before = prevAxesByPad[p.index] || [];
+        const axisDir = (v, lo, hi) => v < lo ? -1 : v > hi ? 1 : 0;
+        const ax = p.axes[0] || 0, ay = p.axes[1] || 0;
+        const px = before[0] || 0, py = before[1] || 0;
+        const move = axisDir(ax, -DEAD, DEAD), oldMove = axisDir(px, -DEAD, DEAD);
+        const vertical = axisDir(ay, -0.55, 0.6), oldVertical = axisDir(py, -0.55, 0.6);
+        if ((move && move !== oldMove) || (vertical && vertical !== oldVertical)) return true;
+        const rx = p.axes[2] || 0, ry = p.axes[3] || 0;
+        const previousAim = Math.hypot(before[2] || 0, before[3] || 0);
+        // 鼠标接管后保留最后的摇杆方向，缓慢但明显的转向也能重新接管。
+        const anchor = aimAnchorByPad[p.index] || [before[2] || 0, before[3] || 0];
+        const m = Math.hypot(rx, ry), am = Math.hypot(...anchor);
+        if (m > 0.35 && (previousAim <= 0.35 || (am > 0.35 && (rx * anchor[0] + ry * anchor[1]) / (m * am) < Math.cos(Math.PI / 8)))) return true;
+        const hat = hatDirs(p), oldHat = hatDirs({ mapping: p.mapping, axes: before });
+        return !!hat && ['up', 'down', 'left', 'right'].some(dir => hat[dir] && !(oldHat && oldHat[dir]));
     }
 
     function step(now) {
@@ -206,7 +231,11 @@ const PadInput = (() => {
         lastT = now;
         const list = pads();
         if (!list.length) return;
-        const savePrev = () => { for (const q of list) prevByPad[q.index] = q.buttons.map(pressed); };
+        const savePrev = () => { for (const q of list) {
+            prevByPad[q.index] = q.buttons.map(pressed);
+            prevAxesByPad[q.index] = q.axes.slice();
+            if (Input.gamepadActive() || !aimAnchorByPad[q.index]) aimAnchorByPad[q.index] = [q.axes[2] || 0, q.axes[3] || 0];
+        } };
         const coop = isCoop();
         const active = list.find(anyInput);
 
@@ -236,9 +265,16 @@ const PadInput = (() => {
                 const p2pad = list.length >= 2 ? list[1] : list[0];
                 const p1pad = list.length >= 2 ? list[0] : null;
                 if (p1pad) {
-                    if (anyInput(p1pad) && !Input.gamepadActive()) Input.setGamepadActive(true);
+                    // 鼠标接管后，旧的按住/摇杆位置不会每帧把 1P 再抢回手柄。
+                    if (!Input.gamepadActive()) {
+                        releaseSink(SINKS.p1);
+                        if (newBattleInput(p1pad)) Input.setGamepadActive(true);
+                    }
                     if (Input.gamepadActive()) playStep(p1pad, SINKS.p1);
-                } else if (Input.gamepadActive()) { releaseSink(SINKS.p1); Input.setGamepadActive(false); }
+                } else {
+                    releaseSink(SINKS.p1);
+                    if (Input.gamepadActive()) Input.setGamepadActive(false);
+                }
                 if (!Game.hasP2()) {
                     releaseSink(SINKS.p2);
                     if (anyInput(p2pad) && Game.isPlaying && Game.isPlaying()) { Game.joinP2(); savePrev(); return; }
@@ -247,8 +283,12 @@ const PadInput = (() => {
                 }
             } else {
                 releaseSink(SINKS.p2);
-                const p = active || list[0];
-                if (active && !Input.gamepadActive()) Input.setGamepadActive(true);
+                const fresh = list.find(newBattleInput);
+                const p = fresh || active || list[0];
+                if (!Input.gamepadActive()) {
+                    releaseSink(SINKS.p1);
+                    if (fresh) Input.setGamepadActive(true);
+                }
                 if (Input.gamepadActive()) playStep(p, SINKS.p1);
             }
         }
@@ -275,7 +315,8 @@ const PadInput = (() => {
     }
 
     window.addEventListener('gamepadconnected', e => { toast(`已检测到手柄：按任意键开始使用`); start(); });
-    window.addEventListener('gamepaddisconnected', () => {
+    window.addEventListener('gamepaddisconnected', e => {
+        if (e.gamepad) { delete prevByPad[e.gamepad.index]; delete prevAxesByPad[e.gamepad.index]; delete aimAnchorByPad[e.gamepad.index]; }
         if (!pads().length) { releaseAll(); Input.setGamepadActive(false); setFocus(null); toast('手柄已断开'); }
     });
     // 触屏一碰就切回触屏操作

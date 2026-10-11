@@ -1707,7 +1707,7 @@ const Game = (() => {
         // 玩家更新
         // 双人时逐人处理：移动、下砸
         eachPlayer(p => {
-        if (p === player2 || Input.isTouch() || Input.gamepadActive()) updateTouchAim();
+        if (p === player2 || Input.getAimMode() !== 'mouse') updateTouchAim();
         else Input.setAimOverride(null);
         player.update(dt, levelData.platforms);
         // 关卡左右边界（修复：冲刺/走出关卡尽头会掉出地图直接死亡）

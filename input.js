@@ -20,6 +20,7 @@ const Input = (() => {
     let aimCenter = { x: 0, y: 0 };
     let aimVec = null;
     let aimOverride = null;
+    let pointerAimMode = 'mouse';
     const AIM_DEADZONE = 14;
     function updateAim(x, y) {
         const dx = x - aimCenter.x, dy = y - aimCenter.y;
@@ -56,11 +57,21 @@ const Input = (() => {
             delete keyHoldTime[e.code];
         });
 
-        canvas.addEventListener('mousemove', e => {
+        // 输入来源取决于实际操作，触屏电脑也可以用鼠标瞄准。
+        // 监听整个窗口，鼠标移到 HUD 上方时也继续更新坐标。
+        const useMouse = e => {
+            if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
             mouseX = e.clientX;
             mouseY = e.clientY;
-            if (gp.active && (Math.abs(e.movementX) + Math.abs(e.movementY) > 6)) setGamepadActive(false);
-        });
+            pointerAimMode = 'mouse';
+            setGamepadActive(false);
+        };
+        window.addEventListener('mousemove', useMouse);
+        window.addEventListener('mousedown', useMouse);
+        window.addEventListener('touchstart', () => {
+            pointerAimMode = 'touch';
+            setGamepadActive(false);
+        }, { capture: true, passive: true });
         canvas.addEventListener('mousedown', e => {
             if (e.button === 0) {
                 mouseDown = true;
@@ -68,7 +79,7 @@ const Input = (() => {
                 Audio.init();
             }
         });
-        canvas.addEventListener('mouseup', e => {
+        window.addEventListener('mouseup', e => {
             if (e.button === 0) mouseDown = false;
         });
         canvas.addEventListener('wheel', e => {
@@ -83,6 +94,7 @@ const Input = (() => {
     function initTouchControls() {
         const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         if (!isTouchDevice) return;
+        pointerAimMode = 'touch';
         document.body.classList.add('touch-device');
 
         const stickArea = document.getElementById('stick-area');
@@ -289,8 +301,8 @@ const Input = (() => {
         reset() { p2src.keys = {}; p2src.just.clear(); p2src.hold = {}; p2src.fire = false; p2src.fireJust = false; p2src.scroll = 0; p2src.aimVec = null; p2src.aimOverride = null; },
     };
 
-    function isDown(code) { return cur ? !!cur.keys[code] : !!keys[code]; }
-    function wasPressed(code) { return cur ? cur.just.has(code) : justPressed.has(code); }
+    function isDown(code) { return cur ? !!cur.keys[code] : !!keys[code] || (gp.active && !!gp.keys[code]); }
+    function wasPressed(code) { return cur ? cur.just.has(code) : justPressed.has(code) || (gp.active && gp.just.has(code)); }
     // 画面在矮屏上会整体缩放，这里把屏幕坐标换算成画布逻辑坐标
     function getMouse() {
         if (cur) return cur.aimOverride ? { x: cur.aimOverride.x, y: cur.aimOverride.y } : { x: 0, y: 0 };
@@ -302,7 +314,7 @@ const Input = (() => {
     function wasMousePressed() { return cur ? cur.fireJust : mouseJustPressed; }
     function getScrollDelta() { return cur ? cur.scroll : scrollDelta; }
     function clearScrollDelta() { if (cur) cur.scroll = 0; else scrollDelta = 0; }
-    function getHoldTime(code) { return cur ? (cur.hold[code] || 0) : (keyHoldTime[code] || 0); }
+    function getHoldTime(code) { return cur ? (cur.hold[code] || 0) : Math.max(keyHoldTime[code] || 0, gp.active ? gp.hold[code] || 0 : 0); }
 
     function update(dt) {
         for (const code in keyHoldTime) {
@@ -311,6 +323,7 @@ const Input = (() => {
             }
         }
         for (const code in p2src.hold) if (p2src.keys[code]) p2src.hold[code] += dt;
+        for (const code in gp.hold) if (gp.active && gp.keys[code]) gp.hold[code] += dt;
     }
 
     function endFrame() {
@@ -320,14 +333,21 @@ const Input = (() => {
         p2src.just.clear();
         p2src.fireJust = false;
         p2src.scroll = 0;
+        gp.just.clear();
     }
 
     // ---- 手柄（由 gamepad.js 写入） ----
-    const gp = { active: false, fire: false, aimVec: null };
+    const gp = { active: false, fire: false, aimVec: null, keys: {}, just: new Set(), hold: {} };
     function setGamepadActive(v) {
         gp.active = !!v;
-        if (!v) { gp.fire = false; gp.aimVec = null; aimOverride = null; }
+        if (!v) { gp.fire = false; gp.aimVec = null; gp.keys = {}; gp.just.clear(); gp.hold = {}; aimOverride = null; }
         document.body.classList.toggle('gamepad-active', gp.active);
+    }
+    // 手柄虚拟按键与物理键盘分开，切回鼠标时不会释放仍按住的键盘键。
+    function setGamepadKey(code, down) {
+        if (down && !gp.keys[code]) { gp.just.add(code); gp.hold[code] = 0; }
+        gp.keys[code] = !!down;
+        if (!down) delete gp.hold[code];
     }
     function setGamepadFire(down) {
         if (down && !gp.fire) mouseJustPressed = true;
@@ -336,6 +356,7 @@ const Input = (() => {
     function setGamepadAim(vec) { gp.aimVec = vec; }
     function addScroll(n) { scrollDelta += n; }
     function gamepadActive() { return gp.active; }
+    function getAimMode() { return cur || gp.active ? 'gamepad' : pointerAimMode; }
 
     function getTouchAim() {
         if (cur) return { active: cur.fire, vec: cur.aimVec };
@@ -350,5 +371,5 @@ const Input = (() => {
         if (('ontouchstart' in window || navigator.maxTouchPoints > 0) && document.body) document.body.classList.add('touch-device');
     } catch (e) { /* ignore */ }
 
-    return { useSource, p2, setGamepadActive, setGamepadFire, setGamepadAim, addScroll, gamepadActive, keyDown: simulateKeyDown, keyUp: simulateKeyUp, getTouchAim, setAimOverride, isTouch, init, isDown, wasPressed, getMouse, isMouseDown, wasMousePressed, getScrollDelta, getHoldTime, update, endFrame, _getJustPressed: () => justPressed };
+    return { useSource, p2, setGamepadActive, setGamepadKey, setGamepadFire, setGamepadAim, addScroll, gamepadActive, getAimMode, keyDown: simulateKeyDown, keyUp: simulateKeyUp, getTouchAim, setAimOverride, isTouch, init, isDown, wasPressed, getMouse, isMouseDown, wasMousePressed, getScrollDelta, getHoldTime, update, endFrame, _getJustPressed: () => justPressed };
 })();

@@ -6,6 +6,7 @@
     "start": "node scripts/serve.cjs",
     "test": "node --test tests/campaign.test.cjs",
     "test:browser": "node tests/browser.cjs",
-    "test:aerial": "node tests/aerial-art.cjs"
+    "test:aerial": "node tests/aerial-art.cjs",
+    "test:coop": "node tests/coop-input.cjs"
   }
 }
