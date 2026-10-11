@@ -57,6 +57,8 @@ const PadInput = (() => {
 
     // ---------- 菜单导航 ----------
     function visibleMenu() {
+        const ending = document.getElementById('ending');
+        if (ending && !ending.classList.contains('hidden')) return ending;
         const guide = document.getElementById('install-guide');
         if (guide && !guide.classList.contains('hidden')) return guide;
         const boot = document.getElementById('boot-screen');

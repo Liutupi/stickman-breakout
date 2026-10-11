@@ -858,6 +858,18 @@ const Game = (() => {
         return { grade, total: Math.round(total) };
     }
 
+    // ---- 本轮（从选难度开始）的累计战绩，用于通关结算 ----
+    let runStats = { levels: 0, kills: 0, time: 0, maxCombo: 0, coins: 0, finalScore: 0 };
+    let lastRunStats = null;
+    function addRunStats(final, reward) {
+        runStats.levels++;
+        runStats.kills += levelKills;
+        runStats.time += levelTime;
+        runStats.maxCombo = Math.max(runStats.maxCombo, maxCombo);
+        runStats.coins += reward ? reward.coins : 0;
+        runStats.finalScore = final.total;
+    }
+
     function getBestGrades() {
         try { return JSON.parse(localStorage.getItem('stickman_grades')) || {}; } catch { return {}; }
     }
@@ -1156,6 +1168,7 @@ const Game = (() => {
 
     function selectDifficulty(difficulty) {
         currentDifficulty = difficulty;
+        runStats = { levels: 0, kills: 0, time: 0, maxCombo: 0, coins: 0, finalScore: 0 };
         const levelIndex = pendingLevelIndex !== null ? pendingLevelIndex : 0;
         pendingLevelIndex = null;
 
@@ -2628,6 +2641,7 @@ const Game = (() => {
         const grade = computeGrade();
         const isNewBest = saveBestGrade(currentLevel, grade.grade);
         const lcReward = grantRewards({ grade: grade.grade, bossKilled: true, clearedLevel: currentLevel });
+        addRunStats(final, lcReward);
         ui.levelCompleteInfo.innerHTML = gradeHTML(grade, isNewBest) + rewardHTML(lcReward) + `<span class="result-stats">特工: ${currentPlayerName} · ${diffLabel}<br>当前累计得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br></span><strong style="color:var(--gold)">当前总积分: ${final.total}</strong><span class="result-stats"><br><span style="color:var(--muted);font-size:12px">进入下一关继续累计分数...</span></span>`;
         Audio.playMp3('levelComplete');
         if (currentLevel >= Levels.length - 1) {
@@ -2653,6 +2667,10 @@ const Game = (() => {
         const grade = computeGrade();
         const isNewBest = saveBestGrade(currentLevel, grade.grade);
         const vReward = grantRewards({ grade: grade.grade, bossKilled: true, clearedLevel: currentLevel });
+        addRunStats(final, vReward);
+        lastRunStats = { ...runStats };
+        // 全部通关：播放结局（结算 → 怪兽巡礼 → 制作人员 → 宣传片），结束后回到胜利菜单
+        if (typeof Ending !== 'undefined') setTimeout(() => { if (state === 'victory') Ending.start({ stats: lastRunStats }); }, 1800);
         ui.victoryInfo.innerHTML = gradeHTML(grade, isNewBest) + rewardHTML(vReward) + `特工: ${currentPlayerName} · ${diffLabel}<br>基础得分: ${final.baseScore} | 血量奖励: ${final.healthBonus} | 时间奖励: ${final.timeBonus}${diffText}<br><strong style="color:var(--gold)">总积分: ${final.total}</strong><br>恭喜你击败了所有 Boss!`;
     }
 
@@ -2738,6 +2756,9 @@ const Game = (() => {
         showPlayerMenu, hidePlayerMenu, addNewPlayer,
         showLeaderboard, hideLeaderboard, chooseUpgrade,
         showGrowth, hideGrowth, buyUpgrade, continueFromCheckpoint,
+        enemyInfo: () => ENEMY_INFO, bestGrades: () => getBestGrades(),
+        watchEnding: () => { if (typeof Ending !== 'undefined') Ending.start({ stats: lastRunStats }); },
+        showCredits: () => { if (typeof Ending !== 'undefined') Ending.start({}); },
         setCoop, joinP2, isCoop: () => coopMode, hasP2: () => !!player2, isPlaying: () => state === 'playing',
         // 调试用（控制台可查看当前状态）
         _debug: () => ({ player, p2: player2, enemies, boss, state, combo, maxCombo, levelData, currentLevel, levelTime }),
