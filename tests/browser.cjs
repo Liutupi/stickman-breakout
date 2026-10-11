@@ -126,11 +126,15 @@ fs.mkdirSync(out, { recursive: true });
         });
         await preview.setViewport({width:1200,height:1900});
         await preview.screenshot({path:path.join(out,'boss-pose-contact-sheet.png')});
-        const fallback = await browser.newPage(); await setup(fallback, true);
+        // 单独的上下文隔离前面试玩安装的 Service Worker 与图片缓存，
+        // 让这里真实模拟首次访问时素材下载失败，而不是命中旧缓存。
+        const fallbackContext = await browser.createBrowserContext();
+        const fallback = await fallbackContext.newPage(); await setup(fallback, true);
         await fallback.evaluate(() => { Game.selectDifficulty('normal'); __advance(90); });
         assert.equal(await fallback.evaluate(() => Game._debug().state), 'playing');
         assert.equal(await fallback.evaluate(() => GameArt.ready().backgrounds), false);
         await fallback.screenshot({ path: path.join(out, 'fallback.png') });
+        await fallbackContext.close();
         assert.deepEqual(errors, []); assert.deepEqual(failures, []);
         fs.writeFileSync(path.join(out, 'browser-summary.json'), JSON.stringify({ summary, errors, failures, bossMotion:'passed', evolution:'passed', mobile:'passed', fallback:'passed' }, null, 2));
         console.log('通过：九关扩展段真实移动、九个 Boss、九套跳砸动画与落地物理、远处敌人激活、外观进化、移动端、资源失败后备渲染。');

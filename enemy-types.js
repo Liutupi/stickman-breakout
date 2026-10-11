@@ -325,10 +325,11 @@ const EnemyVariants = (() => {
         return true;
     }
     function drawSignals(ctx, e) {
+        if(typeof AerialArt!=='undefined')AerialArt.drawSignals(ctx,e);
         ctx.save();
         if (names[e.type]) {
             ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = e.color;
-            ctx.fillText(names[e.type], 0, -e.h - 9);
+            ctx.fillText(names[e.type], 0, -e.h - (e.type==='gunship'?25:9));
         }
         if (e.signal > 0) {
             ctx.strokeStyle = `rgba(103,239,187,${e.signal})`; ctx.lineWidth = 2;

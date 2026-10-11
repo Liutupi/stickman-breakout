@@ -258,7 +258,10 @@ const GameArt = (() => {
         ctx.restore();
         return true;
     }
-    function drawEnemy(ctx, enemy) { return drawSprite(ctx, infantry, enemyFrames[enemyOrder.indexOf(enemy.type)], enemy, false); }
+    function drawEnemy(ctx, enemy) {
+        if(typeof AerialArt!=='undefined' && AerialArt.draw(ctx,enemy))return true;
+        return drawSprite(ctx,infantry,enemyFrames[enemyOrder.indexOf(enemy.type)],enemy,false);
+    }
     function drawBoss(ctx, boss) {
         requestMotion(boss.artIndex || 0);
         const sheet=motions[boss.artIndex || 0];
@@ -311,5 +314,6 @@ const GameArt = (() => {
         prepareLevel, preloadAllMotions,
         // bossMotion：所有“已请求”的动作图都已就绪（未请求的不阻塞）
         ready: () => ({ backgrounds: !!backgrounds.naturalWidth, bosses: bossFrames.length === 9, enemies: enemyFrames.length === 17,
+            aerial: typeof AerialArt!=='undefined' && AerialArt.ready(),
             bossMotion: motions.every(s => !s.requested || s.frames.length === 16) }) };
 })();

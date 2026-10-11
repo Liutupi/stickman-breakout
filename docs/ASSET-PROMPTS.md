@@ -81,3 +81,11 @@ Make the progression very clear through more beautiful gear and light, but prese
 Nine transparent 4 × 4 sheets (144 poses total) were generated using the built-in image_gen tool, referencing the original Boss atlas. Runtime files are `assets/generated/boss-motion/*.png`. Exact per-sheet prompts, reference, original output paths and runtime destinations are preserved in [BOSS-MOTION-ASSETS.json](BOSS-MOTION-ASSETS.json). All originals are retained.
 
 Animation uses a common scale based on each Boss’s idle frame: crouches remain shorter rather than being stretched to standing height. Alpha boundaries align feet, transparent row valleys protect against minor grid spacing drift. Each sheet supports running, preparation, strike, follow-through, jump, descent, landing, casting, hurt and recovery. The attack timeline determines which frame appears and when hitboxes or projectiles become active.
+
+## Aerial fleet animation sheets
+
+Eight transparent 2 × 2 sheets (32 mechanical poses) were generated with the built-in image_gen tool. Each device has a distinct silhouette and material palette: gold bee swarm, blue VTOL gunship, red mechanical eagle, cyan manta patrol, orange heavy bomber, magenta diving jet, cyan quadrotor and violet prism sentinel. Cell order is hover, alert, attack, recovery.
+
+Runtime files are `assets/generated/aerial-v1/*.webp`. Complete prompts, original PNG paths and final WebP destinations are preserved in [AERIAL-ART-ASSETS.json](AERIAL-ART-ASSETS.json). The generated originals remain under `/Users/tupi/.codex/generated_images/`; the game uses 1024-pixel WebP encodes with alpha preserved, approximately 1.2 MB in total.
+
+The runtime uses a common scale derived from each idle pose, so folded wings remain folded instead of stretching to the hover silhouette. Sprites are centered on the existing body, face the target, pitch during dives, and add animated rotors, exhaust or orbital rings. AI, damage and collision dimensions are unchanged. Aim lines and warning lights are drawn separately in world orientation, and ending-parade actors reuse the same renderer.

@@ -2863,8 +2863,8 @@ class Enemy {
         if (spriteDrawn) EnemyVariants.drawSignals(ctx, this);
         ctx.restore();
 
-        // 血条
-        if (this.health < this.maxHealth) {
+        // 炮艇由专用渲染绘制宽血条，避免重复叠加普通小兵血条。
+        if (this.health < this.maxHealth && this.type !== 'gunship') {
             const barW = 30;
             const barH = 4;
             const ratio = this.health / this.maxHealth;
