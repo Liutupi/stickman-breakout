@@ -327,7 +327,7 @@ test('二连斩有两次独立命中区、可逃脱的间隔和停止滑动的�
                     hits.push({time:i/60,dir:h.dir,swing:h.swing});
                 }
                 if(i>20&&i<42&&!b.hazards.some(h=>h.sourceAttack==='cross_slash'))safeFrames++;
-                if(b.action?.kind==='recover'){recovered=true;if(b.action.duration<.8||!b.isVulnerable()||b.x!==800||b.vx!==0)throw Error('bad recovery');}
+                if(b.action?.kind==='recover'){recovered=true;if(b.action.duration<.5||!b.isVulnerable()||b.x!==800||b.vx!==0)throw Error('bad recovery');}
                 if(BossMotion.frame(b)<0||BossMotion.frame(b)>15||b.facing!==dir)throw Error('pose/direction changed');
             }
             rows.push({hits,recovered,safeFrames});
@@ -373,7 +373,7 @@ test('后撤冲刺先退再蓄力再前突，锁定端点与朝向，结束后�
                 hit ||= b.hazards.some(h=>h.sourceAttack==='feint_dash' && h.dir===dir);
                 if(b.action?.kind==='recover') {
                     if(recoverX===undefined)recoverX=b.x;
-                    if(b.x!==locked.dashX || b.x!==recoverX || b.vx!==0 || b.action.duration<1 || !b.isVulnerable())return false;
+                    if(b.x!==locked.dashX || b.x!==recoverX || b.vx!==0 || b.action.duration<.6 || !b.isVulnerable())return false;
                 }
             }
             if(!['retreat','dash_ready','dash','recover'].every(s=>states.has(s)) || !hit)return false;
@@ -406,7 +406,7 @@ test('腾空俯冲锁定落点，飞越上层平台，只有落地才产生冲�
             }
             if(!landed||minY>360||!['takeoff','hover','dive','land'].every(s=>states.has(s)))return false;
             for(let i=0;i<20;i++)b.update(1/60,platforms,100,500);
-            if(b.x!==target||b.y!==500||b.action.kind!=='recover'||b.action.duration<1||!b.isVulnerable())return false;
+            if(b.x!==target||b.y!==500||b.action.kind!=='recover'||b.action.duration<.6||!b.isVulnerable())return false;
         }
         return true;
     })()`));
@@ -427,7 +427,7 @@ test('错层弹幕三拍保留完整角色宽度的安全层，弹道固定且�
                     seen.add(shot);if(shot.sourceAttack!=='lane_barrage'||shot.vy!==0||Math.sign(shot.vx)!==dir||shot.homing)throw Error('tracked shot');
                     shots.push({beat:shot.laneBeat,gap:shot.gapIndex,y:shot.y,time:i/60});
                 }
-                if(b.action?.kind==='recover'){recovered=true;if(b.vx!==0||b.x!==800||b.action.duration<.8||!b.isVulnerable())throw Error('bad recovery');}
+                if(b.action?.kind==='recover'){recovered=true;if(b.vx!==0||b.x!==800||b.action.duration<.5||!b.isVulnerable())throw Error('bad recovery');}
             }
             for(let beat=0;beat<3;beat++){
                 const volley=shots.filter(s=>s.beat===beat),plan=BossMotion.lanePlan(b,beat,phase,500);
@@ -561,7 +561,7 @@ test('星环主宰按三阶段组合出招，裁决蓄力可读、闪现受边�
         }
         if(pools[0].has('portal_barrage') || pools[0].has('special') || !pools[1].has('portal_barrage') || pools[1].has('special') || !pools[2].has('special'))return false;
         b.phase=0;b.attackPattern=b.getAttackPool().indexOf('laser_sweep');b.executeAttack(1000,500,300);
-        if(b.windup.type!=='laser_sweep' || b.windup.duration<1.2)return false;
+        if(b.windup.type!=='laser_sweep' || b.windup.duration<.95)return false;
         const f=[{x:0,y:500,w:1600,h:100}];
         b.update(.5,f,100,500);
         if(b.x!==700 || b.facing!==1 || b.bullets.length || b.hazards.length || !b.windup)return false;
@@ -570,7 +570,7 @@ test('星环主宰按三阶段组合出招，裁决蓄力可读、闪现受边�
         b.update(.05,f,100,500);
         if(b.x>1600-b.w/2 || b.x< b.w/2)return false;
         b.update(.36,f,100,500);
-        return b.action.kind==='recover' && b.action.duration>=.8 && b.isVulnerable();
+        return b.action.kind==='recover' && b.action.duration>=.55 && b.isVulnerable();
     })()`));
 });
 
@@ -589,7 +589,7 @@ test('星环跃击锁定起跳目标，落地发出两道冲击波并留足收�
         }
         if(!landed || minY>=320 || Math.abs(b.x-1000)>12 || b.bullets.length!==2 || b.vulnerableTimer<1.2)return false;
         const x=b.x;for(let i=0;i<20;i++)b.update(1/60,f,50,500);
-        return b.x===x && b.y===500 && b.action.kind==='recover' && b.action.duration>=1 && b.isVulnerable();
+        return b.x===x && b.y===500 && b.action.kind==='recover' && b.action.duration>=.7 && b.isVulnerable();
     })()`));
 });
 

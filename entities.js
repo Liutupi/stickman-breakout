@@ -187,6 +187,12 @@ class Player {
         if (this.dashTimer <= 0) {
             this.vx = moveX * this.speed * speedMul;
         }
+        // 被 Boss 震退：短时间内水平速度由击退接管
+        if (this.knockTimer > 0 && this.dashTimer <= 0) {
+            this.knockTimer -= dt;
+            this.vx = this.knockVx;
+            this.knockVx *= Math.pow(0.04, dt);
+        }
         if (moveX !== 0) this.facing = moveX;
 
         // 冲刺
@@ -254,7 +260,7 @@ class Player {
             this.vy = 0;
         } else {
             this.vy += this.gravity * dt;
-            if (!this.onGround && moveX !== 0) {
+            if (!this.onGround && moveX !== 0 && !(this.knockTimer > 0)) {
                 this.vx = moveX * this.speed * 0.85 * (this.overdriveTimer > 0 ? 1.15 : 1);
             }
         }
@@ -626,6 +632,14 @@ class Player {
             Audio.play('death');
             Audio.playMp3('deathVoice');
         }
+    }
+
+    knockback(dir, force, lift = 330) {
+        if (this.dead) return;
+        this.knockVx = dir * force;
+        this.knockTimer = 0.28;
+        this.vy = Math.min(this.vy, -lift);
+        this.onGround = false;
     }
 
     addScore(pts) {
@@ -3082,6 +3096,31 @@ class Boss {
     getAttackPool() {
         // 后半程不再共用“加散射、加环弹”的升级模板；阶段从各自的实体动作起手。
         const encounters = {
+            steel_guardian: [
+                ['charge', 'shockwave', 'leap_slam', 'shield'],
+                ['charge', 'leap_slam', 'cross_slash', 'shockwave', 'shield'],
+                ['feint_dash', 'cross_slash', 'leap_slam', 'charge', 'shockwave', 'spread'],
+            ],
+            shadow_king: [
+                ['teleport', 'melee', 'shadow_burst', 'shoot'],
+                ['teleport', 'feint_dash', 'shadow_burst', 'melee', 'spread'],
+                ['teleport', 'cross_slash', 'shadow_burst', 'feint_dash', 'special', 'melee'],
+            ],
+            inferno_demon: [
+                ['fire_pillar', 'leap_slam', 'spread', 'charge'],
+                ['fire_pillar', 'aerial_dive', 'spread', 'leap_slam', 'fire_pillar'],
+                ['fire_pillar', 'aerial_dive', 'special', 'leap_slam', 'spread', 'charge'],
+            ],
+            frost_beast: [
+                ['leap_slam', 'ice_wall', 'ice_spikes', 'melee'],
+                ['ice_spikes', 'leap_slam', 'cross_slash', 'ice_wall', 'spread'],
+                ['ice_spikes', 'aerial_dive', 'cross_slash', 'leap_slam', 'special'],
+            ],
+            void_lord: [
+                ['portal_barrage', 'homing_orb', 'teleport', 'spread'],
+                ['portal_barrage', 'teleport', 'homing_orb', 'laser_sweep', 'spread'],
+                ['portal_barrage', 'teleport', 'lane_barrage', 'homing_orb', 'special', 'laser_sweep'],
+            ],
             chaos_creator: [
                 ['cross_slash', 'fire_pillar', 'charge', 'portal_barrage'],
                 ['cross_slash', 'feint_dash', 'ice_spikes', 'portal_barrage', 'fire_pillar'],
@@ -3153,25 +3192,32 @@ class Boss {
 
     executeAttack(px, py, dist) {
         const pool = this.getAttackPool();
-        let pattern = pool[this.attackPattern++ % pool.length];
+        const pattern = pool[this.attackPattern++ % pool.length];
+        // 远处先接近，不在射击范围外白挥一轮；接近后仍接回原本的二连斩。
+        if (pattern === 'cross_slash' && Math.abs(px-this.x)>this.h*1.35+14) this.attackPattern--;
+        this.beginAttack(pattern, px, py, 1);
+    }
+
+    // scale < 1：连招里的衔接招，前摇更短（仍保留预警图形）
+    beginAttack(pattern, px, py, scale = 1) {
         if (pattern === 'cross_slash' && Math.abs(px-this.x)>this.h*1.35+14) {
-            // 远处先接近，不在射击范围外白挥一轮；接近后仍接回原本的二连斩。
-            this.attackPattern--;
             pattern = this.archetype === 'sand_colossus' ? 'aerial_dive'
                 : this.archetype === 'astral_regent' ? 'leap_slam'
                 : this.archetype === 'neon_assassin' || this.phase>0 ? 'feint_dash' : 'charge';
         }
+        if (pattern === 'repel' && Math.abs(px-this.x) > 200) pattern = 'charge';
         const durations = { melee:.5, charge:.75, shockwave:.65, shield:.45, teleport:.5,
             shadow_burst:.65, fire_pillar:.85, leap_slam:.8, ice_wall:.55, ice_spikes:.75,
             portal_barrage:.75, laser_sweep:1, boulder_rain:.75, homing_orb:.65, shoot:.45, spread:.6, special:.8,
-            cross_slash:.85, feint_dash:1, aerial_dive:1.1, lane_barrage:1.15 };
+            cross_slash:.85, feint_dash:1, aerial_dive:1.1, lane_barrage:1.15, repel:.42, backstep_shot:.45 };
         const astralDurations = { leap_slam:1.05, teleport:.8, laser_sweep:1.25,
             portal_barrage:1, homing_orb:.9, special:1.15, cross_slash:1, feint_dash:1.15, lane_barrage:1.3 };
-        const duration = this.archetype === 'astral_regent'
+        const duration = (this.archetype === 'astral_regent'
             ? (astralDurations[pattern] || .9) - this.phase * .04
-            : (durations[pattern] || .65) - this.phase * .06;
+            : (durations[pattern] || .65) - this.phase * .06) * BossMotion.windupScale(this) * scale;
         const physicalWarning = ['cross_slash','feint_dash','aerial_dive','lane_barrage'].includes(pattern);
-        this.startWindup(pattern, px, py, Math.max(physicalWarning ? .68 : .35, duration));
+        const floor = physicalWarning ? (scale < 1 ? .5 : .68) : (pattern === 'repel' ? .3 : scale < 1 ? .3 : .35);
+        this.startWindup(pattern, px, py, Math.max(floor, duration));
         if (pattern === 'laser_sweep') Audio.play('laserCharge');
     }
 
@@ -3206,6 +3252,18 @@ class Boss {
                         damage:this.damage*.35, life:3.2, size:5, color:this.accentColor });
                 }
                 Audio.play('laser');
+                break;
+            }
+            case 'repel': {
+                // 震退：以自身为中心的爆发，打中会把玩家弹开
+                const big = !!attack.big;
+                this.hazards.push({ type:'melee_swing', sourceAttack:'repel', x:this.x, y:this.y+4,
+                    w:this.w + (big ? 420 : 240), h:this.h + 50, timer:0, life:.18, maxLife:.18,
+                    damage:this.damage*(big ? .3 : .38), health:1, color:this.accentColor, dir:1, knock: big ? 680 : 560 });
+                FX.shockwave(this.x, this.y - this.h / 2, big ? 320 : 200, '255,235,200', big ? 12 : 8, .35);
+                Particles.spawn(this.x, this.y - 10, 18, this.accentColor, 320, .45, 4);
+                Renderer.shake(big ? 10 : 7, .2);
+                Audio.play('slam');
                 break;
             }
             case 'melee':
@@ -3423,6 +3481,7 @@ class Boss {
         if (this.dead) return 0;
         if (this.shieldActive) amount *= 0.2;
         this.health -= amount;
+        this.recentDmg = (this.recentDmg || 0) + amount;
         this.flashTimer = 0.1;
         Particles.spawnBlood(this.x, this.y - this.h / 2, 3);
         if (this.health <= 0) {
@@ -3447,7 +3506,11 @@ class Boss {
                 const t=Utils.clamp(h.life/(h.maxLife || .16),0,1);
                 ctx.globalAlpha=.18+t*.5;
                 ctx.fillStyle=h.color;ctx.strokeStyle='#fff';ctx.lineWidth=2;
-                if(h.sourceAttack==='aerial_dive') {
+                if(h.sourceAttack==='repel') {
+                    ctx.shadowColor=h.color;ctx.shadowBlur=24;ctx.lineWidth=6;ctx.strokeStyle=h.color;
+                    ctx.beginPath();ctx.ellipse(sx,sy-h.h*.45,h.w/2,h.h*.5,0,0,Math.PI*2);ctx.globalAlpha*=.6;ctx.fill();ctx.globalAlpha/=.6;ctx.stroke();
+                    ctx.shadowBlur=0;ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+                } else if(h.sourceAttack==='aerial_dive') {
                     ctx.beginPath();ctx.ellipse(sx,sy-8,h.w/2,16,0,0,Math.PI*2);ctx.fill();ctx.stroke();
                 } else {
                     ctx.translate(sx,sy-h.h/2);ctx.scale(h.dir,1);

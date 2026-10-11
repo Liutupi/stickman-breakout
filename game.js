@@ -516,7 +516,14 @@ const Game = (() => {
                     Renderer.shake(3, 0.08);
                 }
             } else if (h.type === 'melee_swing') {
-                if (Utils.rectCollide({ x:h.x-h.w/2, y:h.y-h.h, w:h.w, h:h.h }, playerRect)) player.takeDamage(h.damage);
+                if (Utils.rectCollide({ x:h.x-h.w/2, y:h.y-h.h, w:h.w, h:h.h }, playerRect)) {
+                    const before = player.health;
+                    player.takeDamage(h.damage);
+                    if (h.knock && player.health < before && player.knockback) {
+                        player.knockback(player.x >= h.x ? 1 : -1, h.knock);
+                        Renderer.shake(6, 0.15);
+                    }
+                }
             } else if (h.type === 'ice_wall') {
                 const wallRect = { x: h.x - h.w / 2, y: h.y - h.h, w: h.w, h: h.h };
                 if (Utils.rectCollide(wallRect, playerRect)) {
