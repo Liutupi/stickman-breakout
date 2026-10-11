@@ -21,21 +21,21 @@
     <nav class="bosses" aria-label="选择 Boss" id="bosses"></nav>
     <div class="stage"><canvas id="stage" width="1280" height="620"></canvas><div class="status" id="status">动作素材加载中…</div></div>
     <div class="controls">
-        <label>动作<select id="attack"><option value="auto">循环招式</option><option value="run">奔跑追击</option><option value="leap_slam">腾跃重砸</option><option value="charge">蓄力冲锋</option><option value="melee">挥击</option><option value="portal_barrage">施法</option><option value="teleport">闪现</option></select></label>
+        <label>动作<select id="attack"><option value="auto">循环招式</option><option value="cross_slash">交叉二连斩</option><option value="feint_dash">后撤锁向突刺</option><option value="aerial_dive">升空斜向俯冲</option><option value="lane_barrage">错层三拍齐射</option><option value="run">奔跑追击</option><option value="leap_slam">腾跃重砸</option><option value="charge">蓄力冲锋</option><option value="melee">挥击</option><option value="portal_barrage">施法</option><option value="teleport">闪现</option></select></label>
         <button id="pause" aria-pressed="false">暂停</button><button id="restart">重新演示</button>
         <label>速度<select id="speed"><option value=".5">0.5 ×</option><option value="1" selected>1 ×</option><option value="1.5">1.5 ×</option></select></label>
     </div>
-    <p class="hint">点击场景可改变模拟目标的位置。攻击标记确定后，冲锋方向与跃击落点保持固定；收招期间可以反击。</p>
+    <p class="hint">点击场景改变目标位置，可观察锁向突刺、二连斩、升空俯冲和三拍齐射。攻击锁定后不会随目标掉头；收招期间可以反击。</p>
 </main>
-<script src="utils.js"></script><script src="boss-motion.js"></script><script src="aerial-art.js"></script><script src="art.js"></script><script src="entities.js"></script><script src="levels.js"></script><script src="campaign.js"></script>
+<script src="utils.js?v=29"></script><script src="boss-motion.js?v=29"></script><script src="aerial-art.js?v=29"></script><script src="art.js?v=29"></script><script src="entities.js?v=29"></script><script src="levels.js?v=29"></script><script src="campaign.js?v=29"></script>
 <script>
     const silent = new Proxy({}, {get:()=>()=>{}});
     const Audio=silent, Particles=silent, FX=silent;
     const Renderer={width:()=>1280,height:()=>620,shake:()=>{}};
     const canvas=document.getElementById('stage'),ctx=canvas.getContext('2d'),status=document.getElementById('status');
     const attackSelect=document.getElementById('attack');
-    const stages={strike:'挥击',cast:'释放技能',charge:'冲锋',leap:'腾跃',land:'落地重砸',recover:'收招 · 可反击',blink:'闪现'};
-    const attacks={melee:'挥击',charge:'冲锋',shockwave:'震地',shield:'护盾',teleport:'闪现',shadow_burst:'暗影爆发',fire_pillar:'火柱',leap_slam:'跃击',ice_wall:'冰墙',ice_spikes:'冰刺',portal_barrage:'传送门弹幕',laser_sweep:'激光扫射',boulder_rain:'落石',homing_orb:'追踪法球',shoot:'射击',spread:'散射',special:'特殊技能'};
+    const stages={strike:'挥击',cast:'释放技能',charge:'冲锋',leap:'腾跃',land:'落地重砸',recover:'收招 · 可反击',blink:'闪现',combo:'二连斩',retreat:'后撤诱敌',dash_ready:'突刺蓄力',dash:'锁向突刺',takeoff:'升空蓄力',hover:'空中锁定',dive:'斜向俯冲',barrage:'换档齐射'};
+    const attacks={melee:'挥击',charge:'冲锋',shockwave:'震地',shield:'护盾',teleport:'闪现',shadow_burst:'暗影爆发',fire_pillar:'火柱',leap_slam:'跃击',ice_wall:'冰墙',ice_spikes:'冰刺',portal_barrage:'传送门弹幕',laser_sweep:'激光扫射',boulder_rain:'落石',homing_orb:'追踪法球',shoot:'射击',spread:'散射',special:'特殊技能',cross_slash:'交叉二连斩',feint_dash:'后撤锁向突刺',aerial_dive:'升空斜向俯冲',lane_barrage:'错层三拍齐射'};
     let index=0,boss,target=400,time=0,paused=false,last=performance.now();
     const floors=[{x:0,y:500,w:1280,h:120}];
     function reset(i=index) {

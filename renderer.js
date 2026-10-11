@@ -1252,12 +1252,42 @@ const Renderer = (() => {
         }
     }
 
+    function drawTraversalGuide(p, sx, sy) {
+        if (!p.traversalId) return;
+        ctx.save();
+        if (p.moving) {
+            const cx = (p._startX ?? p.x) + p.w / 2 - Utils.camera.x;
+            const cy = (p._startY ?? p.y) + p.h / 2 - Utils.camera.y;
+            const ax = p.moving.ampX || 0, ay = p.moving.ampY || 0;
+            ctx.strokeStyle = 'rgba(166,220,241,.38)'; ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 7]);
+            ctx.beginPath(); ctx.moveTo(cx - ax, cy - ay); ctx.lineTo(cx + ax, cy + ay); ctx.stroke();
+            ctx.setLineDash([]);
+            for (const sign of [-1, 1]) {
+                ctx.beginPath(); ctx.arc(cx + sign * ax, cy + sign * ay, 3, 0, Math.PI * 2); ctx.stroke();
+            }
+            // 方向箭头随真实平台位移变化，帮助判断起跳和交接时机。
+            const horizontal = ax > 0;
+            const delta = horizontal ? p._dx : p._dy;
+            const direction = Math.abs(delta || 0) > .015 ? Math.sign(delta) : 0;
+            ctx.translate(sx + p.w / 2, sy - 14);
+            ctx.strokeStyle = '#ffe3a0'; ctx.lineWidth = 2;
+            if (!horizontal) ctx.rotate(Math.PI / 2);
+            ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(10, 0);
+            if (direction >= 0) { ctx.moveTo(4, -5); ctx.lineTo(10, 0); ctx.lineTo(4, 5); }
+            if (direction <= 0) { ctx.moveTo(-4, -5); ctx.lineTo(-10, 0); ctx.lineTo(-4, 5); }
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
     function drawPlatforms(level) {
         for (const p of level.platforms) {
             const sx = p.x - Utils.camera.x;
             const sy = p.y - Utils.camera.y;
             if (sx + p.w < -50 || sx > width + 50) continue;
 
+            drawTraversalGuide(p, sx, sy);
             GameArt.drawPlatformDepth(ctx, level, p);
             if (p.h > 50) {
                 // 地面 - 增强材质感（向下延伸填满屏幕，避免地面下方露出背景）
@@ -1398,6 +1428,17 @@ const Renderer = (() => {
                 }
             }
             GameArt.drawPlatformFace(ctx, level, p);
+            if (p.traversalId && (p.routeStep === 0 || p.routeStep === 4)) {
+                // 起落台的边缘标记与中继台分开，保持脚下边界清楚。
+                ctx.save(); ctx.fillStyle = '#f0ce7c';
+                const edge = p.routeStep === 0 ? sx + p.w - 38 : sx + 8;
+                for (let i = 0; i < 4; i++) ctx.fillRect(edge + i * 7, sy + 3, 4, 5);
+                if (p.routeStep === 0) {
+                    ctx.font = '600 12px "Noto Sans SC", sans-serif'; ctx.textAlign = 'center';
+                    ctx.fillStyle = '#e0edf3'; ctx.fillText('断层 · 连跳通过 →', sx + p.w / 2, sy - 24);
+                }
+                ctx.restore();
+            }
         }
     }
 

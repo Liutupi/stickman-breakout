@@ -111,6 +111,8 @@ class Player {
 
         // 停滞检测（防止玩家站在原地不动）
         this.stagnationTimer = 0;      // 停滞计时器
+        this.traversalWaitTimer = 0;   // 断层上等待移动台的有限宽限
+        this._groundedPlatform = null;
         this.stagnationDamage = 2;     // 每秒扣血量（降低）
         this.stagnationWarning = 0;    // 警告闪烁效果
 
@@ -233,6 +235,19 @@ class Player {
             this.jumpBufferTime = 0.08;
         }
 
+        // 已站稳的平台先携带角色，升降台上升再快也不会穿过脚底。
+        // 旧顶面/横向校验避免检查点传送或换图后仍粘着上一块平台。
+        let carriedPlatform = null;
+        const support = this._groundedPlatform;
+        if (this.onGround && support && platforms.includes(support)) {
+            const dx = support._dx || 0, dy = support._dy || 0;
+            if (Math.abs(this.y - (support.y - dy)) <= 6 &&
+                this.x + this.w / 2 > support.x - dx && this.x - this.w / 2 < support.x + support.w - dx) {
+                this.x += dx; this.y += dy;
+                carriedPlatform = support;
+            }
+        }
+
         // ---- 物理 ----
         if (this.dashTimer > 0) {
             // 冲刺中：忽略重力和移动输入，维持冲刺速度
@@ -251,16 +266,19 @@ class Player {
         const feetY = this.y;                    // 脚底 y
         const halfW = this.w / 2;
         const prevFeetY = feetY - this.vy * dt;  // 上一帧脚底 y
+        let groundedPlatform = null;
 
         for (const p of platforms) {
             // 水平范围有交集才算
             if (this.x + halfW > p.x && this.x - halfW < p.x + p.w) {
                 // 情况 A：正在下落或水平穿过，且上一帧脚底在平台顶面之上
-                if (this.vy >= 0 && prevFeetY <= p.y + 6 && feetY >= p.y - 2) {
+                const prevTopY = p === carriedPlatform ? p.y : p.y - (p._dy || 0);
+                if (this.vy >= 0 && prevFeetY <= prevTopY + 6 && feetY >= p.y - 2) {
                     this.y = p.y;
                     this.vy = 0;
                     this.onGround = true;
-                    this.x += p._dx || 0;
+                    groundedPlatform = p;
+                    if (p !== carriedPlatform) this.x += p._dx || 0;
                     break;
                 }
                 // 情况 B：脚底紧贴平台顶面（容差 4px），视为站立
@@ -268,7 +286,8 @@ class Player {
                     this.y = p.y;
                     this.vy = 0;
                     this.onGround = true;
-                    this.x += p._dx || 0;
+                    groundedPlatform = p;
+                    if (p !== carriedPlatform) this.x += p._dx || 0;
                     break;
                 }
             }
@@ -313,6 +332,8 @@ class Player {
             Particles.spawn(this.x, this.y, 10, '#4a8ec0', 150, 0.4);
         }
 
+        this._groundedPlatform = this.onGround ? groundedPlatform : null;
+
         // 递减跳跃缓冲
         if (!jumpPressed) {
             this.jumpBufferTime = Math.max(0, this.jumpBufferTime - dt);
@@ -323,8 +344,12 @@ class Player {
         const isMoving = Math.abs(this.vx) > 20;
         const isJumping = !this.onGround;
         const hasAction = isMoving || isJumping;
+        const waitingOnTraversal = !hasAction && !!groundedPlatform?.traversalId;
+        this.traversalWaitTimer = waitingOnTraversal ? this.traversalWaitTimer + dt : 0;
+        // 一整轮移动周期内可安心判断时机；长时间挂机仍按原停滞规则处理。
+        const timingGrace = waitingOnTraversal && this.traversalWaitTimer <= 8;
 
-        if (hasAction) {
+        if (hasAction || timingGrace) {
             // 有任何行动，重置停滞计时
             this.stagnationTimer = 0;
             this.stagnationWarning = Math.max(0, this.stagnationWarning - dt * 4);
@@ -3055,12 +3080,36 @@ class Boss {
     }
 
     getAttackPool() {
+        // 后半程不再共用“加散射、加环弹”的升级模板；阶段从各自的实体动作起手。
+        const encounters = {
+            chaos_creator: [
+                ['cross_slash', 'fire_pillar', 'charge', 'portal_barrage'],
+                ['cross_slash', 'feint_dash', 'ice_spikes', 'portal_barrage', 'fire_pillar'],
+                ['cross_slash', 'feint_dash', 'aerial_dive', 'special', 'fire_pillar'],
+            ],
+            neon_assassin: [
+                ['feint_dash', 'melee', 'teleport', 'cross_slash'],
+                ['feint_dash', 'cross_slash', 'laser_sweep', 'teleport'],
+                ['feint_dash', 'cross_slash', 'shadow_burst', 'teleport', 'laser_sweep'],
+            ],
+            sand_colossus: [
+                ['aerial_dive', 'shockwave', 'boulder_rain', 'leap_slam'],
+                ['aerial_dive', 'boulder_rain', 'leap_slam', 'cross_slash'],
+                ['aerial_dive', 'leap_slam', 'boulder_rain', 'cross_slash', 'shockwave'],
+            ],
+            sky_judicator: [
+                ['lane_barrage', 'aerial_dive', 'laser_sweep', 'boulder_rain'],
+                ['aerial_dive', 'lane_barrage', 'portal_barrage', 'laser_sweep'],
+                ['lane_barrage', 'aerial_dive', 'homing_orb', 'laser_sweep', 'special'],
+            ],
+        };
+        if (encounters[this.archetype]) return [...encounters[this.archetype][Math.min(2, this.phase)]];
         if (this.archetype === 'astral_regent') {
-            // 每轮先用实体跃击改变站位，再组合远程技能；闪现本身留出反击时间。
+            // 星环的近战、弹隙射击和星门交替；保留原有跃击/折跃作为换位手段。
             const phases = [
-                ['leap_slam', 'homing_orb', 'teleport', 'laser_sweep'],
-                ['leap_slam', 'portal_barrage', 'teleport', 'laser_sweep', 'homing_orb'],
-                ['leap_slam', 'portal_barrage', 'teleport', 'laser_sweep', 'special', 'homing_orb'],
+                ['cross_slash', 'leap_slam', 'lane_barrage', 'teleport', 'laser_sweep', 'homing_orb'],
+                ['feint_dash', 'cross_slash', 'lane_barrage', 'leap_slam', 'portal_barrage', 'teleport', 'laser_sweep', 'homing_orb'],
+                ['feint_dash', 'cross_slash', 'lane_barrage', 'leap_slam', 'portal_barrage', 'teleport', 'laser_sweep', 'special', 'homing_orb'],
             ];
             return [...phases[Math.min(2, this.phase)]];
         }
@@ -3090,27 +3139,39 @@ class Boss {
             type,
             x: px,
             y: py,
+            dir: this.facing,
+            phase: this.phase,
+            floorY: this.y,
             timer: duration,
             duration,
         };
         this.attackCooldown = duration + 0.35;
-        if (['charge', 'leap_slam', 'fire_pillar', 'ice_spikes', 'portal_barrage'].includes(type)) {
+        if (['charge', 'leap_slam', 'fire_pillar', 'ice_spikes', 'portal_barrage', 'aerial_dive', 'feint_dash'].includes(type)) {
             Renderer.shake(2 + this.phase, 0.08);
         }
     }
 
     executeAttack(px, py, dist) {
         const pool = this.getAttackPool();
-        const pattern = pool[this.attackPattern++ % pool.length];
+        let pattern = pool[this.attackPattern++ % pool.length];
+        if (pattern === 'cross_slash' && Math.abs(px-this.x)>this.h*1.35+14) {
+            // 远处先接近，不在射击范围外白挥一轮；接近后仍接回原本的二连斩。
+            this.attackPattern--;
+            pattern = this.archetype === 'sand_colossus' ? 'aerial_dive'
+                : this.archetype === 'astral_regent' ? 'leap_slam'
+                : this.archetype === 'neon_assassin' || this.phase>0 ? 'feint_dash' : 'charge';
+        }
         const durations = { melee:.5, charge:.75, shockwave:.65, shield:.45, teleport:.5,
             shadow_burst:.65, fire_pillar:.85, leap_slam:.8, ice_wall:.55, ice_spikes:.75,
-            portal_barrage:.75, laser_sweep:1, boulder_rain:.75, homing_orb:.65, shoot:.45, spread:.6, special:.8 };
+            portal_barrage:.75, laser_sweep:1, boulder_rain:.75, homing_orb:.65, shoot:.45, spread:.6, special:.8,
+            cross_slash:.85, feint_dash:1, aerial_dive:1.1, lane_barrage:1.15 };
         const astralDurations = { leap_slam:1.05, teleport:.8, laser_sweep:1.25,
-            portal_barrage:1, homing_orb:.9, special:1.15 };
+            portal_barrage:1, homing_orb:.9, special:1.15, cross_slash:1, feint_dash:1.15, lane_barrage:1.3 };
         const duration = this.archetype === 'astral_regent'
             ? (astralDurations[pattern] || .9) - this.phase * .04
             : (durations[pattern] || .65) - this.phase * .06;
-        this.startWindup(pattern, px, py, Math.max(.35, duration));
+        const physicalWarning = ['cross_slash','feint_dash','aerial_dive','lane_barrage'].includes(pattern);
+        this.startWindup(pattern, px, py, Math.max(physicalWarning ? .68 : .35, duration));
         if (pattern === 'laser_sweep') Audio.play('laserCharge');
     }
 
@@ -3120,6 +3181,33 @@ class Boss {
 
     releaseAttack(attack, px, py) {
         switch (attack.type) {
+            case 'cross_slash':
+            case 'feint_dash': {
+                const dir = attack.dir || this.facing;
+                const reach = this.h * (attack.swing === 1 ? 1.22 : 1.02);
+                this.hazards.push({ type:'melee_swing', sourceAttack:attack.type, swing:attack.swing || 0,
+                    x:this.x+dir*reach*.62, y:this.y-10, w:reach*.95, h:this.h*.8,
+                    timer:0, life:.16, maxLife:.16, damage:this.damage*(attack.swing===1 ? .48 : .42),
+                    health:1, color:this.accentColor, dir });
+                Audio.play('slam');
+                break;
+            }
+            case 'aerial_dive':
+                this.hazards.push({ type:'melee_swing', sourceAttack:attack.type, x:this.x, y:this.y,
+                    w:164, h:70, timer:0, life:.16, maxLife:.16, damage:this.damage*.5,
+                    health:1, color:this.accentColor, dir:attack.dir || this.facing });
+                break;
+            case 'lane_barrage': {
+                const plan = BossMotion.lanePlan(this, attack.beat, attack.phase, attack.floorY);
+                const dir = attack.dir || this.facing;
+                for (let lane=0;lane<plan.lanes.length;lane++) if(lane!==plan.gap) {
+                    this.bullets.push({ sourceAttack:'lane_barrage', laneBeat:attack.beat, gapIndex:plan.gap,
+                        x:this.x+dir*(this.w/2+12), y:plan.lanes[lane], vx:dir*(330+attack.phase*25), vy:0,
+                        damage:this.damage*.35, life:3.2, size:5, color:this.accentColor });
+                }
+                Audio.play('laser');
+                break;
+            }
             case 'melee':
                 this.hazards.push({ type:'melee_swing', x:this.x+this.facing*this.h*.48,
                     y:this.y-this.h*.25, w:this.h*.9, h:this.h*.8, timer:0, life:.16,
@@ -3354,7 +3442,21 @@ class Boss {
             const sy = h.y - Utils.camera.y;
             const active = !h.timer || h.timer <= 0;
             ctx.save();
-            if (h.type === 'fire_pillar') {
+            if (h.type === 'melee_swing' && h.sourceAttack) {
+                // 命中区域和可见斩击/落点完全同源；不能用整个人物平移替代挥击。
+                const t=Utils.clamp(h.life/(h.maxLife || .16),0,1);
+                ctx.globalAlpha=.18+t*.5;
+                ctx.fillStyle=h.color;ctx.strokeStyle='#fff';ctx.lineWidth=2;
+                if(h.sourceAttack==='aerial_dive') {
+                    ctx.beginPath();ctx.ellipse(sx,sy-8,h.w/2,16,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+                } else {
+                    ctx.translate(sx,sy-h.h/2);ctx.scale(h.dir,1);
+                    ctx.shadowColor=h.color;ctx.shadowBlur=18;ctx.lineWidth=8;
+                    ctx.strokeStyle=h.color;ctx.beginPath();
+                    ctx.ellipse(-h.w*.3,0,h.w*.75,h.h*.5,0,-Math.PI*.5,Math.PI*.5);ctx.stroke();
+                    ctx.shadowBlur=0;ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+                }
+            } else if (h.type === 'fire_pillar') {
                 const alpha = active ? 0.55 + Math.sin(this.animTime * 12) * 0.18 : 0.22;
                 ctx.fillStyle = active ? `rgba(255, 90, 20, ${alpha})` : 'rgba(255, 70, 30, 0.18)';
                 ctx.strokeStyle = active ? '#ffdd55' : '#ff5533';
@@ -3437,6 +3539,7 @@ class Boss {
 
     drawWindup(ctx) {
         if (!this.windup) return;
+        if (BossMotion.drawWindup(ctx, this)) return;
         const t = 1 - this.windup.timer / this.windup.duration;
         const sx = this.windup.x - Utils.camera.x;
         const sy = this.windup.y - Utils.camera.y;
@@ -3808,6 +3911,7 @@ class Boss {
         }
 
         if (!GameArt.drawBoss(ctx, this)) {
+        ctx.save();
         ctx.scale(this.facing, 1);
 
         // 受伤闪烁
@@ -3957,7 +4061,10 @@ class Boss {
         ctx.fill();
 
         this.drawArchetypeDetails(ctx, bodyColor);
+        ctx.restore();
         }
+        // 图集加载中或失效时，动作专属预警也必须继续可见。
+        BossMotion.drawEffects(ctx, this);
 
         // 护盾（增强版）
         if (this.shieldActive) {

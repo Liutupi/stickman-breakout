@@ -257,7 +257,8 @@ async function beginAttack(page, type) {
         await page.evaluate(() => {
             const boss = Game._debug().boss;
             boss.takeDamage(boss.maxHealth * 0.45);
-            boss.attackPattern = boss.getAttackPool().indexOf('leap_slam');
+            // Phase transition starts the new phase's own attack sequence.
+            boss.attackPattern = 0;
             boss.attackCooldown = 0; boss.onGround = true; __advance(1);
         });
         await playing(page, 'boss-charge.mp3');
@@ -265,6 +266,7 @@ async function beginAttack(page, type) {
             ['bossChargeVoice', 'bossPhaseVoice'].includes(row.name)));
         assert.deepEqual(simultaneous.map(row => [row.name, row.accepted]),
             [['bossChargeVoice', true], ['bossPhaseVoice', false]]);
+        assert.equal(await page.evaluate(() => Game._debug().boss.windup.type),'feint_dash');
         checks.push('同帧阶段变化与大招开始时保留危险预警');
 
         // A rejected browser play must release its priority, allowing later ordinary cues.

@@ -54,7 +54,7 @@ const Game = (() => {
     let bossChipPct = 100;
     let rageReadyAnnounced = false;
     const COMBO_CALLS = { 1: '一杀', 2: '二杀', 3: '三杀', 4: '四杀', 5: '暴走', 8: '无人能挡', 12: '主宰战场', 16: '无双', 20: '超神' };
-    const BOSS_HEAVY_ATTACKS = new Set(['charge', 'shockwave', 'shadow_burst', 'fire_pillar',
+    const BOSS_HEAVY_ATTACKS = new Set(['cross_slash', 'feint_dash', 'aerial_dive', 'lane_barrage', 'charge', 'shockwave', 'shadow_burst', 'fire_pillar',
         'leap_slam', 'ice_spikes', 'portal_barrage', 'laser_sweep', 'boulder_rain', 'homing_orb', 'special']);
 
     const DIFFICULTY_CONFIG = {
@@ -940,11 +940,11 @@ const Game = (() => {
             { desc: '高难度关卡，地形复杂，多层平台，需要二段跳技巧。', boss: '炎魔·最终形态' },
             { desc: '极高难度，极寒冰原，高速移动平台，考验反应力。', boss: '霜冻巨兽' },
             { desc: '地狱难度，虚空幻境，全浮动平台，极速移动。', boss: '虚空领主·终结者' },
-            { desc: '终极关卡，混沌融合，全浮动平台，终极考验。', boss: '混沌之源·创世者' },
-            { desc: '雨夜屋顶跑酷，新敌人「持盾兵」「狙击手」登场。', boss: '霓虹刺客·影刃' },
-            { desc: '风沙废墟，断层与石柱，巨石从天而降。', boss: '沙暴巨像·法老之怒' },
-            { desc: '突破云海之上的浮空要塞，迎战天穹审判者。', boss: '天穹审判者·终焉战舰' },
-            { desc: '终章：穿越轨道栈桥与引力环，攻入星环中枢，迎战轨道裁决者。', boss: '星环主宰·轨道裁决者' },
+            { desc: '全浮空路线与破碎阶梯，混沌首领以连斩和裂变火柱封锁退路。', boss: '混沌之源·创世者' },
+            { desc: '雨夜屋顶摆渡，看准移动台起跳，留意刺客后撤后的突刺。', boss: '霓虹刺客·影刃' },
+            { desc: '穿越沙陵升降台与高低断层，躲开巨像升空后的斜向俯冲。', boss: '沙暴巨像·法老之怒' },
+            { desc: '云海连跳与移动舰桥，天穹首领用俯冲和错层齐射交替进攻。', boss: '天穹审判者·终焉战舰' },
+            { desc: '终章：完成轨道平台交接，迎战连斩、突刺与星门弹幕组合。', boss: '星环主宰·轨道裁决者' },
         ];
         
         const bestGrades = getBestGrades();
@@ -972,7 +972,7 @@ const Game = (() => {
                 ${bestGrades[index] ? `<div class="level-card__grade grade--${bestGrades[index]}">${bestGrades[index]}</div>` : ''}
                 <span class="level-card__name">${level.name}</span>
                 <span class="level-card__desc">${desc.desc}</span>
-                <div class="level-card__route">${level.sectors.length} 个区域 · ${level.enemies.length} 名敌人 · 扩展路线</div>
+                <div class="level-card__route">${level.sectors.length} 个区域 · ${level.enemies.length} 名敌人 · ${level.traversalChallenges?.length ? `${level.traversalChallenges.length} 段跳跃试炼` : '扩展路线'}</div>
                 <div class="level-card__boss">
                     <span class="level-card__boss-icon"></span>
                     Boss: ${desc.boss}
@@ -1331,7 +1331,9 @@ const Game = (() => {
             ui.sectorLabel.textContent = `${sector + 1} / ${sectors.length} · ${sectors[sector].name}`;
             const remaining = enemies.filter(e => !e.dead);
             const nearest = remaining.reduce((best, e) => !best || Math.abs(e.x - player.x) < Math.abs(best.x - player.x) ? e : best, null);
+            const traversal = (levelData.traversalChallenges || []).find(c => player.x >= c.start - 140 && player.x < c.end);
             ui.enemyObjective.textContent = boss && !boss.dead ? '首领交战中 · 留意地面攻击预警'
+                : traversal ? `跳跃试炼 · ${traversal.timing ? '看准移动台再跳' : '连续跳跃通过'} · 空中可再跳一次`
                 : nearest ? `剩余 ${remaining.length} 名敌人 · 最近目标 ${nearest.x < player.x ? '←' : '→'} ${Math.round(Math.abs(nearest.x - player.x) / 10)}m`
                 : bossSpawned ? '区域威胁已清除' : '敌军已清除 · 前往首领决战区 →';
         }

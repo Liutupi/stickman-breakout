@@ -54,6 +54,156 @@
     const AIR_TYPES = ['sentinel', 'swarm', 'gunship', 'diver', 'flyer', 'drone', 'bomber', 'swooper'];
     const AIR_HEIGHT = AIR_Y;
 
+    // 后五关的高台是必经主路：切掉台下地面，再用三段宽中继台接回战斗甲板。
+    // 升差按未升级的首跳/二段跳设计，摆渡区可以等低位，也可以二段跳抢节奏。
+    const LATE_TRAVERSAL = [
+        { kind: 'broken_steps', name: '破碎阶梯', heights: [70, 165, 95], moves: [null, { ampY: 35, speedY: .9 }, null] },
+        { kind: 'rooftop_shuttle', name: '屋顶摆渡', heights: [90, 165, 70], moves: [null, { ampX: 80, speedX: .8 }, { ampY: 35, speedY: .9 }] },
+        { kind: 'tomb_lifts', name: '沙陵升降', heights: [60, 185, 90], moves: [null, { ampY: 50, speedY: .8 }, { ampY: 35, speedY: .9 }] },
+        { kind: 'cloud_chain', name: '云海连跳', heights: [95, 185, 110], moves: [null, { ampX: 80, speedX: .8 }, { ampY: 35, speedY: .85 }] },
+        { kind: 'orbital_transfer', name: '轨道交接', heights: [70, 185, 100], moves: [{ ampX: 60, speedX: .8 }, { ampY: 50, speedY: .8 }, { ampX: 70, speedX: .85 }] },
+    ];
+    function addLateTraversal(level, index) {
+        const profile = LATE_TRAVERSAL[index - 5];
+        level.traversalChallenges = [];
+        if (index === 5) {
+            // 旧终焉浮台会在首帧随机偏移，不能拿移动台的名义坐标当步兵出生地。
+            // 战斗孤岛分散在原五个区域；岛间仍需跨越原来的极速浮台路线。
+            const islands = [[240, 350, 360], [1390, 360, 450], [2670, 360, 470], [3930, 340, 300],
+                [4570, 350, 480], [5510, 320, 300], [6260, 350, 450], [7250, 260, 340]]
+                .map(([x, y, w], island) => ({ x, y, w, h: 28, id: `l6-combat-${island}`, combatRest: true }));
+            const groups = islands.map(() => []);
+            for (const enemy of level.enemies) {
+                if (enemy.x >= level.originalWidth || AIR_TYPES.includes(enemy.type)) continue;
+                let nearest = 0, distance = Infinity;
+                islands.forEach((p, i) => {
+                    const x = Math.max(p.x + 50, Math.min(enemy.x, p.x + p.w - 50));
+                    if (Math.abs(x - enemy.x) < distance) { nearest = i; distance = Math.abs(x - enemy.x); }
+                });
+                groups[nearest].push(enemy);
+            }
+            groups.forEach((group, i) => group.forEach((enemy, n) => {
+                const p = islands[i];
+                enemy.x = Math.round(p.x + 60 + (n + .5) / group.length * (p.w - 120));
+                enemy.y = p.y - 2;
+            }));
+            // 静台先处理碰撞，避免同高浮台在首帧把敌人拉到静台下方。
+            level.platforms.unshift(...islands);
+        }
+        const install = (start, floorY, source, zone, timing) => {
+            const end = start + 1280;
+            const pattern = source === 'original' ? 'shuttle' : ({ 0: 'ascent', 1: 'shuttle', 3: 'staggered', 4: 'relay' })[zone];
+            const patternName = { ascent: '逐级登高', shuttle: '中继摆渡', staggered: '高低交替', relay: '连续交接' }[pattern];
+            const steps = pattern === 'staggered' ? [[350, 180], [630, 160], [890, 160]]
+                : pattern === 'relay' ? [[340, 160], [620, 160], [890, 150]] : [[330, 160], [590, 180], [870, 160]];
+            const heights = pattern === 'ascent' ? profile.heights.map(h => Math.round(h * .8))
+                : pattern === 'staggered' ? [profile.heights[0], Math.round(profile.heights[0] * .5), Math.round(profile.heights[1] * .75)]
+                : profile.heights;
+            const exitFloor = level.platforms.find(p => p.h > 50 && p.x <= end && p.x + p.w > end);
+            const exitY = exitFloor ? exitFloor.y : floorY;
+            // 大地块仅截去挑战覆盖的部分；旧高台及其移动轨道也不能在断层下形成捷径。
+            level.platforms = level.platforms.flatMap(p => {
+                const ampX = p.moving?.ampX || 0;
+                if (p.x + p.w + ampX <= start || p.x - ampX >= end) return [p];
+                if (p.h <= 50 || p.moving) return [];
+                const pieces = [];
+                if (p.x < start) pieces.push({ ...p, w: start - p.x });
+                if (p.x + p.w > end) pieces.push({ ...p, x: end, w: p.x + p.w - end });
+                return pieces;
+            });
+            const id = `l${index + 1}-${source}-${zone}`;
+            const route = [
+                { x: start, y: floorY, w: 220, h: 100 },
+                ...steps.map(([x, w], step) => {
+                    const moving = profile.moves[step] ? { ...profile.moves[step] } : undefined;
+                    if (moving && !timing) {
+                        if (moving.ampX) moving.ampX *= .6;
+                        if (moving.ampY) moving.ampY *= .6;
+                    }
+                    return { x: start + x, y: floorY - heights[step], w, h: 20, moving };
+                }),
+                { x: start + 1080, y: exitY, w: 200, h: 100 },
+            ];
+            route.forEach((p, routeStep) => Object.assign(p, { id: `${id}-p${routeStep}`, traversalId: id, routeStep }));
+            level.platforms.push(...route);
+            level.traversalChallenges.push({ id, kind: profile.kind, pattern, name: `${profile.name} · ${patternName}`,
+                source, zone, start, end, floorY, exitY, voidStart: start + 220, voidEnd: start + 1080,
+                timing, platformIds: route.map(p => p.id) });
+            // 起跳前、落地后都能回血，途中补给落在实台面，不悬在坑中。
+            level.weaponDrops.push({ x: start + 110, y: floorY - 4, type: 'health' });
+            level.weaponDrops.push({ x: end - 90, y: exitY - 4, type: 'health' });
+        };
+        // 第六关基础本来就是全浮空路线；第七至十关再补一处主题断层。
+        if (index >= 6) {
+            const start = [2300, 2650, 3300, 2900][index - 6];
+            const floor = level.platforms.find(p => p.h > 50 && p.x <= start && p.x + p.w > start);
+            install(start, floor ? floor.y : 500, 'original', 0, true);
+        }
+        for (const zone of [0, 1, 3, 4]) {
+            const sector = level.sectors[zone + 1];
+            install(sector.x + 460, sector.floorY, 'extended', zone, zone === 1 || zone === 4);
+            sector.rhythm = zone === 1 || zone === 4 ? '移动平台试炼' : '高低台阶突破';
+        }
+
+        const nearChallenge = x => level.traversalChallenges.some(c => x > c.start - 120 && x < c.end + 120);
+        const combatPlatforms = level.platforms.filter(p => !p.moving && p.w >= 300 && !p.traversalId);
+        const safeCombatPoint = (x, ordinal) => {
+            let best = null;
+            for (const p of combatPlatforms) {
+                let minX = p.x + 70, maxX = p.x + p.w - 70;
+                for (const c of level.traversalChallenges) {
+                    if (p.x < c.start && p.x + p.w <= c.start) maxX = Math.min(maxX, c.start - 180);
+                    if (p.x >= c.end) minX = Math.max(minX, c.end + 180);
+                }
+                if (maxX < minX) continue;
+                const targetX = Math.max(minX, Math.min(x, maxX));
+                // 把远程/自爆单位留在宽战斗区，断层前先清场再跳。
+                if (nearChallenge(targetX)) continue;
+                const distance = Math.abs(targetX - x);
+                if (!best || distance < best.distance) best = { p, targetX, distance, minX, maxX };
+            }
+            if (!best) return null;
+            const offset = ((ordinal % 5) - 2) * 38;
+            return { x: Math.max(best.minX, Math.min(best.targetX + offset, best.maxX)), y: best.p.y };
+        };
+        level.enemies.forEach((enemy, ordinal) => {
+            const flying = AIR_TYPES.includes(enemy.type);
+            const support = level.platforms.find(p => p.x + 20 <= enemy.x && p.x + p.w - 20 >= enemy.x && Math.abs(p.y - enemy.y) < 12);
+            const inChallenge = nearChallenge(enemy.x);
+            if (!flying && !support && !inChallenge) {
+                // 浮空基础段保留原遭遇位置，只修正写在台间/台下的出生坐标。
+                const nearest = level.platforms.filter(p => !p.traversalId && p.w >= 70)
+                    .map(p => ({ p, x: Math.max(p.x + 25, Math.min(enemy.x, p.x + p.w - 25)) }))
+                    .filter(hit => Math.abs(hit.x - enemy.x) <= 180)
+                    .sort((a, b) => Math.abs(a.x - enemy.x) + Math.abs(a.p.y - enemy.y) * .2 - Math.abs(b.x - enemy.x) - Math.abs(b.p.y - enemy.y) * .2)[0];
+                if (nearest) { enemy.x = nearest.x; enemy.y = nearest.p.y - 2; return; }
+            }
+            if (inChallenge || (!flying && !support)) {
+                const point = safeCombatPoint(enemy.x, ordinal);
+                if (point) {
+                    enemy.x = point.x;
+                    enemy.y = flying ? point.y - AIR_HEIGHT[enemy.type] : point.y - 2;
+                    if (flying) enemy.baseY = enemy.y;
+                }
+            }
+        });
+        // 原关卡的一些道具写在浮台下方；优先静台，原浮空区则保留近处补给。
+        level.weaponDrops.forEach((drop, ordinal) => {
+            const supports = level.platforms.filter(p => !p.moving && drop.x >= p.x + 12 && drop.x <= p.x + p.w - 12);
+            const support = supports.sort((a, b) => Math.abs(a.y - drop.y) - Math.abs(b.y - drop.y))[0];
+            if (support) drop.y = support.y - 4;
+            else {
+                const nearby = level.platforms.filter(p => !p.traversalId && p.w >= 70)
+                    .map(p => ({ p, x: Math.max(p.x + 18, Math.min(drop.x, p.x + p.w - 18)) }))
+                    .filter(hit => Math.abs(hit.x - drop.x) <= 120)
+                    .sort((a, b) => Math.abs(a.x - drop.x) + Math.abs(a.p.y - drop.y) * .2 - Math.abs(b.x - drop.x) - Math.abs(b.p.y - drop.y) * .2)[0];
+                if (nearby && !nearChallenge(nearby.x)) { drop.x = nearby.x; drop.y = nearby.p.y - 4; return; }
+                const point = safeCombatPoint(drop.x, ordinal);
+                if (point) { drop.x = point.x; drop.y = point.y - 4; }
+            }
+        });
+    }
+
     Levels.forEach((level, index) => {
         const originalEnd = level.levelWidth;
         level.originalWidth = originalEnd;
@@ -151,6 +301,7 @@
         level.cameraBounds = { minX: 0, maxX: level.levelWidth };
         // 一次性的补给点也作为分段推进的地标。
         level.supplyBeacons = level.sectors.slice(1, -1).map(s => ({ x: s.x + 90, y: s.floorY }));
+        if (index >= 5) addLateTraversal(level, index);
         level.enemies.forEach((enemy, id) => { enemy.spawnId = id; });
     });
 })();

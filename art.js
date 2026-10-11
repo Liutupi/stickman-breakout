@@ -301,7 +301,6 @@ const GameArt = (() => {
         }
         paint(BossMotion.frame(boss),boss.facing);
         ctx.restore();
-        BossMotion.drawEffects(ctx,boss);
         return true;
     }
 
